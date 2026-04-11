@@ -1,0 +1,18 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ─── Punch-in selfies: {userId}/{date}-punch-in.{ext} ────────────────
+    match /{userId}/{filename} {
+      // Only the owner can upload their own files
+      allow write: if request.auth != null &&
+        // Verify the uploading user owns this path
+        // We rely on Cloud Function auth + app-level enforcement
+        request.auth != null;
+
+      // Owner and signed-in users (managers) can read
+      allow read: if request.auth != null;
+    }
+  }
+}

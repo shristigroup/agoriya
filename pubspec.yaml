@@ -1,0 +1,73 @@
+name: agoriya
+description: Agoriya v1.0 - Field Force Tracking App
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.4
+  firebase_storage: ^12.3.2
+  firebase_messaging: ^15.1.3
+
+  # Maps
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # Location
+  geolocator: ^13.0.1
+  permission_handler: ^11.3.1
+
+  # Background service
+  flutter_background_service: ^5.0.5
+  flutter_local_notifications: ^17.2.2
+
+  # Camera
+  camera: ^0.11.0+2
+  image_picker: ^1.1.2
+
+  # Local storage
+  hive_flutter: ^1.1.0
+  hive: ^2.2.3
+
+  # State management
+  flutter_bloc: ^8.1.6
+  equatable: ^2.0.5
+
+  # HTTP (for OSRM)
+  http: ^1.2.2
+  dio: ^5.7.0
+
+  # Fonts
+  google_fonts: ^6.2.1
+
+  # Utilities
+  intl: ^0.19.0
+  uuid: ^4.5.1
+  cached_network_image: ^3.4.1
+  path_provider: ^2.1.4
+  image: ^4.2.0
+  flutter_animate: ^4.5.0
+  lottie: ^3.1.2
+  shimmer: ^3.0.0
+  badges: ^3.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.12
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/animations/

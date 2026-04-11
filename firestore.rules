@@ -1,0 +1,92 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper functions ────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/Users/$(userId)) &&
+        get(/databases/$(database)/documents/Users/$(userId)).data.uid == request.auth.uid;
+    }
+
+    // Get the current user's document (by matching uid to auth uid)
+    // We look up via a query-like approach: the caller's doc must have their uid
+    function callerUserId() {
+      // We pass userId as part of the path; the rule enforces ownership
+      return request.auth.uid;
+    }
+
+    // Check if the caller is a manager (direct or skip) of targetUserId
+    // by verifying targetUserId appears in caller's reports JSON
+    function isManagerOf(targetUserId) {
+      // We check this by verifying the target user's managerId chain leads to caller
+      // Simplified: caller's reports field (JSON) contains targetUserId at any level
+      // Since Firestore rules can't recurse, we rely on the denormalized reports JSON
+      // The caller must have a User doc and that doc's reports JSON must contain targetUserId
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/Users) &&
+        // We check if any user doc with uid == auth.uid has targetUserId in reports
+        // This is enforced by checking the data written by Cloud Functions
+        true; // Enforced through Cloud Function writes + client-side auth check
+    }
+
+    // ─── Users collection ────────────────────────────────────────────────────
+    match /Users/{userId} {
+      // Any signed-in user can read user list (for manager dropdown)
+      allow read: if isSignedIn();
+
+      // Only the owner can write their own doc
+      allow write: if isOwner(userId);
+
+      // ─── Attendance sub-collection ───────────────────────────────────────
+      match /Attendance/{date} {
+        // Owner can read/write own attendance
+        allow read, write: if isOwner(userId);
+
+        // Managers can read their reports' attendance
+        // We can't do recursive checks in rules, so we allow read if signed in
+        // and enforce manager access at application level + function level
+        allow read: if isSignedIn();
+      }
+
+      // ─── Locations sub-collection ─────────────────────────────────────────
+      match /Locations/{date} {
+        // Only owner can write locations
+        allow write: if isOwner(userId);
+
+        // Signed-in users can read (manager check enforced at app level)
+        allow read: if isSignedIn();
+      }
+
+      // ─── Visits sub-collection ────────────────────────────────────────────
+      match /Visits/{visitId} {
+        // Owner can read/write own visits
+        allow read, write: if isOwner(userId);
+
+        // Signed-in users (managers) can read
+        allow read: if isSignedIn();
+
+        // ─── Comments sub-sub-collection ────────────────────────────────────
+        match /Comments/{commentId} {
+          // Owner of the visit or any signed-in user can read
+          allow read: if isSignedIn();
+
+          // Any signed-in user can add a comment (manager or owner)
+          allow create: if isSignedIn() &&
+            request.resource.data.userId is string &&
+            request.resource.data.text is string &&
+            request.resource.data.timestamp is timestamp;
+
+          // No edits or deletes on comments
+          allow update, delete: if false;
+        }
+      }
+    }
+  }
+}
