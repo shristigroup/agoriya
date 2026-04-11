@@ -34,55 +34,48 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   Future<void> _onInit(HomeInitEvent event, Emitter<HomeState> emit) async {
     emit(HomeLoading());
+
+    final today = AppUtils.todayKey();
+
+    // ── Phase 1: emit from local cache immediately ──────────────────────────
+    // Synchronous — FAB and UI are always enabled right away.
+    AttendanceModel? attendance = LocalStorageService.getAttendance(today);
+    final visits = LocalStorageService.getAllVisits();
+    final locations = LocalStorageService.getTodayLocations();
+
+    // Use last known GPS position to centre the map — faster and simpler than
+    // reading a stored punch-out location from Firestore or local storage.
+    LatLng? lastKnownLocation;
     try {
-      final today = AppUtils.todayKey();
-
-      // Load from local first
-      AttendanceModel? attendance = LocalStorageService.getAttendance(today);
-      final visits = LocalStorageService.getAllVisits();
-      final locations = LocalStorageService.getTodayLocations();
-
-      // Determine last known location for map centering
-      LatLng? lastKnownLocation;
-      final (prevLat, prevLng) = LocalStorageService.getPrevPunchOutLocation();
-      if (prevLat != null && prevLng != null) {
-        lastKnownLocation = LatLng(prevLat, prevLng);
+      final pos = await Geolocator.getLastKnownPosition();
+      if (pos != null) {
+        lastKnownLocation = LatLng(pos.latitude, pos.longitude);
       }
+    } catch (_) {}
 
-      // Emit cached state immediately
-      emit(HomeLoaded(
-        attendance: attendance,
-        locations: locations,
-        visits: visits,
-        filteredVisits: visits,
-        lastKnownLocation: lastKnownLocation,
-      ));
+    emit(HomeLoaded(
+      attendance: attendance,
+      locations: locations,
+      visits: visits,
+      filteredVisits: visits,
+      lastKnownLocation: lastKnownLocation,
+    ));
 
-      // Fetch fresh data in background
+    // ── Phase 2: background refresh from Firestore ──────────────────────────
+    // Errors here must NOT override the HomeLoaded state above.
+    try {
       final freshAttendance = await _repo.getAttendance(userId, today);
       if (freshAttendance != null) {
         await LocalStorageService.saveAttendance(freshAttendance);
         attendance = freshAttendance;
       }
 
-      // Fetch prev day punch out location if not cached
-      if (prevLat == null) {
-        final lastAtt = await _repo.getLastAttendance(userId);
-        if (lastAtt?.punchOutLocation != null) {
-          final loc = lastAtt!.punchOutLocation!;
-          await LocalStorageService.savePrevPunchOutLocation(loc.latitude, loc.longitude);
-          lastKnownLocation = loc;
-        }
-      }
-
-      // Fetch visits from Firestore and merge
       final remoteVisits = await _repo.getVisits(userId);
       for (final v in remoteVisits) {
         await LocalStorageService.saveVisit(v);
       }
       final allVisits = LocalStorageService.getAllVisits();
 
-      // Fetch today's locations if punched in
       if (freshAttendance?.isPunchedIn == true && !freshAttendance!.isPunchedOut) {
         final dayLocs = await _repo.getDayLocations(userId, today);
         if (dayLocs != null) {
@@ -101,6 +94,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       ));
     } catch (e) {
       emit(HomeError(e.toString()));
+      emit(HomeLoaded(
+        attendance: attendance,
+        locations: locations,
+        visits: visits,
+        filteredVisits: visits,
+        lastKnownLocation: lastKnownLocation,
+      ));
     }
   }
 
@@ -166,14 +166,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
       await _repo.punchOut(userId, today, now, geoPoint);
       await _repo.updateDistance(userId, today, finalDistance);
-
-      // Save punch out location for next day map center
-      if (lastLoc != null) {
-        await LocalStorageService.savePrevPunchOutLocation(
-          lastLoc.latitude,
-          lastLoc.longitude,
-        );
-      }
 
       final updatedAttendance = current.attendance!.copyWith(
         punchOutTimestamp: now,

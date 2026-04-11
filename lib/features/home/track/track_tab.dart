@@ -128,7 +128,8 @@ class _TrackTabState extends State<TrackTab> {
                       child: const Icon(Icons.play_arrow, color: Colors.white, size: 18),
                     ),
                   ),
-                  // Intermediate points
+                  // Intermediate points (only when there are 3+ locations)
+                  if (widget.locations.length > 2)
                   ...widget.locations
                       .skip(1)
                       .take(widget.locations.length - 2)
@@ -175,34 +176,49 @@ class _TrackTabState extends State<TrackTab> {
 
         // No data watermark
         if (!hasData)
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.location_off_rounded,
-                      color: AppTheme.textHint, size: 40),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.attendance?.isPunchedIn == true
-                        ? 'No location data yet'
-                        : 'No user location data yet',
-                    style: const TextStyle(
-                      fontFamily: 'Sora',
-                      fontSize: 14,
-                      color: AppTheme.textSecondary,
-                      fontWeight: FontWeight.w500,
+          Builder(builder: (context) {
+            final isPunchedIn = widget.attendance?.isPunchedIn == true;
+            final isPunchedOut = widget.attendance?.isPunchedOut == true;
+            final acquiring = isPunchedIn && !isPunchedOut;
+            return Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (acquiring)
+                      const SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          color: AppTheme.primary,
+                        ),
+                      )
+                    else
+                      Icon(Icons.location_off_rounded,
+                          color: AppTheme.textHint, size: 40),
+                    const SizedBox(height: 10),
+                    Text(
+                      acquiring
+                          ? 'Acquiring GPS location...'
+                          : 'No location data yet',
+                      style: const TextStyle(
+                        fontFamily: 'Sora',
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ),
+            );
+          }),
 
         // Controls overlay
         Positioned(

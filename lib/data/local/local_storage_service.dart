@@ -100,18 +100,6 @@ class LocalStorageService {
     await _locationsBox.delete(AppConstants.todayLocationsKey);
   }
 
-  // ─── Previous day punch out location ────────────────────────────────────
-  static Future<void> savePrevPunchOutLocation(double lat, double lng) async {
-    await _settingsBox.put('prev_punch_out_lat', lat);
-    await _settingsBox.put('prev_punch_out_lng', lng);
-  }
-
-  static (double?, double?) getPrevPunchOutLocation() {
-    final lat = _settingsBox.get('prev_punch_out_lat') as double?;
-    final lng = _settingsBox.get('prev_punch_out_lng') as double?;
-    return (lat, lng);
-  }
-
   // ─── Reports cache (per reportUserId) ───────────────────────────────────
   static Future<void> saveReportData(String reportUserId, Map<String, dynamic> data) async {
     await _reportsBox.put(reportUserId, jsonEncode(data));

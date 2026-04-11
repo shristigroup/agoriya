@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import '../../core/constants/app_constants.dart';
-import '../../core/utils/app_utils.dart';
 import '../models/user_model.dart';
 import '../models/attendance_model.dart';
 import '../models/visit_model.dart';
@@ -141,22 +140,6 @@ class FirestoreRepository {
     final ref = _storage.ref().child(path);
     await ref.putFile(file);
     return await ref.getDownloadURL();
-  }
-
-  // ─── Previous day punch out location ────────────────────────────────────
-  Future<AttendanceModel?> getLastAttendance(String userId) async {
-    final snap = await _users
-        .doc(userId)
-        .collection(AppConstants.attendanceCollection)
-        .orderBy(FieldPath.documentId, descending: true)
-        .limit(2)
-        .get();
-    // Get second most recent (previous day, not today)
-    final today = AppUtils.todayKey();
-    for (final doc in snap.docs) {
-      if (doc.id != today) return AttendanceModel.fromFirestore(doc);
-    }
-    return null;
   }
 
   Future<void> saveFcmToken(String userId, String token) async {

@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_messaging/firebase_messaging.dart'
     show AuthorizationStatus;
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../data/local/local_storage_service.dart';
@@ -62,6 +64,11 @@ class _HomeScreenState extends State<HomeScreen>
     if (!_isReadOnly) {
       _checkNotificationPermission();
       _subscribeToBgService();
+      // Request location permissions on first open — runs after first frame
+      // so the widget tree is ready to show dialogs.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _ensureLocationPermission();
+      });
     }
   }
 
@@ -121,7 +128,113 @@ class _HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
+  /// Shows a dialog explaining a permission issue with an "Open Settings" button.
+  Future<void> _showPermissionDialog(String title, String message) async {
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Returns true only when foreground and background location are both granted.
+  /// Uses Geolocator's permission API so it accepts approximate location too —
+  /// the user does NOT need to enable "Precise location".
+  Future<bool> _ensureLocationPermission() async {
+    // ── Step 1: foreground location (coarse or fine both accepted) ────────────
+    var perm = await Geolocator.checkPermission();
+
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+    }
+
+    if (perm == LocationPermission.deniedForever) {
+      await _showPermissionDialog(
+        'Location Permission Required',
+        'Location access has been permanently denied.\n\n'
+        'Please go to Settings → Agoriya → Permissions → Location and enable it.',
+      );
+      return false;
+    }
+
+    if (perm == LocationPermission.denied) {
+      await _showPermissionDialog(
+        'Location Permission Required',
+        'Agoriya needs location access to track your field visits.\n\n'
+        'Please enable location permission in Settings.',
+      );
+      return false;
+    }
+
+    // Already "always" — nothing more to do.
+    if (perm == LocationPermission.always) return true;
+
+    // ── Step 2: background location ("Allow all the time") ───────────────────
+    // perm is whileInUse at this point — need to upgrade.
+    var bgStatus = await Permission.locationAlways.status;
+    if (bgStatus.isGranted) return true;
+
+    // Explain before sending to settings.
+    if (!mounted) return false;
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Background Location Needed'),
+        content: const Text(
+          'Agoriya needs to track your location while punched in, even when '
+          'the app is in the background.\n\n'
+          'Precise location is not required — approximate is fine.\n\n'
+          'On the next screen select "Allow all the time".',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    if (proceed != true) return false;
+
+    bgStatus = await Permission.locationAlways.request();
+
+    // If still not granted, show dialog with Settings button (don't just snackbar).
+    if (!bgStatus.isGranted) {
+      await _showPermissionDialog(
+        'Background Location Needed',
+        'Please go to Settings → Agoriya → Permissions → Location '
+        'and select "Allow all the time".\n\n'
+        'You do not need to enable "Precise location".',
+      );
+      return false;
+    }
+
+    return true;
+  }
+
   Future<void> _handlePunchIn(HomeLoaded state) async {
+    if (!await _ensureLocationPermission()) return;
+
     final file = await Navigator.of(context).push<File>(
       MaterialPageRoute(builder: (_) => const PunchInCameraScreen()),
     );

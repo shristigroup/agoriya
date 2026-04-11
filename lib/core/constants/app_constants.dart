@@ -13,11 +13,9 @@ class AppConstants {
   static const String reportsCacheKey = 'reports_cache';
 
   // Location tracking
-  static const int locationIntervalMinutes = 10;
-  static const int locationIntervalMeters = 100;
-  static const int locationSamplingSeconds = 300; // 5 min
-  static const int locationBatchSize = 100;
-  static const int distanceCalculationMinutes = 15;
+  static const int locationSamplingSeconds = 60;  // sample every 1 min
+  static const int locationBatchSize = 10;         // flush to Firestore every 10 points (~10 min)
+  static const int distanceCalculationMinutes = 10;
 
   // OSRM
   static const String osrmBaseUrl = 'https://router.project-osrm.org';

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/app_theme.dart';
 
 class PunchInCameraScreen extends StatefulWidget {
@@ -34,27 +35,49 @@ class _PunchInCameraScreenState extends State<PunchInCameraScreen>
   }
 
   Future<void> _initCamera() async {
-    _cameras = await availableCameras();
-    if (_cameras == null || _cameras!.isEmpty) {
+    try {
+      // Request permission first — camera will not initialise without it
+      final status = await Permission.camera.request();
+      if (!status.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Camera permission is required to punch in.')),
+          );
+          Navigator.of(context).pop();
+        }
+        return;
+      }
+
+      _cameras = await availableCameras();
+      if (_cameras == null || _cameras!.isEmpty) {
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+
+      final frontCamera = _cameras!.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => _cameras!.first,
+      );
+
+      _controller = CameraController(
+        frontCamera,
+        ResolutionPreset.medium,
+        enableAudio: false,
+        imageFormatGroup: ImageFormatGroup.jpeg,
+      );
+
+      await _controller!.initialize();
+      if (mounted) setState(() {});
+    } on CameraException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Camera error: ${e.description}')),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (_) {
       if (mounted) Navigator.of(context).pop();
-      return;
     }
-
-    // Force front camera
-    final frontCamera = _cameras!.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.front,
-      orElse: () => _cameras!.first,
-    );
-
-    _controller = CameraController(
-      frontCamera,
-      ResolutionPreset.medium,
-      enableAudio: false,
-      imageFormatGroup: ImageFormatGroup.jpeg,
-    );
-
-    await _controller!.initialize();
-    if (mounted) setState(() {});
   }
 
   Future<void> _capture() async {
