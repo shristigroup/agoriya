@@ -1,4 +1,4 @@
-const functions = require("firebase-functions");
+const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -38,27 +38,24 @@ async function getDirectManager(userId) {
 }
 
 // ─── 1. Attendance trigger: punch-in / punch-out notifications ───────────────
-exports.onAttendanceWrite = functions.firestore
-  .document("Users/{userId}/Attendance/{date}")
-  .onWrite(async (change, context) => {
-    const { userId, date } = context.params;
-    const before = change.before.exists ? change.before.data() : null;
-    const after = change.after.exists ? change.after.data() : null;
+exports.onAttendanceWrite = onDocumentWritten(
+  { document: "Users/{userId}/Attendance/{date}", region: "asia-south1" },
+  async (event) => {
+    const { userId, date } = event.params;
+    const before = event.data.before.exists ? event.data.before.data() : null;
+    const after = event.data.after.exists ? event.data.after.data() : null;
 
     if (!after) return;
 
-    // Get user info
     const userDoc = await db.collection("Users").doc(userId).get();
     if (!userDoc.exists) return;
     const user = userDoc.data();
     const userName = `${user.firstName} ${user.lastName}`;
 
-    // Get direct manager only
     const manager = await getDirectManager(userId);
     if (!manager) return;
     const managerToken = manager.fcmToken;
 
-    // Punch OUT detected (punchOutTimestamp newly set)
     const hadPunchOut = before && before.punchOutTimestamp;
     const hasPunchOut = after.punchOutTimestamp;
 
@@ -89,15 +86,16 @@ exports.onAttendanceWrite = functions.firestore
         }
       );
     }
-  });
+  }
+);
 
 // ─── 2. Visit trigger: check-in / check-out notifications ──────────────────
-exports.onVisitWrite = functions.firestore
-  .document("Users/{userId}/Visits/{visitId}")
-  .onWrite(async (change, context) => {
-    const { userId, visitId } = context.params;
-    const before = change.before.exists ? change.before.data() : null;
-    const after = change.after.exists ? change.after.data() : null;
+exports.onVisitWrite = onDocumentWritten(
+  { document: "Users/{userId}/Visits/{visitId}", region: "asia-south1" },
+  async (event) => {
+    const { userId, visitId } = event.params;
+    const before = event.data.before.exists ? event.data.before.data() : null;
+    const after = event.data.after.exists ? event.data.after.data() : null;
 
     if (!after) return;
 
@@ -144,16 +142,16 @@ exports.onVisitWrite = functions.firestore
         }
       );
     }
-  });
+  }
+);
 
 // ─── 3. Comment trigger: notify user when manager comments ──────────────────
-exports.onCommentWrite = functions.firestore
-  .document("Users/{userId}/Visits/{visitId}/Comments/{commentId}")
-  .onCreate(async (snap, context) => {
-    const { userId, visitId, commentId } = context.params;
-    const comment = snap.data();
+exports.onCommentWrite = onDocumentCreated(
+  { document: "Users/{userId}/Visits/{visitId}/Comments/{commentId}", region: "asia-south1" },
+  async (event) => {
+    const { userId, visitId, commentId } = event.params;
+    const comment = event.data.data();
 
-    // Get visit owner
     const userDoc = await db.collection("Users").doc(userId).get();
     if (!userDoc.exists) return;
     const user = userDoc.data();
@@ -162,7 +160,6 @@ exports.onCommentWrite = functions.firestore
     // Don't notify if the comment is by the user themselves
     if (comment.userId === userId) return;
 
-    // Notify the visit owner
     await sendNotification(
       userToken,
       `${comment.userName} commented on your visit`,
@@ -174,65 +171,41 @@ exports.onCommentWrite = functions.firestore
         commentId,
       }
     );
+  }
+);
 
-    // Also notify the commenter's manager if the user replied to a manager comment
-    // (i.e., commenter is the visit owner replying back)
-    // This case is handled by checking if the commenter is the visit owner
-    if (comment.userId === userId) {
-      const manager = await getDirectManager(userId);
-      if (!manager || !manager.fcmToken) return;
-      await sendNotification(
-        manager.fcmToken,
-        `${user.firstName} replied to your comment`,
-        comment.text,
-        {
-          type: "comment_reply",
-          targetUserId: userId,
-          visitId,
-          commentId,
-        }
-      );
-    }
-  });
-
-// ─── 4. FCM token updater (called by client on login) ─────────────────────
-exports.updateFcmToken = functions.firestore
-  .document("Users/{userId}")
-  .onWrite(async (change, context) => {
-    // Token updates happen when client writes fcmToken field
-    // This is handled client-side; function is a no-op here
-    // Token is stored in the User doc by the client
-  });
+// ─── 4. FCM token updater (no-op — token is written client-side) ─────────────
+exports.updateFcmToken = onDocumentWritten(
+  { document: "Users/{userId}", region: "asia-south1" },
+  async (event) => {
+    // Token updates are handled client-side; this function is intentionally empty.
+  }
+);
 
 // ─── 5. Reports hierarchy updater ────────────────────────────────────────────
-// Triggered when a User document is created or updated
-exports.updateReportsHierarchy = functions.firestore
-  .document("Users/{userId}")
-  .onWrite(async (change, context) => {
-    const { userId } = context.params;
+exports.updateReportsHierarchy = onDocumentWritten(
+  { document: "Users/{userId}", region: "asia-south1" },
+  async (event) => {
+    const { userId } = event.params;
 
-    const before = change.before.exists ? change.before.data() : null;
-    const after = change.after.exists ? change.after.data() : null;
+    const before = event.data.before.exists ? event.data.before.data() : null;
+    const after = event.data.after.exists ? event.data.after.data() : null;
 
-    // Only act if managerId changed
     const prevManagerId = before ? before.managerId : null;
     const newManagerId = after ? after.managerId : null;
 
     if (prevManagerId === newManagerId) return;
 
-    const userName =
-      after ? `${after.firstName} ${after.lastName}` : "Unknown";
-
-    // ── Remove from previous manager's reports tree ─────────────────────
     if (prevManagerId) {
       await removeFromManagerTree(prevManagerId, userId);
     }
 
-    // ── Add to new manager's reports tree (and skip managers) ──────────
     if (newManagerId) {
+      const userName = after ? `${after.firstName} ${after.lastName}` : "Unknown";
       await addToManagerTree(newManagerId, userId, userName);
     }
-  });
+  }
+);
 
 // Remove userId from a manager's reports JSON recursively (including skip levels)
 async function removeFromManagerTree(managerId, userId) {
@@ -258,7 +231,6 @@ async function removeFromManagerTree(managerId, userId) {
   removeFromNode(reports);
   await db.collection("Users").doc(managerId).update({ reports });
 
-  // Also update skip managers above this manager
   const mgrManagerId = mgrData.managerId;
   if (mgrManagerId) {
     await removeFromManagerTree(mgrManagerId, userId);
@@ -271,36 +243,14 @@ async function addToManagerTree(managerId, userId, userName) {
   if (!mgrDoc.exists) return;
 
   const mgrData = mgrDoc.data();
-  let reports = mgrData.reports || {};
+  const reports = mgrData.reports || {};
 
-  // Get existing sub-reports of the user being added (if any)
   const userDoc = await db.collection("Users").doc(userId).get();
   const userReports = userDoc.exists ? (userDoc.data().reports || {}) : {};
 
-  // Place userId directly under this manager
-  function insertIntoDirectReports(node, targetManagerId) {
-    if (targetManagerId === managerId) {
-      node[userId] = { name: userName, reports: userReports };
-      return true;
-    }
-    for (const key of Object.keys(node)) {
-      if (key === targetManagerId) {
-        node[key].reports = node[key].reports || {};
-        node[key].reports[userId] = { name: userName, reports: userReports };
-        return true;
-      }
-      if (node[key].reports && insertIntoDirectReports(node[key].reports, targetManagerId)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  // For the immediate manager: add directly
   reports[userId] = { name: userName, reports: userReports };
   await db.collection("Users").doc(managerId).update({ reports });
 
-  // For skip managers: add under their subtree
   const skipManagerId = mgrData.managerId;
   if (skipManagerId) {
     await addToSkipManagerTree(skipManagerId, managerId, userId, userName, userReports);
@@ -315,7 +265,6 @@ async function addToSkipManagerTree(skipManagerId, directManagerId, userId, user
   const skipData = skipDoc.data();
   const reports = skipData.reports || {};
 
-  // Find directManagerId in the tree and add userId under it
   function insertUnder(node, parentId) {
     if (node[parentId]) {
       node[parentId].reports = node[parentId].reports || {};
@@ -333,7 +282,6 @@ async function addToSkipManagerTree(skipManagerId, directManagerId, userId, user
   insertUnder(reports, directManagerId);
   await db.collection("Users").doc(skipManagerId).update({ reports });
 
-  // Continue up the chain
   const nextSkipId = skipData.managerId;
   if (nextSkipId) {
     await addToSkipManagerTree(nextSkipId, directManagerId, userId, userName, userReports);

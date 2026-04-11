@@ -152,7 +152,7 @@ class _AppEntry extends StatelessWidget {
     return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {},
       builder: (context, state) {
-        if (state is AuthLoading || state is AuthInitial) {
+        if (state is AuthInitial) {
           return const _SplashScreen();
         }
 

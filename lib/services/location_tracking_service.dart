@@ -127,7 +127,7 @@ void _onStart(ServiceInstance service) async {
     if (userId == null || date == null) return;
     try {
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
 
       bool shouldRecord = false;

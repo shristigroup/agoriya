@@ -142,14 +142,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         // Try to get current location
         try {
           final pos = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
           );
           lastLoc = LatLng(pos.latitude, pos.longitude);
         } catch (_) {}
       }
 
       // Stop tracking
-      await LocationTrackingService.stop();
+      LocationTrackingService.stop();
 
       // Calculate final distance via OSRM
       double finalDistance = current.attendance?.distance ?? 0.0;

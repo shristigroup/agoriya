@@ -95,7 +95,7 @@ class AppTheme {
         labelStyle: GoogleFonts.sora(color: textSecondary),
         hintStyle: GoogleFonts.sora(color: textHint),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: cardBg,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -106,7 +106,7 @@ class AppTheme {
       dividerTheme: const DividerThemeData(color: divider, thickness: 1),
       chipTheme: ChipThemeData(
         backgroundColor: surface,
-        selectedColor: primary.withOpacity(0.12),
+        selectedColor: primary.withValues(alpha: 0.12),
         side: const BorderSide(color: divider),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         labelStyle: GoogleFonts.sora(fontSize: 12),

@@ -256,74 +256,77 @@ class _HomeScreenState extends State<HomeScreen>
         final attendance = loaded?.attendance;
 
         return Scaffold(
-          body: NestedScrollView(
-            headerSliverBuilder: (context, innerBoxIsScrolled) => [
-              SliverAppBar(
-                expandedHeight: 160,
-                floating: false,
-                pinned: true,
-                snap: false,
-                backgroundColor: AppTheme.primary,
-                leading: _isReadOnly
-                    ? IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () => Navigator.of(context).pop(),
-                      )
-                    : null,
-                title: Text(
-                  _isReadOnly
-                      ? (widget.viewingUserName ?? 'Team Member')
-                      : 'Agoriya',
-                  style: const TextStyle(
-                    fontFamily: 'Sora',
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                actions: [
-                  if (!_isReadOnly)
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.menu, color: Colors.white),
-                      onSelected: (val) {
-                        if (val == 'reports') {
-                          Navigator.of(context).push(MaterialPageRoute(
-                            builder: (_) => const ReportsScreen(),
-                          ));
-                        } else if (val == 'logout') {
-                          context.read<AuthBloc>().add(LogoutEvent());
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                          value: 'reports',
-                          child: Row(
-                            children: [
-                              Icon(Icons.people_alt_rounded, size: 18),
-                              SizedBox(width: 10),
-                              Text('Reports'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'logout',
-                          child: Row(
-                            children: [
-                              Icon(Icons.logout_rounded, size: 18, color: AppTheme.error),
-                              SizedBox(width: 10),
-                              Text('Logout', style: TextStyle(color: AppTheme.error)),
-                            ],
-                          ),
-                        ),
-                      ],
+          appBar: AppBar(
+            backgroundColor: AppTheme.primary,
+            elevation: 0,
+            leading: _isReadOnly
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  )
+                : null,
+            title: Text(
+              _isReadOnly
+                  ? (widget.viewingUserName ?? 'Team Member')
+                  : 'Agoriya',
+              style: const TextStyle(
+                fontFamily: 'Sora',
+                fontWeight: FontWeight.w700,
+                fontSize: 22,
+                color: Colors.white,
+              ),
+            ),
+            actions: [
+              if (!_isReadOnly)
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.menu, color: Colors.white),
+                  onSelected: (val) {
+                    if (val == 'reports') {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const ReportsScreen(),
+                      ));
+                    } else if (val == 'logout') {
+                      context.read<AuthBloc>().add(LogoutEvent());
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                      value: 'reports',
+                      child: Row(children: [
+                        Icon(Icons.people_alt_rounded, size: 18),
+                        SizedBox(width: 10),
+                        Text('Reports'),
+                      ]),
                     ),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: _buildSliverHeader(loaded, attendance),
+                    const PopupMenuItem(
+                      value: 'logout',
+                      child: Row(children: [
+                        Icon(Icons.logout_rounded, size: 18, color: AppTheme.error),
+                        SizedBox(width: 10),
+                        Text('Logout', style: TextStyle(color: AppTheme.error)),
+                      ]),
+                    ),
+                  ],
                 ),
-                bottom: TabBar(
+            ],
+          ),
+          body: Column(
+            children: [
+              // ── Stats strip ───────────────────────────────────────────────
+              Container(
+                color: AppTheme.primary,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: _buildStatsRow(loaded, attendance),
+              ),
+              // ── Tab bar ───────────────────────────────────────────────────
+              Container(
+                color: AppTheme.primary,
+                child: TabBar(
                   controller: _tabController,
                   indicatorColor: AppTheme.accent,
                   indicatorWeight: 3,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white60,
                   labelStyle: const TextStyle(
                     fontFamily: 'Sora',
                     fontWeight: FontWeight.w600,
@@ -340,34 +343,37 @@ class _HomeScreenState extends State<HomeScreen>
                   ],
                 ),
               ),
+              // ── Tab content ───────────────────────────────────────────────
+              Expanded(
+                child: state is HomeLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                            color: AppTheme.primary))
+                    : TabBarView(
+                        controller: _tabController,
+                        children: [
+                          TrackTab(
+                            attendance: attendance,
+                            locations: loaded?.locations ?? [],
+                            lastKnownLocation: loaded?.lastKnownLocation,
+                            isReadOnly: _isReadOnly,
+                          ),
+                          BlocProvider.value(
+                            value: context.read<HomeBloc>(),
+                            child: VisitsTab(
+                              visits: loaded?.visits ?? [],
+                              filteredVisits: loaded?.filteredVisits ?? [],
+                              filterClient: loaded?.filterClient,
+                              clientNames:
+                                  LocalStorageService.getDistinctClientNames(),
+                              targetUserId: _targetUserId,
+                              isReadOnly: _isReadOnly,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
             ],
-            body: state is HomeLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: AppTheme.primary))
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      // Track tab
-                      TrackTab(
-                        attendance: attendance,
-                        locations: loaded?.locations ?? [],
-                        lastKnownLocation: loaded?.lastKnownLocation,
-                        isReadOnly: _isReadOnly,
-                      ),
-                      // Visits tab
-                      BlocProvider.value(
-                        value: context.read<HomeBloc>(),
-                        child: VisitsTab(
-                          visits: loaded?.visits ?? [],
-                          filteredVisits: loaded?.filteredVisits ?? [],
-                          filterClient: loaded?.filterClient,
-                          clientNames: LocalStorageService.getDistinctClientNames(),
-                          targetUserId: _targetUserId,
-                          isReadOnly: _isReadOnly,
-                        ),
-                      ),
-                    ],
-                  ),
           ),
           floatingActionButton: _isReadOnly
               ? null
@@ -377,14 +383,11 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildSliverHeader(HomeLoaded? loaded, attendance) {
+  Widget _buildStatsRow(HomeLoaded? loaded, attendance) {
     final isPunchedIn = loaded?.isPunchedIn ?? false;
     final isTrackTab = _currentTab == 0;
 
-    return Container(
-      decoration: const BoxDecoration(color: AppTheme.primary),
-      padding: const EdgeInsets.fromLTRB(20, 60, 20, 48),
-      child: Row(
+    return Row(
         children: [
           _statChip(
             isTrackTab ? 'Time' : 'Visits',
@@ -411,7 +414,6 @@ class _HomeScreenState extends State<HomeScreen>
             isTrackTab ? Icons.route_rounded : Icons.receipt_rounded,
           ),
         ],
-      ),
     );
   }
 

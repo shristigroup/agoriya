@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'auth_event.dart';
@@ -35,29 +36,41 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onSendOtp(SendOtpEvent event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
     _pendingPhoneNumber = event.phoneNumber;
+
+    // Use a Completer to keep the event handler alive until the
+    // codeSent callback fires asynchronously — avoids the
+    // "emit called after handler completed" BLoC assertion.
+    final completer = Completer<String>();
+
+    await _auth.verifyPhoneNumber(
+      phoneNumber: event.phoneNumber,
+      verificationCompleted: (_) {
+        // User enters OTP manually — ignore auto-verification.
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        if (!completer.isCompleted) {
+          completer.completeError(e.message ?? 'Verification failed');
+        }
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        if (!completer.isCompleted) {
+          completer.complete(verificationId);
+        }
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        _verificationId = verificationId;
+        if (!completer.isCompleted) {
+          completer.complete(verificationId);
+        }
+      },
+    );
+
     try {
-      await _auth.verifyPhoneNumber(
+      _verificationId = await completer.future;
+      emit(OtpSent(
+        verificationId: _verificationId!,
         phoneNumber: event.phoneNumber,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          // Auto-verify (Android only)
-          final result = await _auth.signInWithCredential(credential);
-          _pendingUid = result.user?.uid;
-          add(CompleteProfileEvent(firstName: '', lastName: ''));
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          emit(AuthError(e.message ?? 'Verification failed'));
-        },
-        codeSent: (String verificationId, int? resendToken) {
-          _verificationId = verificationId;
-          emit(OtpSent(
-            verificationId: verificationId,
-            phoneNumber: event.phoneNumber,
-          ));
-        },
-        codeAutoRetrievalTimeout: (String verificationId) {
-          _verificationId = verificationId;
-        },
-      );
+      ));
     } catch (e) {
       emit(AuthError(e.toString()));
     }
@@ -90,7 +103,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
     emit(AuthLoading());
     try {
-      // Check if user already exists (re-login or update)
       final existing = await _repo.getUserByPhone(_pendingPhoneNumber!);
 
       final docId = existing?.id ??

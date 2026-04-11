@@ -1,26 +1,4 @@
 {
-  "indexes": [
-    {
-      "collectionGroup": "Visits",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "checkinTimestamp", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "Comments",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "timestamp", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "Attendance",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "__name__", "order": "DESCENDING" }
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 }
