@@ -63,6 +63,20 @@
         <string>remote-notification</string>
     </array>
 
+    <!-- Firebase reCAPTCHA fallback URL scheme (used when APNs silent push is unavailable) -->
+    <!-- Replace the value below with the REVERSED_CLIENT_ID from your GoogleService-Info.plist -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>com.googleusercontent.apps.688027395428-trv5qd81iv9m92ienmq8lgffd505fekv</string>
+            </array>
+        </dict>
+    </array>
+
     <!-- Firebase Messaging -->
     <key>FirebaseAppDelegateProxyEnabled</key>
     <true/>

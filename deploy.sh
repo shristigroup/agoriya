@@ -44,13 +44,39 @@ mkdir -p "$DIST_DIR"
 # ─── Parse build args ─────────────────────────────────────────────────────────
 BUILD_IOS=true
 BUILD_ANDROID=true
+UPLOAD_IOS=false
 
 for arg in "$@"; do
   case $arg in
     --ios-only)     BUILD_ANDROID=false ;;
     --android-only) BUILD_IOS=false ;;
+    --upload)       UPLOAD_IOS=true ;;
   esac
 done
+
+# ─── Validate upload credentials early ───────────────────────────────────────
+# Set these in your shell profile (~/.zshrc or ~/.bash_profile):
+#   export ASC_KEY_ID="XXXXXXXXXX"
+#   export ASC_ISSUER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+#   export ASC_KEY_PATH="$HOME/.appstoreconnect/AuthKey_XXXXXXXXXX.p8"
+if [[ "$UPLOAD_IOS" == true ]]; then
+  if [[ "$(uname)" != "Darwin" ]]; then
+    error "--upload is only supported on macOS."
+  fi
+  if [[ -z "${ASC_KEY_ID:-}" ]]; then
+    error "ASC_KEY_ID is not set. Export it in your shell profile.\n  export ASC_KEY_ID=\"YOUR_KEY_ID\""
+  fi
+  if [[ -z "${ASC_ISSUER_ID:-}" ]]; then
+    error "ASC_ISSUER_ID is not set. Export it in your shell profile.\n  export ASC_ISSUER_ID=\"YOUR_ISSUER_ID\""
+  fi
+  if [[ -z "${ASC_KEY_PATH:-}" ]]; then
+    error "ASC_KEY_PATH is not set. Export it in your shell profile.\n  export ASC_KEY_PATH=\"\$HOME/.appstoreconnect/AuthKey_XXXXXXXXXX.p8\""
+  fi
+  if [[ ! -f "$ASC_KEY_PATH" ]]; then
+    error "ASC_KEY_PATH file not found: $ASC_KEY_PATH"
+  fi
+  info "Upload credentials verified."
+fi
 
 # ─── Flutter clean & pub get ──────────────────────────────────────────────────
 info "Running flutter clean..."
@@ -76,6 +102,7 @@ if [[ "$BUILD_ANDROID" == true ]]; then
 fi
 
 # ─── iOS — release IPA ────────────────────────────────────────────────────────
+IPA_DEST=""
 if [[ "$BUILD_IOS" == true ]]; then
   if [[ "$(uname)" != "Darwin" ]]; then
     warn "iOS build skipped — not running on macOS."
@@ -131,6 +158,33 @@ PLIST
   fi
 fi
 
+# ─── Upload to App Store Connect ──────────────────────────────────────────────
+if [[ "$UPLOAD_IOS" == true ]]; then
+  if [[ -z "$IPA_DEST" || ! -f "$IPA_DEST" ]]; then
+    error "No IPA to upload. Run with --upload alongside an iOS build (not --android-only)."
+  fi
+
+  info "Validating IPA before upload..."
+  xcrun altool --validate-app \
+    -f "$IPA_DEST" \
+    -t ios \
+    --apiKey "$ASC_KEY_ID" \
+    --apiIssuer "$ASC_ISSUER_ID" \
+    --private-key "$ASC_KEY_PATH" \
+    2>&1 | grep -v "^$" || true
+
+  info "Uploading IPA to App Store Connect..."
+  xcrun altool --upload-app \
+    -f "$IPA_DEST" \
+    -t ios \
+    --apiKey "$ASC_KEY_ID" \
+    --apiIssuer "$ASC_ISSUER_ID" \
+    --private-key "$ASC_KEY_PATH" \
+    2>&1 | grep -v "^$"
+
+  success "Upload complete — check TestFlight in App Store Connect for processing status."
+fi
+
 # ─── Record built version ─────────────────────────────────────────────────────
 echo "$PUBSPEC_VERSION" > "$VERSION_FILE"
 
@@ -138,4 +192,5 @@ success "───────────────────────�
 success "Build complete — version $PUBSPEC_VERSION"
 [[ "$BUILD_ANDROID" == true ]] && success "  APK: dist/agoriya-$PUBSPEC_VERSION.apk"
 [[ "$BUILD_IOS"     == true ]] && [[ "$(uname)" == "Darwin" ]] && success "  IPA: dist/agoriya-$PUBSPEC_VERSION.ipa"
+[[ "$UPLOAD_IOS"    == true ]] && success "  Uploaded to TestFlight ✓"
 success "────────────────────────────────────────"
