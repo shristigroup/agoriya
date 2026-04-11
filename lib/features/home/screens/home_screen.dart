@@ -506,6 +506,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   LocalStorageService.getDistinctClientNames(),
                               targetUserId: _targetUserId,
                               isReadOnly: _isReadOnly,
+                              isPunchedOut: isPunchedOut,
                             ),
                           ),
                         ],
@@ -516,6 +517,7 @@ class _HomeScreenState extends State<HomeScreen>
           floatingActionButton: _isReadOnly
               ? null
               : _buildFAB(context, loaded, isPunchedIn, isPunchedOut),
+
         );
       },
     );
@@ -607,13 +609,17 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildFAB(
+  Widget? _buildFAB(
     BuildContext context,
     HomeLoaded? loaded,
     bool isPunchedIn,
     bool isPunchedOut,
   ) {
-    if (!isPunchedIn || isPunchedOut) {
+    // Day is done — no actions available.
+    if (isPunchedOut) return null;
+
+    // Not yet punched in.
+    if (!isPunchedIn) {
       return FloatingActionButton.extended(
         onPressed: loaded != null ? () => _handlePunchIn(loaded) : null,
         backgroundColor: AppTheme.punchIn,
@@ -623,6 +629,7 @@ class _HomeScreenState extends State<HomeScreen>
       );
     }
 
+    // Punched in — Track tab shows Punch Out.
     if (_currentTab == 0) {
       return FloatingActionButton.extended(
         onPressed: _handlePunchOut,
@@ -633,7 +640,7 @@ class _HomeScreenState extends State<HomeScreen>
       );
     }
 
-    // Visits tab - Check In
+    // Punched in — Visits tab shows Check In.
     return FloatingActionButton.extended(
       onPressed: () {
         Navigator.of(context).push(MaterialPageRoute(

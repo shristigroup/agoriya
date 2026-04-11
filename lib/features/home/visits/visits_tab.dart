@@ -17,6 +17,7 @@ class VisitsTab extends StatelessWidget {
   final List<String> clientNames;
   final String targetUserId;
   final bool isReadOnly;
+  final bool isPunchedOut;
 
   const VisitsTab({
     super.key,
@@ -26,12 +27,37 @@ class VisitsTab extends StatelessWidget {
     required this.clientNames,
     required this.targetUserId,
     this.isReadOnly = false,
+    this.isPunchedOut = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Punched-out banner
+        if (isPunchedOut)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            color: AppTheme.punchOut.withOpacity(0.1),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_clock_rounded,
+                    size: 16, color: AppTheme.punchOut.withOpacity(0.8)),
+                const SizedBox(width: 8),
+                Text(
+                  'Punched Out — day is complete',
+                  style: TextStyle(
+                    fontFamily: 'Sora',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.punchOut.withOpacity(0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
         // Filter bar
         if (clientNames.isNotEmpty)
           _buildFilterBar(context),
@@ -88,16 +114,27 @@ class VisitsTab extends StatelessWidget {
   }
 
   Widget _buildEmptyState() {
+    final String message;
+    final IconData icon;
+    if (filterClient != null) {
+      message = 'No visits for $filterClient';
+      icon = Icons.storefront_outlined;
+    } else if (isPunchedOut) {
+      message = 'No visits recorded today';
+      icon = Icons.lock_clock_rounded;
+    } else {
+      message = 'No customer visits yet';
+      icon = Icons.storefront_outlined;
+    }
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.storefront_outlined, size: 56, color: AppTheme.textHint),
+          Icon(icon, size: 56, color: AppTheme.textHint),
           const SizedBox(height: 16),
           Text(
-            filterClient != null
-                ? 'No visits for $filterClient'
-                : 'No customer visits yet',
+            message,
             style: const TextStyle(
               fontFamily: 'Sora',
               fontSize: 15,
