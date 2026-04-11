@@ -17,5 +17,33 @@
         "firebase-debug.*.log"
       ]
     }
-  ]
+  ],
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "agoriya-app",
+          "appId": "1:688027395428:android:53c32a7b59d789e2afc671",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "agoriya-app",
+          "appId": "1:688027395428:ios:6590d6a7756ef42fafc671",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "agoriya-app",
+          "configurations": {
+            "android": "1:688027395428:android:53c32a7b59d789e2afc671",
+            "ios": "1:688027395428:ios:6590d6a7756ef42fafc671"
+          }
+        }
+      }
+    }
+  }
 }
