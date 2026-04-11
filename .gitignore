@@ -46,3 +46,6 @@ ios/Flutter/engine/
 functions/node_modules/
 functions/package-lock.json
 functions/.runtimeconfig.json
+
+dist/
+.claude/
