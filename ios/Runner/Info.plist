@@ -65,7 +65,7 @@
 
     <!-- Firebase Messaging -->
     <key>FirebaseAppDelegateProxyEnabled</key>
-    <false/>
+    <true/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
