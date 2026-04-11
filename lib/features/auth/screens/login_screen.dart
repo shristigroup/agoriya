@@ -34,7 +34,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUsers();
+    // _loadUsers() is intentionally NOT called here — the user is unauthenticated
+    // at this point and Firestore rules will block the read. It is called after
+    // OTP verification when Firebase Auth has established a session.
   }
 
   Future<void> _loadUsers() async {
@@ -99,6 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
           } else if (state is OtpVerified) {
             setState(() => _otpConfirmed = true);
             _prefillExistingUser();
+            _loadUsers(); // user is now authenticated — Firestore read will succeed
           } else if (state is AuthError) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(state.message),

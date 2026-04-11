@@ -232,8 +232,33 @@ class _HomeScreenState extends State<HomeScreen>
     return true;
   }
 
+  Future<bool> _ensureCameraPermission() async {
+    var status = await Permission.camera.status;
+    if (status.isGranted) return true;
+
+    if (status.isPermanentlyDenied) {
+      await _showPermissionDialog(
+        'Camera Permission Required',
+        'Camera access has been permanently denied.\n\n'
+        'Please go to Settings → Agoriya → Camera and enable it.',
+      );
+      return false;
+    }
+
+    status = await Permission.camera.request();
+    if (status.isGranted) return true;
+
+    await _showPermissionDialog(
+      'Camera Permission Required',
+      'Agoriya needs camera access to take a selfie when you punch in.\n\n'
+      'Please enable camera permission in Settings.',
+    );
+    return false;
+  }
+
   Future<void> _handlePunchIn(HomeLoaded state) async {
     if (!await _ensureLocationPermission()) return;
+    if (!await _ensureCameraPermission()) return;
 
     final file = await Navigator.of(context).push<File>(
       MaterialPageRoute(builder: (_) => const PunchInCameraScreen()),
