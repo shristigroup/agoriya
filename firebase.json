@@ -4,6 +4,7 @@
     "indexes": "firestore.indexes.json"
   },
   "storage": {
+    "bucket": "agoriya-app.firebasestorage.app",
     "rules": "storage.rules"
   },
   "functions": [
