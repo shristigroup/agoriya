@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agoriya — Field Force Tracker</title>
+  <meta name="description" content="Agoriya helps field teams track attendance, visits, and location — all in one place." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:       #1A6B3C;
+      --green-dark:  #145530;
+      --green-light: #e8f5ee;
+      --gold:        #F5A623;
+      --gold-shadow: rgba(245,166,35,0.35);
+      --text:        #1a1a1a;
+      --muted:       #666;
+      --hint:        #999;
+      --surface:     #ffffff;
+      --bg:          #f4f6f4;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--green);
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo {
+      width: 42px; height: 42px;
+      background: white;
+      border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .brand { display: flex; flex-direction: column; gap: 1px; }
+    .brand-name  { color: white; font-size: 20px; font-weight: 800; letter-spacing: -0.4px; line-height: 1; }
+    .brand-tag   { color: rgba(255,255,255,0.65); font-size: 12px; font-weight: 400; }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(160deg, var(--green) 0%, var(--green-dark) 100%);
+      padding: 56px 24px 64px;
+      text-align: center;
+    }
+    .hero h1 {
+      color: white;
+      font-size: clamp(26px, 6vw, 38px);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.5px;
+      margin-bottom: 14px;
+    }
+    .hero p {
+      color: rgba(255,255,255,0.75);
+      font-size: 16px;
+      line-height: 1.6;
+      max-width: 420px;
+      margin: 0 auto 36px;
+    }
+
+    /* ── Download card ── */
+    .section { padding: 0 20px 40px; max-width: 580px; margin: 0 auto; }
+    .download-card {
+      background: var(--surface);
+      border-radius: 22px;
+      padding: 28px 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.09);
+      margin-top: -32px;
+    }
+    .platform-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--green-light);
+      color: var(--green);
+      font-size: 12px; font-weight: 700;
+      padding: 5px 13px; border-radius: 20px;
+      margin-bottom: 18px;
+      letter-spacing: 0.2px;
+    }
+    .platform-pill svg { flex-shrink: 0; }
+
+    .card-title { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+    .card-sub   { font-size: 14px; color: var(--muted); margin-bottom: 22px; line-height: 1.5; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+      padding: 15px 28px; border-radius: 50px;
+      font-size: 15px; font-weight: 700; text-decoration: none;
+      transition: transform 0.18s, box-shadow 0.18s;
+      cursor: pointer; border: none;
+    }
+    .btn:hover  { transform: translateY(-2px); }
+    .btn:active { transform: translateY(0); }
+    .btn-gold {
+      background: var(--gold); color: white;
+      box-shadow: 0 4px 18px var(--gold-shadow);
+    }
+    .btn-gold:hover { box-shadow: 0 7px 24px var(--gold-shadow); }
+    .btn-green { background: var(--green); color: white; box-shadow: 0 4px 14px rgba(26,107,60,0.3); }
+
+    .divider { border: none; border-top: 1px solid #eee; margin: 22px 0; }
+
+    /* ── Steps ── */
+    .steps { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+    .step  { display: flex; gap: 12px; align-items: flex-start; }
+    .step-num {
+      background: var(--green); color: white;
+      min-width: 24px; height: 24px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; flex-shrink: 0; margin-top: 1px;
+    }
+    .step-text { font-size: 14px; color: #444; line-height: 1.55; }
+    .step-text a { color: var(--green); font-weight: 600; text-decoration: none; }
+    .step-text a:hover { text-decoration: underline; }
+
+    .warning-box {
+      background: #fff8ec; border: 1px solid #fde8b0;
+      border-radius: 12px; padding: 13px 15px;
+      font-size: 13px; color: #7a4f00; line-height: 1.5;
+      margin-top: 18px;
+    }
+    .warning-box strong { font-weight: 700; }
+
+    /* ── Features ── */
+    .features-section { padding: 0 20px 48px; max-width: 580px; margin: 0 auto; }
+    .section-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      color: var(--hint); text-transform: uppercase;
+      margin-bottom: 16px; padding-left: 2px;
+    }
+    .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .feature-card {
+      background: var(--surface);
+      border-radius: 16px; padding: 18px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+    .feature-icon { font-size: 26px; margin-bottom: 10px; }
+    .feature-title { font-size: 13px; font-weight: 700; color: var(--green); margin-bottom: 4px; }
+    .feature-desc  { font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center; padding: 28px 24px 40px;
+      font-size: 12px; color: var(--hint); line-height: 1.7;
+    }
+    footer a { color: var(--green); text-decoration: none; }
+
+    /* ── Show/hide OS sections ── */
+    #section-ios, #section-android, #section-other { display: none; }
+
+    @media (max-width: 380px) {
+      .feature-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo">
+      <svg width="26" height="26" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M50 10 L90 85 H70 L50 45 L30 85 H10 Z" fill="#1A6B3C"/>
+        <rect x="28" y="60" width="44" height="10" rx="5" fill="#F5A623"/>
+      </svg>
+    </div>
+    <div class="brand">
+      <span class="brand-name">Agoriya</span>
+      <span class="brand-tag">Field Force Tracker</span>
+    </div>
+  </header>
+
+  <!-- ── Hero ── -->
+  <div class="hero">
+    <h1>Your field team,<br/>always connected.</h1>
+    <p>Track attendance, customer visits, and location in real time — built for the ground level.</p>
+  </div>
+
+  <!-- ── Download card ── -->
+  <div class="section">
+    <div class="download-card">
+
+      <!-- iOS -->
+      <div id="section-ios">
+        <div class="platform-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+          iPhone / iPad
+        </div>
+        <div class="card-title">Get Agoriya on iOS</div>
+        <div class="card-sub">Available via TestFlight — Apple's official beta testing platform.</div>
+        <a class="btn btn-gold" href="https://testflight.apple.com/join/Q4qpE2eh" target="_blank" rel="noopener">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M19.59 7L12 3 4.41 7 12 11 19.59 7zM12 13.08L4 9v6l8 4 8-4V9l-8 4.08z"/></svg>
+          Open in TestFlight
+        </a>
+        <hr class="divider"/>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text">
+              Install <a href="https://apps.apple.com/app/testflight/id899247664" target="_blank" rel="noopener">TestFlight</a> from the App Store (free, by Apple).
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text">
+              Tap <strong>"Open in TestFlight"</strong> above, or visit
+              <a href="https://testflight.apple.com/join/Q4qpE2eh">testflight.apple.com/join/Q4qpE2eh</a> on your iPhone.
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text">Tap <strong>Accept</strong> → <strong>Install</strong> inside TestFlight.</div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-text">Open Agoriya and sign in with your registered phone number.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Android -->
+      <div id="section-android">
+        <div class="platform-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.341a.85.85 0 0 1-.852.852.85.85 0 0 1-.851-.852V9.852A.85.85 0 0 1 16.671 9a.85.85 0 0 1 .852.852v5.489zm-11.194 0A.85.85 0 0 1 5.477 16.2a.85.85 0 0 1-.852-.852V9.852A.85.85 0 0 1 5.477 9a.85.85 0 0 1 .852.852v5.489zM14.74 2.1l1.207-1.214a.307.307 0 0 0 0-.435.307.307 0 0 0-.435 0L14.2 1.772A6.047 6.047 0 0 0 12 1.383c-.768 0-1.5.138-2.2.389L8.488.45a.307.307 0 0 0-.435 0 .307.307 0 0 0 0 .435L9.26 2.1A5.978 5.978 0 0 0 6.17 7.419h11.658A5.978 5.978 0 0 0 14.74 2.1zm-5.49 2.95a.516.516 0 1 1 0-1.032.516.516 0 0 1 0 1.032zm5.5 0a.516.516 0 1 1 0-1.032.516.516 0 0 1 0 1.032zM6.17 18.5c0 .828.673 1.5 1.5 1.5h.83v2.148a.85.85 0 0 0 .852.852.85.85 0 0 0 .851-.852V20h1.594v2.148a.85.85 0 0 0 .852.852.85.85 0 0 0 .852-.852V20h.83c.828 0 1.5-.672 1.5-1.5V7.84H6.17V18.5z"/></svg>
+          Android
+        </div>
+        <div class="card-title">Get Agoriya for Android</div>
+        <div class="card-sub">Download and install the APK directly — no Play Store required.</div>
+        <a class="btn btn-gold" id="android-download-btn"
+           href="https://firebasestorage.googleapis.com/v0/b/agoriya-app.firebasestorage.app/o/releases%2Flatest.apk?alt=media"
+           download="agoriya.apk">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h3.84v4h5.66V9h3.84L12 2z"/></svg>
+          Download APK
+        </a>
+        <hr class="divider"/>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text">Tap <strong>Download APK</strong> above and wait for the download to complete.</div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text">
+              Open your <strong>Downloads</strong> folder and tap the <strong>agoriya.apk</strong> file.
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text">
+              If prompted, go to <strong>Settings → Apps → Special app access → Install unknown apps</strong>
+              and allow your browser to install apps.
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-text">Tap <strong>Install</strong> and open Agoriya to sign in.</div>
+          </div>
+        </div>
+        <div class="warning-box">
+          <strong>Note:</strong> You may see a "Play Protect" warning. Tap <strong>Install anyway</strong> — Agoriya is safe and distributed privately for your organisation.
+        </div>
+      </div>
+
+      <!-- Other / Desktop -->
+      <div id="section-other">
+        <div class="card-title">Download Agoriya</div>
+        <div class="card-sub">Choose your platform below.</div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <a class="btn btn-gold" href="https://testflight.apple.com/join/Q4qpE2eh" target="_blank" rel="noopener">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            iOS — TestFlight
+          </a>
+          <a class="btn btn-green"
+             href="https://firebasestorage.googleapis.com/v0/b/agoriya-app.firebasestorage.app/o/releases%2Flatest.apk?alt=media"
+             download="agoriya.apk">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h3.84v4h5.66V9h3.84L12 2z"/></svg>
+            Android — APK
+          </a>
+        </div>
+        <hr class="divider"/>
+        <p style="font-size:13px; color:var(--muted); line-height:1.6;">
+          Open this page on your phone for the best installation experience.<br/>
+          <strong>iOS:</strong> requires TestFlight (free, from App Store).<br/>
+          <strong>Android:</strong> install directly from the APK file.
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Features ── -->
+  <div class="features-section">
+    <div class="section-label">What Agoriya does</div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📍</div>
+        <div class="feature-title">Live Location Tracking</div>
+        <div class="feature-desc">Automatically records your route while punched in. Works in the background.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🤳</div>
+        <div class="feature-title">Selfie Punch In</div>
+        <div class="feature-desc">Capture a selfie on punch-in for verified attendance records.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏪</div>
+        <div class="feature-title">Customer Visits</div>
+        <div class="feature-desc">Log every client visit with location, notes, and expense receipts.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">Manager Reports</div>
+        <div class="feature-desc">Managers get a real-time view of their team's daily activity.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <p>Agoriya &copy; <span id="year"></span> Shrishti Group</p>
+    <p style="margin-top:4px;">Built for field teams. <a href="https://github.com/shristigroup/agoriya">View on GitHub</a></p>
+  </footer>
+
+  <script>
+    // Set year
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // OS detection
+    const ua = navigator.userAgent || '';
+    const isIOS     = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+    const isAndroid = /Android/.test(ua);
+
+    if (isIOS) {
+      document.getElementById('section-ios').style.display = 'block';
+    } else if (isAndroid) {
+      document.getElementById('section-android').style.display = 'block';
+    } else {
+      document.getElementById('section-other').style.display = 'block';
+    }
+  </script>
+</body>
+</html>

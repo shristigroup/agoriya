@@ -17,6 +17,7 @@ error()   { echo -e "${RED}[deploy]${NC} $*"; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIST_DIR="$SCRIPT_DIR/dist"
 VERSION_FILE="$DIST_DIR/.last_version"
+STORAGE_BUCKET="agoriya-app.firebasestorage.app"
 
 # ─── Read version from pubspec.yaml ───────────────────────────────────────────
 PUBSPEC_VERSION=$(grep '^version:' "$SCRIPT_DIR/pubspec.yaml" \
@@ -99,6 +100,36 @@ if [[ "$BUILD_ANDROID" == true ]]; then
 
   cp "$APK_SRC" "$APK_DEST"
   success "APK → $APK_DEST"
+
+  # ── Upload APK to Firebase Storage ──────────────────────────────────────────
+  if command -v gsutil &>/dev/null; then
+    gcloud config set project agoriya-app
+    
+    info "Uploading APK to Firebase Storage..."
+
+    gsutil cp "$APK_DEST" \
+      "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk"
+    gsutil cp "$APK_DEST" \
+      "gs://$STORAGE_BUCKET/releases/latest.apk"
+
+    # Make both files publicly readable.
+    # Requires uniform bucket-level access to be OFF (fine-grained ACLs).
+    # If your bucket uses uniform access, set a Storage Rule instead:
+    #   match /releases/{file} { allow read; }
+    gsutil acl ch -u AllUsers:R \
+      "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk" 2>/dev/null \
+      || warn "Could not set ACL — ensure Firebase Storage rules allow public reads for /releases/."
+    gsutil acl ch -u AllUsers:R \
+      "gs://$STORAGE_BUCKET/releases/latest.apk" 2>/dev/null \
+      || warn "Could not set ACL on latest.apk — check Storage rules."
+
+    success "APK uploaded → gs://$STORAGE_BUCKET/releases/latest.apk"
+    success "Public URL: https://firebasestorage.googleapis.com/v0/b/$STORAGE_BUCKET/o/releases%2Flatest.apk?alt=media"
+  else
+    warn "gsutil not found — skipping Firebase Storage upload."
+    warn "Install Google Cloud SDK: https://cloud.google.com/sdk"
+    warn "Then run: gcloud auth login && gcloud config set project agoriya-app"
+  fi
 fi
 
 # ─── iOS — release IPA ────────────────────────────────────────────────────────
@@ -191,6 +222,7 @@ echo "$PUBSPEC_VERSION" > "$VERSION_FILE"
 success "────────────────────────────────────────"
 success "Build complete — version $PUBSPEC_VERSION"
 [[ "$BUILD_ANDROID" == true ]] && success "  APK: dist/agoriya-$PUBSPEC_VERSION.apk"
+[[ "$BUILD_ANDROID" == true ]] && command -v gsutil &>/dev/null && success "  Storage: gs://$STORAGE_BUCKET/releases/latest.apk"
 [[ "$BUILD_IOS"     == true ]] && [[ "$(uname)" == "Darwin" ]] && success "  IPA: dist/agoriya-$PUBSPEC_VERSION.ipa"
 [[ "$UPLOAD_IOS"    == true ]] && success "  Uploaded to TestFlight ✓"
 success "────────────────────────────────────────"
