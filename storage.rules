@@ -3,6 +3,12 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    // ─── App releases: publicly readable, no auth required ───────────────
+    match /releases/{filename} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // ─── Punch-in selfies: {userId}/{date}-punch-in.{ext} ────────────────
     match /{userId}/{filename} {
       // Only the owner can upload their own files

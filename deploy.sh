@@ -104,7 +104,7 @@ if [[ "$BUILD_ANDROID" == true ]]; then
   # ── Upload APK to Firebase Storage ──────────────────────────────────────────
   if command -v gsutil &>/dev/null; then
     gcloud config set project agoriya-app
-    
+
     info "Uploading APK to Firebase Storage..."
 
     gsutil cp "$APK_DEST" \
