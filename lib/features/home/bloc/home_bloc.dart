@@ -74,6 +74,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
     final today = AppUtils.todayKey();
 
+    // Seed today's data from Firestore if Hive is empty (reinstall / new device).
+    // No-op on normal app resume — exits immediately after one Hive read.
+    await DataManager.seedTodayDataAsAppHasReinstalled(userId, today);
+
     final attendance = await DataManager.getAttendance(userId, today);
     final visits = await DataManager.getVisitsForDay(userId, today);
     final locations = await DataManager.getLocations(userId, today);

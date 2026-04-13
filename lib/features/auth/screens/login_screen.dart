@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -30,6 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _otpConfirmed = false;  // OTP has been verified
   String? _selectedManagerId;
   List<UserModel> _allUsers = [];
+  String _appVersion = '';
 
   @override
   void initState() {
@@ -37,6 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
     // _loadUsers() is intentionally NOT called here — the user is unauthenticated
     // at this point and Firestore rules will block the read. It is called after
     // OTP verification when Firebase Auth has established a session.
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _appVersion = info.version);
+    });
   }
 
   Future<void> _loadUsers() async {
@@ -131,6 +136,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       Text('Field Force Tracker',
                         style: AppTheme.sora(16, color: Colors.white.withValues(alpha: 0.7)),
                       ).animate().fadeIn(delay: 200.ms),
+                      if (_appVersion.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text('v$_appVersion',
+                          style: AppTheme.sora(12, color: Colors.white.withValues(alpha: 0.45)),
+                        ).animate().fadeIn(delay: 350.ms),
+                      ],
                     ],
                   ),
                 ),

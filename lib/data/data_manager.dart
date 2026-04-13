@@ -1,3 +1,5 @@
+import 'package:package_info_plus/package_info_plus.dart';
+import '../core/constants/app_constants.dart';
 import '../core/utils/app_utils.dart';
 import 'local/local_storage_service.dart';
 import 'models/attendance_model.dart';
@@ -42,37 +44,79 @@ class DataManager {
   static bool _isPastMonth(String monthKey) =>
       monthKey.compareTo(currentMonthKey) < 0;
 
+  // ─── Seeding ───────────────────────────────────────────────────────────────
+
+  /// Called on every app start from HomeBloc._onInit.
+  ///
+  /// Compares the cached app version in Hive against the current build version.
+  /// If they differ (reinstall, update, or new device), today's attendance,
+  /// visits, and locations are fetched from Firestore and written into Hive,
+  /// then the current version is saved so the next cold-start is a no-op.
+  static Future<void> seedTodayDataAsAppHasReinstalled(
+      String userId, String date) async {
+    final info = await PackageInfo.fromPlatform();
+    final currentVersion = info.version;
+    final cachedVersion =
+        LocalStorageService.getSetting<String>(AppConstants.cacheVersionKey);
+
+    // Version matches → Hive is already seeded for this install; nothing to do.
+    if (cachedVersion == currentVersion) return;
+    try {
+      final attendance = await _repo.getAttendance(userId, date);
+      if (attendance != null) {
+        await LocalStorageService.saveAttendance(attendance);
+      }
+    } catch (_) {}
+
+    try {
+      final start = DateTime.parse(date);
+      final visits = await _repo.getVisitsByDateRange(
+          userId, start, start.add(const Duration(days: 1)));
+      for (final v in visits) {
+        await LocalStorageService.saveVisit(v);
+      }
+    } catch (_) {}
+
+    try {
+      final dayLocs = await _repo.getDayLocations(userId, date);
+      final points = dayLocs?.points ?? [];
+      if (points.isNotEmpty) {
+        await LocalStorageService.saveTodayLocations(points);
+      }
+    } catch (_) {}
+
+    // Write version last — only after seeding succeeds — so a partial failure
+    // retries on the next cold-start rather than skipping the seed forever.
+    await LocalStorageService.setSetting(
+        AppConstants.cacheVersionKey, currentVersion);
+  }
+
   // ─── Attendance ────────────────────────────────────────────────────────────
 
   static Future<AttendanceModel?> getAttendance(
       String userId, String date) async {
-    // Own user: Hive is the source of truth for any day.
+    // Own user: Hive is the sole source of truth — seeded at login.
     if (isOwner(userId)) {
-      final cached = LocalStorageService.getAttendance(date);
-      if (cached != null) return cached;
-    } else {
-      // Manager: check namespaced cache.
-      final cached = LocalStorageService.getAttendanceForUser(userId, date);
-      if (cached != null && _isPastDay(date)) return cached; // sealed
-      if (cached != null) {
-        // Today — still return cached but also refresh from Firestore.
-        _repo.getAttendance(userId, date).then((remote) async {
-          if (remote != null) {
-            await LocalStorageService.saveAttendanceForUser(userId, remote);
-          }
-        });
-        return cached;
-      }
+      return LocalStorageService.getAttendance(date);
+    }
+
+    // Manager: check namespaced cache.
+    final cached = LocalStorageService.getAttendanceForUser(userId, date);
+    if (cached != null && _isPastDay(date)) return cached; // sealed
+    if (cached != null) {
+      // Today — return cached but refresh in background.
+      _repo.getAttendance(userId, date).then((remote) async {
+        if (remote != null) {
+          await LocalStorageService.saveAttendanceForUser(userId, remote);
+        }
+      });
+      return cached;
     }
 
     // Cache miss → Firestore.
     final remote = await _repo.getAttendance(userId, date);
     if (remote != null) {
-      if (isOwner(userId)) {
-        await LocalStorageService.saveAttendance(remote);
-      } else {
-        await LocalStorageService.saveAttendanceForUser(userId, remote);
-      }
+      await LocalStorageService.saveAttendanceForUser(userId, remote);
     }
     return remote;
   }
@@ -81,7 +125,7 @@ class DataManager {
 
   static Future<List<VisitModel>> getVisitsForDay(
       String userId, String date) async {
-    // Own user, today → Hive visits box (updated live by the app).
+    // Own user, today → Hive only (seeded from Firestore at login).
     if (isOwner(userId) && !_isPastDay(date)) {
       return LocalStorageService.getOwnVisitsForDate(date);
     }
@@ -118,18 +162,9 @@ class DataManager {
 
   static Future<List<LocationPoint>> getLocations(
       String userId, String date) async {
-    // Own user, today → live locations box.
+    // Own user, today → Hive only (seeded from Firestore at login).
     if (isOwner(userId) && date == AppUtils.todayKey()) {
-      final cached = LocalStorageService.getTodayLocations();
-      if (cached.isNotEmpty) return cached;
-      // Cache empty (e.g. mid-day reinstall) — seed from Firestore once so
-      // the map shows the last known position instead of "Acquiring GPS".
-      final dayLocs = await _repo.getDayLocations(userId, date);
-      final points = dayLocs?.points ?? [];
-      if (points.isNotEmpty) {
-        await LocalStorageService.saveTodayLocations(points);
-      }
-      return points;
+      return LocalStorageService.getTodayLocations();
     }
 
     // Check persisted cache (works for both own past days and manager views).

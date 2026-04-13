@@ -48,6 +48,9 @@ dependencies:
   # Fonts
   google_fonts: ^8.0.2
 
+  # App info
+  package_info_plus: ^8.0.0
+
   # Utilities
   intl: ^0.20.2
   uuid: ^4.5.1
