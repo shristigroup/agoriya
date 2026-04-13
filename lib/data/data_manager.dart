@@ -112,7 +112,16 @@ class DataManager {
       String userId, String date) async {
     // Own user, today → live locations box.
     if (isOwner(userId) && date == AppUtils.todayKey()) {
-      return LocalStorageService.getTodayLocations();
+      final cached = LocalStorageService.getTodayLocations();
+      if (cached.isNotEmpty) return cached;
+      // Cache empty (e.g. mid-day reinstall) — seed from Firestore once so
+      // the map shows the last known position instead of "Acquiring GPS".
+      final dayLocs = await _repo.getDayLocations(userId, date);
+      final points = dayLocs?.points ?? [];
+      if (points.isNotEmpty) {
+        await LocalStorageService.saveTodayLocations(points);
+      }
+      return points;
     }
 
     // Check persisted cache (works for both own past days and manager views).

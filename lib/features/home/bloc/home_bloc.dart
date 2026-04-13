@@ -409,7 +409,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       );
       if (updatedAtt != null) await LocalStorageService.saveAttendance(updatedAtt);
 
-      final allVisits = LocalStorageService.getAllVisits();
+      final allVisits = LocalStorageService.getOwnVisitsForDate(today);
       final filtered = current.filterClient != null
           ? allVisits.where((v) => v.clientName == current.filterClient).toList()
           : allVisits;
@@ -431,7 +431,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     try {
       await _repo.updateVisit(userId, event.visit);
       await LocalStorageService.saveVisit(event.visit);
-      final allVisits = LocalStorageService.getAllVisits();
+      final allVisits = LocalStorageService.getOwnVisitsForDate(AppUtils.todayKey());
       final filtered = current.filterClient != null
           ? allVisits.where((v) => v.clientName == current.filterClient).toList()
           : allVisits;
