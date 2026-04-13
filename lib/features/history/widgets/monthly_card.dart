@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../data/local/local_storage_service.dart';
+import '../../../data/data_manager.dart';
 import '../../../data/models/monthly_summary_model.dart';
-import '../../../data/repositories/firestore_repository.dart';
 
 class MonthlyCard extends StatefulWidget {
   final String userId;
@@ -21,7 +19,6 @@ class MonthlyCard extends StatefulWidget {
 }
 
 class _MonthlyCardState extends State<MonthlyCard> {
-  final _repo = FirestoreRepository();
   MonthlySummaryModel? _summary;
   bool _loading = true;
   String? _error;
@@ -32,80 +29,15 @@ class _MonthlyCardState extends State<MonthlyCard> {
     _load();
   }
 
-  bool get _isCurrentMonth {
-    final now = DateTime.now();
-    return widget.monthKey ==
-        '${now.year}-${now.month.toString().padLeft(2, '0')}';
-  }
-
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     try {
-      // Current month is always recomputed (data still changing).
-      // Past months: check local cache → Firestore → compute fresh.
-      if (!_isCurrentMonth) {
-        final cached = LocalStorageService.getMonthlySummary(
-            widget.userId, widget.monthKey);
-        if (cached != null) {
-          if (mounted) setState(() { _summary = cached; _loading = false; });
-          return;
-        }
-
-        final fromDb =
-            await _repo.getMonthlySummary(widget.userId, widget.monthKey);
-        if (fromDb != null) {
-          await LocalStorageService.saveMonthlySummary(
-              widget.userId, widget.monthKey, fromDb);
-          if (mounted) setState(() { _summary = fromDb; _loading = false; });
-          return;
-        }
-      }
-
-      // Not in cache/Firestore (or current month) — compute from raw data.
-      final summary = await _compute();
-      await _repo.saveMonthlySummary(widget.userId, summary);
-      if (!_isCurrentMonth) {
-        await LocalStorageService.saveMonthlySummary(
-            widget.userId, widget.monthKey, summary);
-      }
+      final summary = await DataManager.getMonthlySummary(
+          widget.userId, widget.monthKey);
       if (mounted) setState(() { _summary = summary; _loading = false; });
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _loading = false; });
     }
-  }
-
-  Future<MonthlySummaryModel> _compute() async {
-    final attendance =
-        await _repo.getAttendanceForMonth(widget.userId, widget.monthKey);
-
-    final monthStart = DateTime.parse('${widget.monthKey}-01');
-    final monthEnd =
-        DateTime(monthStart.year, monthStart.month + 1, 1);
-    final visits = await _repo.getVisitsByDateRange(
-        widget.userId, monthStart, monthEnd);
-
-    int punchCount = 0;
-    int totalMinutes = 0;
-    double totalDistance = 0;
-    for (final att in attendance) {
-      if (att.isPunchedIn) punchCount++;
-      totalMinutes += att.attendanceDuration.inMinutes;
-      totalDistance += att.distance;
-    }
-
-    final totalExpense =
-        visits.fold<double>(0, (s, v) => s + (v.expenseAmount ?? 0));
-
-    return MonthlySummaryModel(
-      monthKey: widget.monthKey,
-      punchCount: punchCount,
-      totalHours: totalMinutes ~/ 60,
-      totalMinutes: totalMinutes % 60,
-      totalDistanceKm: totalDistance.round(),
-      totalVisits: visits.length,
-      totalExpense: totalExpense.round(),
-      computedAt: DateTime.now(),
-    );
   }
 
   @override
@@ -136,7 +68,7 @@ class _MonthlyCardState extends State<MonthlyCard> {
                             weight: FontWeight.w700,
                             color: AppTheme.primary)),
                   ),
-                  if (_isCurrentMonth) ...[
+                  if (widget.monthKey == DataManager.currentMonthKey) ...[
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(

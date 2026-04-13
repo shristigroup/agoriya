@@ -10,6 +10,7 @@ import 'home_event.dart';
 import 'home_state.dart';
 import '../../../data/repositories/firestore_repository.dart';
 import '../../../data/local/local_storage_service.dart';
+import '../../../data/data_manager.dart';
 import '../../../data/models/attendance_model.dart';
 import '../../../data/models/visit_model.dart';
 import '../../../data/models/location_model.dart';
@@ -74,11 +75,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
     final today = AppUtils.todayKey();
 
-    // Phase 1: emit from local cache immediately
-    AttendanceModel? attendance = LocalStorageService.getAttendance(today);
-    final visits = LocalStorageService.getAllVisits();
-    final locations = LocalStorageService.getTodayLocations();
-    final displayDistance = LocalStorageService.getTotalDistanceDirty();
+    final attendance = await DataManager.getAttendance(userId, today);
+    final visits = await DataManager.getVisitsForDay(userId, today);
+    final locations = await DataManager.getLocations(userId, today);
 
     LatLng? lastKnownLocation;
     try {
@@ -86,70 +85,22 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       if (pos != null) lastKnownLocation = LatLng(pos.latitude, pos.longitude);
     } catch (_) {}
 
+    // Own user: live distance from Hive (includes haversine on dirty points).
+    // Manager: use what Firestore last recorded on the attendance doc.
+    final displayDistance = DataManager.isOwner(userId)
+        ? LocalStorageService.getTotalDistanceDirty()
+        : (attendance?.distance ?? 0.0);
+
     emit(HomeLoaded(
       attendance: attendance,
-      locations: locations,
       visits: visits,
       filteredVisits: visits,
+      locations: locations,
       lastKnownLocation: lastKnownLocation,
       displayDistance: displayDistance,
     ));
 
-    // Phase 2: background refresh from Firestore
-    try {
-      final freshAttendance = await _repo.getAttendance(userId, today);
-      if (freshAttendance != null) {
-        await LocalStorageService.saveAttendance(freshAttendance);
-        attendance = freshAttendance;
-      }
-
-      final remoteVisits = await _repo.getVisits(userId);
-      for (final v in remoteVisits) {
-        await LocalStorageService.saveVisit(v);
-      }
-      final allVisits = LocalStorageService.getAllVisits();
-
-      if (freshAttendance?.isPunchedIn == true && !freshAttendance!.isPunchedOut) {
-        final dayLocs = await _repo.getDayLocations(userId, today);
-        if (dayLocs != null) {
-          await LocalStorageService.saveTodayLocations(dayLocs.points);
-        }
-      }
-
-      final freshLocations = LocalStorageService.getTodayLocations();
-
-      // Use the better of local estimate vs Firestore haversine distance
-      final firestoreDist = freshAttendance?.distance ?? 0.0;
-      final localDist = LocalStorageService.getTotalDistanceDirty();
-      final bestDist = firestoreDist > localDist ? firestoreDist : localDist;
-      if (bestDist > localDist) {
-        await LocalStorageService.saveTotalDistanceDirty(bestDist);
-      }
-
-      emit(HomeLoaded(
-        attendance: attendance,
-        locations: freshLocations,
-        visits: allVisits,
-        filteredVisits: allVisits,
-        lastKnownLocation: lastKnownLocation,
-        displayDistance: bestDist,
-      ));
-
-      // Phase 3: snap dirty points if any exist
-      if (freshLocations.any((p) => !p.isSnapped)) {
-        add(SnapDirtyPointsEvent());
-      }
-    } catch (e) {
-      emit(HomeError(e.toString()));
-      emit(HomeLoaded(
-        attendance: attendance,
-        locations: locations,
-        visits: visits,
-        filteredVisits: visits,
-        lastKnownLocation: lastKnownLocation,
-        displayDistance: displayDistance,
-      ));
-    }
+    if (locations.any((p) => !p.isSnapped)) add(SnapDirtyPointsEvent());
   }
 
   // ── Punch In ──────────────────────────────────────────────────────────────
@@ -211,6 +162,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       // Snap any remaining dirty points (≤15, one fast OSRM call).
       final dirty = locations.where((p) => !p.isSnapped).toList();
       double finalDistance = LocalStorageService.getTotalDistance();
+      List<LocationPoint> snappedDirty = [];
 
       if (dirty.isNotEmpty) {
         LocationPoint? anchor;
@@ -224,7 +176,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         );
 
         final startIdx = anchor != null ? 1 : 0;
-        final snappedDirty = <LocationPoint>[];
         for (int i = startIdx; i < input.length; i++) {
           final pos = tracepoints[i] ?? input[i].position;
           snappedDirty.add(LocationPoint(
@@ -256,6 +207,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         distance: finalDistance,
       );
       await LocalStorageService.saveAttendance(updatedAttendance);
+
+      // Persist fully-snapped locations to the per-day cache before wiping
+      // today's slot, so HistoryDayScreen can load them from Hive.
+      final finalLocations = dirty.isEmpty
+          ? locations
+          : ([...locations.where((p) => p.isSnapped), ...snappedDirty]
+              ..sort((a, b) => a.timestamp.compareTo(b.timestamp)));
+      await LocalStorageService.saveLocations(userId, today, finalLocations);
       await LocalStorageService.clearTodayLocations();
       await LocalStorageService.clearDistances();
 

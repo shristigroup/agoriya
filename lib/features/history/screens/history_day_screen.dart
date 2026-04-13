@@ -4,10 +4,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
+import '../../../data/data_manager.dart';
 import '../../../data/models/attendance_model.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/models/visit_model.dart';
-import '../../../data/repositories/firestore_repository.dart';
 import '../../home/track/track_tab.dart';
 
 class HistoryDayScreen extends StatefulWidget {
@@ -29,7 +29,6 @@ class HistoryDayScreen extends StatefulWidget {
 class _HistoryDayScreenState extends State<HistoryDayScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final _repo = FirestoreRepository();
 
   // Visits
   List<VisitModel> _visits = [];
@@ -54,11 +53,8 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
 
   Future<void> _fetchVisits() async {
     try {
-      final date = DateTime.parse(widget.attendance.date);
-      final start = DateTime(date.year, date.month, date.day);
-      final end = start.add(const Duration(days: 1));
-      final visits =
-          await _repo.getVisitsByDateRange(widget.userId, start, end);
+      final visits = await DataManager.getVisitsForDay(
+          widget.userId, widget.attendance.date);
       if (mounted) setState(() { _visits = visits; _visitsLoading = false; });
     } catch (_) {
       if (mounted) setState(() => _visitsLoading = false);
@@ -68,11 +64,11 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
   Future<void> _fetchRoute() async {
     setState(() => _routeState = _RouteState.loading);
     try {
-      final dayLocs =
-          await _repo.getDayLocations(widget.userId, widget.attendance.date);
+      final points = await DataManager.getLocations(
+          widget.userId, widget.attendance.date);
       if (mounted) {
         setState(() {
-          _locations = dayLocs?.points ?? [];
+          _locations = points;
           _routeState = _RouteState.loaded;
         });
       }
