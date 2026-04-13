@@ -5,13 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'home_event.dart';
 import 'home_state.dart';
-import '../../../data/repositories/firestore_repository.dart';
-import '../../../data/local/local_storage_service.dart';
 import '../../../data/data_manager.dart';
-import '../../../data/models/attendance_model.dart';
 import '../../../data/models/visit_model.dart';
 import '../../../data/models/location_model.dart';
 import '../../../core/utils/app_utils.dart';
@@ -19,7 +15,6 @@ import '../../../services/location_tracking_service.dart';
 import '../../../services/osrm_service.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
-  final FirestoreRepository _repo;
   final String userId;
 
   // Guards against concurrent or duplicate operations
@@ -30,9 +25,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   StreamSubscription? _newPointSub;
   StreamSubscription? _batchFlushedSub;
 
-  HomeBloc({required this.userId, FirestoreRepository? repo})
-      : _repo = repo ?? FirestoreRepository(),
-        super(HomeInitial()) {
+  HomeBloc({required this.userId}) : super(HomeInitial()) {
     on<HomeInitEvent>(_onInit);
     on<PunchInEvent>(_onPunchIn);
     on<PunchOutEvent>(_onPunchOut);
@@ -74,7 +67,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
     final today = AppUtils.todayKey();
 
-    // Seed today's data from Firestore if Hive is empty (reinstall / new device).
+    // Seed today's data from Firestore if Hive is empty (reinstall / update).
     // No-op on normal app resume — exits immediately after one Hive read.
     await DataManager.seedTodayDataAsAppHasReinstalled(userId, today);
 
@@ -104,19 +97,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   Future<void> _onPunchIn(PunchInEvent event, Emitter<HomeState> emit) async {
     try {
       final today = AppUtils.todayKey();
-      final now = DateTime.now();
-      final attendance = AttendanceModel(
-        date: today,
-        punchInTimestamp: now,
-        punchInImage: event.imageUrl,
-      );
-      await _repo.punchIn(userId, today, now, event.imageUrl);
-      await LocalStorageService.saveAttendance(attendance);
-      await LocalStorageService.clearTodayLocations();
-      await LocalStorageService.clearDistances(); // reset for new day
-
+      final attendance = await DataManager.punchIn(
+          userId, today, DateTime.now(), event.imageUrl);
       await LocationTrackingService.start(userId, today);
-
       emit(PunchInSuccess(attendance));
     } catch (e) {
       emit(HomeError(e.toString()));
@@ -144,75 +127,34 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       await Future.delayed(const Duration(seconds: 1));
 
       // Determine last known position.
-      final locations = LocalStorageService.getTodayLocations();
-      LatLng? lastLoc = locations.isNotEmpty ? locations.last.position : null;
+      final locations = current.locations;
+      LatLng? lastLoc =
+          locations.isNotEmpty ? locations.last.position : null;
       if (lastLoc == null) {
         try {
           final pos = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+            locationSettings:
+                const LocationSettings(accuracy: LocationAccuracy.high),
           );
           lastLoc = LatLng(pos.latitude, pos.longitude);
         } catch (_) {}
       }
 
-      // Snap any remaining dirty points (≤15, one fast OSRM call).
-      final dirty = locations.where((p) => !p.isSnapped).toList();
-      double finalDistance = LocalStorageService.getTotalDistance();
-      List<LocationPoint> snappedDirty = [];
+      // Snap remaining dirty points and calculate the final distance.
+      final (finalLocations, finalDistance, dirtyPoints, snappedPoints) =
+          await _snapFinalBatch(locations);
 
-      if (dirty.isNotEmpty) {
-        LocationPoint? anchor;
-        for (final p in locations.reversed) {
-          if (p.isSnapped) { anchor = p; break; }
-        }
-
-        final input = [if (anchor != null) anchor, ...dirty];
-        final tracepoints = await OsrmService.snapTracepoints(
-          input.map((p) => p.position).toList(),
-        );
-
-        final startIdx = anchor != null ? 1 : 0;
-        for (int i = startIdx; i < input.length; i++) {
-          final pos = tracepoints[i] ?? input[i].position;
-          snappedDirty.add(LocationPoint(
-            position: pos,
-            timestamp: input[i].timestamp,
-            isSnapped: true,
-          ));
-        }
-
-        // Incremental road distance for this final batch.
-        final distInput = [if (anchor != null) anchor, ...snappedDirty];
-        for (int i = 0; i < distInput.length - 1; i++) {
-          finalDistance += _haversine(distInput[i].position, distInput[i + 1].position);
-        }
-
-        await _repo.replaceLocationsWithSnapped(userId, today, dirty, snappedDirty);
-      }
-
-      final geoPoint = lastLoc != null
-          ? GeoPoint(lastLoc.latitude, lastLoc.longitude)
-          : const GeoPoint(0, 0);
-
-      await _repo.punchOut(userId, today, now, geoPoint);
-      await _repo.updateDistance(userId, today, finalDistance);
-
-      final updatedAttendance = current.attendance!.copyWith(
-        punchOutTimestamp: now,
-        punchOutLocation: lastLoc,
-        distance: finalDistance,
+      final updatedAttendance = await DataManager.punchOut(
+        userId: userId,
+        date: today,
+        currentAttendance: current.attendance!,
+        timestamp: now,
+        lastLocation: lastLoc,
+        finalLocations: finalLocations,
+        finalDistance: finalDistance,
+        dirtyPoints: dirtyPoints,
+        snappedPoints: snappedPoints,
       );
-      await LocalStorageService.saveAttendance(updatedAttendance);
-
-      // Persist fully-snapped locations to the per-day cache before wiping
-      // today's slot, so HistoryDayScreen can load them from Hive.
-      final finalLocations = dirty.isEmpty
-          ? locations
-          : ([...locations.where((p) => p.isSnapped), ...snappedDirty]
-              ..sort((a, b) => a.timestamp.compareTo(b.timestamp)));
-      await LocalStorageService.saveLocations(userId, today, finalLocations);
-      await LocalStorageService.clearTodayLocations();
-      await LocalStorageService.clearDistances();
 
       emit(PunchOutSuccess(
         attendance: updatedAttendance,
@@ -229,6 +171,60 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
+  /// Snaps any remaining dirty points via OSRM and returns
+  /// (finalLocations, finalDistance, dirtyPoints, snappedPoints).
+  /// Returns the original list unchanged when there are no dirty points.
+  Future<
+      (
+        List<LocationPoint>, // all locations, fully snapped
+        double,              // final OSRM-accurate distance
+        List<LocationPoint>, // original dirty points (pre-snap)
+        List<LocationPoint>, // snapped replacements
+      )> _snapFinalBatch(List<LocationPoint> locations) async {
+    final dirty = locations.where((p) => !p.isSnapped).toList();
+    double finalDistance = DataManager.getSnappedDistance();
+
+    if (dirty.isEmpty) {
+      return (locations, finalDistance, <LocationPoint>[], <LocationPoint>[]);
+    }
+
+    // Find last snapped point as the distance anchor.
+    LocationPoint? anchor;
+    for (final p in locations.reversed) {
+      if (p.isSnapped) { anchor = p; break; }
+    }
+
+    final input = [if (anchor != null) anchor, ...dirty];
+    final tracepoints = await OsrmService.snapTracepoints(
+      input.map((p) => p.position).toList(),
+    );
+
+    final startIdx = anchor != null ? 1 : 0;
+    final snappedDirty = <LocationPoint>[];
+    for (int i = startIdx; i < input.length; i++) {
+      final pos = tracepoints[i] ?? input[i].position;
+      snappedDirty.add(LocationPoint(
+        position: pos,
+        timestamp: input[i].timestamp,
+        isSnapped: true,
+      ));
+    }
+
+    // Haversine between consecutive snapped points for road-accurate distance.
+    final distInput = [if (anchor != null) anchor, ...snappedDirty];
+    for (int i = 0; i < distInput.length - 1; i++) {
+      finalDistance +=
+          _haversine(distInput[i].position, distInput[i + 1].position);
+    }
+
+    final finalLocations = [
+      ...locations.where((p) => p.isSnapped),
+      ...snappedDirty,
+    ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    return (finalLocations, finalDistance, dirty, snappedDirty);
+  }
+
   // ── Resume Session ────────────────────────────────────────────────────────
 
   Future<void> _onResumeSession(
@@ -242,18 +238,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
       // Clears punchOutTimestamp + punchOutLocation — Cloud Function detects
       // this write and sends FCM "resumed session" notification to the manager.
-      await _repo.resumeSession(userId, today);
-
-      final resumed = AttendanceModel(
-        date: current.attendance!.date,
-        punchInTimestamp: current.attendance!.punchInTimestamp,
-        punchOutTimestamp: null,
-        punchInImage: current.attendance!.punchInImage,
-        distance: current.attendance!.distance,
-        punchOutLocation: null,
-        customerVisitCount: current.attendance!.customerVisitCount,
-      );
-      await LocalStorageService.saveAttendance(resumed);
+      final resumed =
+          await DataManager.resumeSession(userId, today, current.attendance!);
 
       // Restart background location tracking from where it left off.
       await LocationTrackingService.start(userId, today);
@@ -287,8 +273,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final updatedLocations = [...current.locations, newPoint];
     final newDisplayDistance = current.displayDistance + delta;
 
-    await LocalStorageService.saveTodayLocations(updatedLocations);
-    await LocalStorageService.saveTotalDistanceDirty(newDisplayDistance);
+    await DataManager.updateLiveLocation(updatedLocations, newDisplayDistance);
 
     emit(current.copyWith(
       locations: updatedLocations,
@@ -312,7 +297,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
     try {
       final today = AppUtils.todayKey();
-      double totalDistance = LocalStorageService.getTotalDistance();
+      double totalDistance = DataManager.getSnappedDistance();
 
       // Find last snapped point as the distance anchor.
       LocationPoint? anchor;
@@ -344,27 +329,34 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         // Haversine between consecutive snapped points for road-accurate distance.
         final distInput = [if (anchor != null) anchor, ...snappedBatch];
         for (int i = 0; i < distInput.length - 1; i++) {
-          totalDistance += _haversine(distInput[i].position, distInput[i + 1].position);
+          totalDistance +=
+              _haversine(distInput[i].position, distInput[i + 1].position);
         }
 
         allSnapped.addAll(snappedBatch);
         anchor = snappedBatch.last;
 
-        // Replace this batch in Firestore.
-        await _repo.replaceLocationsWithSnapped(userId, today, batch, snappedBatch);
+        // Rebuild location list and persist this batch.
+        final updatedLocations = [
+          ...current.locations.where((p) => p.isSnapped),
+          ...allSnapped,
+        ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+        await DataManager.saveSnappedBatch(
+          userId: userId,
+          date: today,
+          dirty: batch,
+          snapped: snappedBatch,
+          totalDistance: totalDistance,
+          updatedAllLocations: updatedLocations,
+        );
       }
 
-      await LocalStorageService.saveTotalDistance(totalDistance);
-      await LocalStorageService.saveTotalDistanceDirty(totalDistance); // no dirty remaining
-      await _repo.updateDistance(userId, today, totalDistance);
-
-      // Rebuild location list: existing snapped + newly snapped, sorted by time.
+      // Final state update with all snapped points.
       final updatedLocations = [
         ...current.locations.where((p) => p.isSnapped),
         ...allSnapped,
       ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-      await LocalStorageService.saveTodayLocations(updatedLocations);
 
       emit(current.copyWith(
         isSnapping: false,
@@ -383,33 +375,29 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   // ── Visits ────────────────────────────────────────────────────────────────
 
-  Future<void> _onCreateVisit(CreateVisitEvent event, Emitter<HomeState> emit) async {
+  Future<void> _onCreateVisit(
+      CreateVisitEvent event, Emitter<HomeState> emit) async {
     if (state is! HomeLoaded) return;
     final current = state as HomeLoaded;
     try {
+      final today = AppUtils.todayKey();
       final now = DateTime.now();
-      final visitId = AppUtils.visitDocId(event.clientName, event.location, now);
+      final visitId =
+          AppUtils.visitDocId(event.clientName, event.location, now);
       final visit = VisitModel(
         id: visitId,
         clientName: event.clientName,
         location: event.location,
         checkinTimestamp: now,
       );
-      await _repo.createVisit(userId, visit);
-      await LocalStorageService.saveVisit(visit);
 
-      final today = AppUtils.todayKey();
-      await _repo.incrementVisitCount(userId, today);
-      final updatedAtt = current.attendance?.copyWith(
-        customerVisitCount: (current.attendance?.customerVisitCount ?? 0) + 1,
-      );
-      if (updatedAtt != null) await LocalStorageService.saveAttendance(updatedAtt);
-
+      final updatedAttendance = await DataManager.createVisit(
+          userId, visit, today, current.attendance);
       final allVisits = await DataManager.getVisitsForDay(userId, today);
 
       emit(VisitCreated(visit));
       emit(current.copyWith(
-        attendance: updatedAtt,
+        attendance: updatedAttendance ?? current.attendance,
         visits: allVisits,
       ));
     } catch (e) {
@@ -417,13 +405,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
-  Future<void> _onUpdateVisit(UpdateVisitEvent event, Emitter<HomeState> emit) async {
+  Future<void> _onUpdateVisit(
+      UpdateVisitEvent event, Emitter<HomeState> emit) async {
     if (state is! HomeLoaded) return;
     final current = state as HomeLoaded;
     try {
-      await _repo.updateVisit(userId, event.visit);
-      await LocalStorageService.saveVisit(event.visit);
-      final allVisits = await DataManager.getVisitsForDay(userId, AppUtils.todayKey());
+      await DataManager.updateVisit(userId, event.visit);
+      final allVisits =
+          await DataManager.getVisitsForDay(userId, AppUtils.todayKey());
       emit(VisitUpdated(event.visit));
       emit(current.copyWith(visits: allVisits));
     } catch (e) {
@@ -431,25 +420,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
-  Future<void> _onCheckOutVisit(CheckOutVisitEvent event, Emitter<HomeState> emit) async {
-    add(UpdateVisitEvent(event.visit.copyWith(checkoutTimestamp: DateTime.now())));
+  Future<void> _onCheckOutVisit(
+      CheckOutVisitEvent event, Emitter<HomeState> emit) async {
+    add(UpdateVisitEvent(
+        event.visit.copyWith(checkoutTimestamp: DateTime.now())));
   }
 
-  Future<void> _onAddComment(AddCommentEvent event, Emitter<HomeState> emit) async {
+  Future<void> _onAddComment(
+      AddCommentEvent event, Emitter<HomeState> emit) async {
     try {
-      final user = LocalStorageService.getUser();
-      if (user == null) return;
-      await _repo.addComment(
-        event.targetUserId,
-        event.visitId,
-        VisitComment(
-          id: '',
-          userId: user.id,
-          userName: user.fullName,
-          text: event.text,
-          timestamp: DateTime.now(),
-        ),
-      );
+      await DataManager.addComment(
+          event.targetUserId, event.visitId, event.text);
     } catch (e) {
       emit(HomeError(e.toString()));
     }

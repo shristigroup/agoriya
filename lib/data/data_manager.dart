@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/app_utils.dart';
@@ -5,6 +7,7 @@ import 'local/local_storage_service.dart';
 import 'models/attendance_model.dart';
 import 'models/location_model.dart';
 import 'models/monthly_summary_model.dart';
+import 'models/user_model.dart';
 import 'models/visit_model.dart';
 import 'repositories/firestore_repository.dart';
 
@@ -265,6 +268,161 @@ class DataManager {
       totalVisits: visits.length,
       totalExpense: totalExpense.round(),
       computedAt: DateTime.now(),
+    );
+  }
+
+  // ─── Punch In ──────────────────────────────────────────────────────────────
+
+  /// Creates the attendance record in Firestore and Hive, then resets today's
+  /// location slot and distances for the new session.
+  static Future<AttendanceModel> punchIn(
+    String userId,
+    String date,
+    DateTime timestamp,
+    String imageUrl,
+  ) async {
+    final attendance = AttendanceModel(
+      date: date,
+      punchInTimestamp: timestamp,
+      punchInImage: imageUrl,
+    );
+    await _repo.punchIn(userId, date, timestamp, imageUrl);
+    await LocalStorageService.saveAttendance(attendance);
+    await LocalStorageService.clearTodayLocations();
+    await LocalStorageService.clearDistances();
+    return attendance;
+  }
+
+  // ─── Punch Out ─────────────────────────────────────────────────────────────
+
+  /// Writes punch-out to Firestore, persists updated attendance and final
+  /// locations to Hive. Does NOT clear today's slot so a resumed session can
+  /// still access pre-punchOut locations without a Firestore round-trip.
+  static Future<AttendanceModel> punchOut({
+    required String userId,
+    required String date,
+    required AttendanceModel currentAttendance,
+    required DateTime timestamp,
+    required LatLng? lastLocation,
+    required List<LocationPoint> finalLocations,
+    required double finalDistance,
+    required List<LocationPoint> dirtyPoints,
+    required List<LocationPoint> snappedPoints,
+  }) async {
+    if (dirtyPoints.isNotEmpty) {
+      await _repo.replaceLocationsWithSnapped(
+          userId, date, dirtyPoints, snappedPoints);
+    }
+    final geoPoint = lastLocation != null
+        ? GeoPoint(lastLocation.latitude, lastLocation.longitude)
+        : const GeoPoint(0, 0);
+    await _repo.punchOut(userId, date, timestamp, geoPoint);
+    await _repo.updateDistance(userId, date, finalDistance);
+    final updated = currentAttendance.copyWith(
+      punchOutTimestamp: timestamp,
+      punchOutLocation: lastLocation,
+      distance: finalDistance,
+    );
+    await LocalStorageService.saveAttendance(updated);
+    await LocalStorageService.saveLocations(userId, date, finalLocations);
+    return updated;
+  }
+
+  // ─── Resume Session ────────────────────────────────────────────────────────
+
+  static Future<AttendanceModel> resumeSession(
+    String userId,
+    String date,
+    AttendanceModel currentAttendance,
+  ) async {
+    await _repo.resumeSession(userId, date);
+    // copyWith cannot null out fields — construct directly.
+    final resumed = AttendanceModel(
+      date: currentAttendance.date,
+      punchInTimestamp: currentAttendance.punchInTimestamp,
+      punchOutTimestamp: null,
+      punchInImage: currentAttendance.punchInImage,
+      distance: currentAttendance.distance,
+      punchOutLocation: null,
+      customerVisitCount: currentAttendance.customerVisitCount,
+    );
+    await LocalStorageService.saveAttendance(resumed);
+    return resumed;
+  }
+
+  // ─── Live location helpers ─────────────────────────────────────────────────
+
+  /// OSRM-accurate snapped distance stored in Hive.
+  static double getSnappedDistance() => LocalStorageService.getTotalDistance();
+
+  /// Called on each new GPS point — persists to Hive immediately.
+  static Future<void> updateLiveLocation(
+    List<LocationPoint> updatedLocations,
+    double displayDistance,
+  ) async {
+    await LocalStorageService.saveTodayLocations(updatedLocations);
+    await LocalStorageService.saveTotalDistanceDirty(displayDistance);
+  }
+
+  /// Persists one snapped batch: Firestore replace + distance + Hive state.
+  static Future<void> saveSnappedBatch({
+    required String userId,
+    required String date,
+    required List<LocationPoint> dirty,
+    required List<LocationPoint> snapped,
+    required double totalDistance,
+    required List<LocationPoint> updatedAllLocations,
+  }) async {
+    await _repo.replaceLocationsWithSnapped(userId, date, dirty, snapped);
+    await _repo.updateDistance(userId, date, totalDistance);
+    await LocalStorageService.saveTotalDistance(totalDistance);
+    await LocalStorageService.saveTotalDistanceDirty(totalDistance);
+    await LocalStorageService.saveTodayLocations(updatedAllLocations);
+  }
+
+  // ─── Visits (write path) ──────────────────────────────────────────────────
+
+  /// Creates a visit in Firestore + Hive and increments the visit count.
+  /// Returns the updated attendance model with the new visit count.
+  static Future<AttendanceModel?> createVisit(
+    String userId,
+    VisitModel visit,
+    String date,
+    AttendanceModel? currentAttendance,
+  ) async {
+    await _repo.createVisit(userId, visit);
+    await LocalStorageService.saveVisit(visit);
+    await _repo.incrementVisitCount(userId, date);
+    if (currentAttendance == null) return null;
+    final updated = currentAttendance.copyWith(
+      customerVisitCount: currentAttendance.customerVisitCount + 1,
+    );
+    await LocalStorageService.saveAttendance(updated);
+    return updated;
+  }
+
+  static Future<void> updateVisit(String userId, VisitModel visit) async {
+    await _repo.updateVisit(userId, visit);
+    await LocalStorageService.saveVisit(visit);
+  }
+
+  static Future<void> addComment(
+    String targetUserId,
+    String visitId,
+    String text,
+  ) async {
+    final UserModel? user = LocalStorageService.getUser();
+    if (user == null) return;
+    await _repo.addComment(
+      targetUserId,
+      visitId,
+      VisitComment(
+        id: '',
+        userId: user.id,
+        userName: user.fullName,
+        text: text,
+        timestamp: DateTime.now(),
+      ),
     );
   }
 
