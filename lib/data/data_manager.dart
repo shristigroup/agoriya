@@ -147,12 +147,19 @@ class DataManager {
 
   // ─── Monthly Summary ───────────────────────────────────────────────────────
 
+  /// Synchronous cache-only read — returns immediately with stale data (or null).
+  static MonthlySummaryModel? getCachedMonthlySummary(
+          String userId, String monthKey) =>
+      LocalStorageService.getMonthlySummary(userId, monthKey);
+
   static Future<MonthlySummaryModel?> getMonthlySummary(
       String userId, String monthKey) async {
     // Current month is always recomputed (data is still changing).
+    // Save to local cache so the next load can show stale data immediately.
     if (!_isPastMonth(monthKey)) {
       final summary = await computeMonthlySummary(userId, monthKey);
       await _repo.saveMonthlySummary(userId, summary);
+      await LocalStorageService.saveMonthlySummary(userId, monthKey, summary);
       return summary;
     }
 

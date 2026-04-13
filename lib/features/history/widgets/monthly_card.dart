@@ -30,13 +30,25 @@ class _MonthlyCardState extends State<MonthlyCard> {
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    // Phase 1: show cached data immediately — no wait, no blank card.
+    final cached = DataManager.getCachedMonthlySummary(
+        widget.userId, widget.monthKey);
+    if (cached != null) {
+      setState(() { _summary = cached; _loading = true; });
+    } else {
+      setState(() { _loading = true; _error = null; });
+    }
+
+    // Phase 2: refresh in background; small spinner in card header signals this.
     try {
-      final summary = await DataManager.getMonthlySummary(
+      final fresh = await DataManager.getMonthlySummary(
           widget.userId, widget.monthKey);
-      if (mounted) setState(() { _summary = summary; _loading = false; });
+      if (mounted) setState(() { _summary = fresh; _loading = false; });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted) setState(() {
+        _loading = false;
+        if (_summary == null) _error = e.toString(); // only show error if nothing to display
+      });
     }
   }
 
