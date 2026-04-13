@@ -112,27 +112,57 @@ class _TrackTabState extends State<TrackTab> {
                             ),
                           ),
                         ),
-                  // Current position
+                  // Current position with last-updated timestamp above it
                   if (widget.locations.length > 1)
                     Marker(
                       point: widget.locations.last.position,
-                      width: 40,
-                      height: 40,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppTheme.accent,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.accent.withOpacity(0.4),
-                              blurRadius: 8,
-                              spreadRadius: 2,
+                      width: 90,
+                      height: 62,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 4,
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        child: const Icon(Icons.person_pin,
-                            color: Colors.white, size: 22),
+                            child: Text(
+                              AppUtils.formatTime(
+                                  widget.locations.last.timestamp),
+                              style: AppTheme.sora(10,
+                                  weight: FontWeight.w600,
+                                  color: AppTheme.textSecondary),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppTheme.accent,
+                              shape: BoxShape.circle,
+                              border:
+                                  Border.all(color: Colors.white, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.accent.withValues(alpha: 0.4),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.person_pin,
+                                color: Colors.white, size: 22),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -229,39 +259,6 @@ class _TrackTabState extends State<TrackTab> {
             ],
           ),
         ),
-
-        // Last location timestamp
-        if (hasData)
-          Positioned(
-            bottom: 20,
-            left: 12,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 6,
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.access_time,
-                      size: 14, color: AppTheme.textSecondary),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Last: ${AppUtils.formatTime(widget.locations.last.timestamp)}',
-                    style: AppTheme.sora(12, color: AppTheme.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-          ),
 
         // OSRM snapping indicator
         if (widget.isSnapping)
