@@ -1,10 +1,8 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_messaging/firebase_messaging.dart'
     show AuthorizationStatus;
-import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/app_theme.dart';
@@ -45,7 +43,6 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _currentTab = 0;
-  StreamSubscription? _bgServiceSub;
   bool _loadingDialogOpen = false;
 
   bool get _isReadOnly => widget.viewingUserId != null;
@@ -63,26 +60,12 @@ class _HomeScreenState extends State<HomeScreen>
     });
     if (!_isReadOnly) {
       _checkNotificationPermission();
-      _subscribeToBgService();
       // Request location permissions on first open — runs after first frame
       // so the widget tree is ready to show dialogs.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _ensureLocationPermission();
       });
     }
-  }
-
-  void _subscribeToBgService() {
-    _bgServiceSub = FlutterBackgroundService()
-        .on('newPoint')
-        .listen((data) {
-      if (data == null || !mounted) return;
-      context.read<HomeBloc>().add(NewLocationPointEvent(
-            lat: (data['lat'] as num).toDouble(),
-            lng: (data['lng'] as num).toDouble(),
-            timestamp: DateTime.parse(data['timestamp'] as String),
-          ));
-    });
   }
 
   Future<void> _checkNotificationPermission() async {
@@ -124,7 +107,6 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void dispose() {
     _tabController.dispose();
-    _bgServiceSub?.cancel();
     super.dispose();
   }
 
@@ -318,6 +300,16 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _handlePunchOut() async {
+    final state = context.read<HomeBloc>().state;
+    if (state is HomeLoaded && state.isSnapping) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Route calculation in progress, please wait...'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -399,9 +391,12 @@ class _HomeScreenState extends State<HomeScreen>
         final loaded = state is HomeLoaded ? state : null;
         final isPunchedIn = loaded?.isPunchedIn ?? false;
         final isPunchedOut = loaded?.isPunchedOut ?? false;
+        final isPunchingOut = loaded?.isPunchingOut ?? false;
         final attendance = loaded?.attendance;
 
-        return Scaffold(
+        return Stack(
+          children: [
+            Scaffold(
           appBar: AppBar(
             backgroundColor: AppTheme.primary,
             elevation: 0,
@@ -488,6 +483,7 @@ class _HomeScreenState extends State<HomeScreen>
                             locations: loaded?.locations ?? [],
                             lastKnownLocation: loaded?.lastKnownLocation,
                             isReadOnly: _isReadOnly,
+                            isSnapping: loaded?.isSnapping ?? false,
                           ),
                           BlocProvider.value(
                             value: context.read<HomeBloc>(),
@@ -510,7 +506,27 @@ class _HomeScreenState extends State<HomeScreen>
           floatingActionButton: _isReadOnly
               ? null
               : _buildFAB(context, loaded, isPunchedIn, isPunchedOut),
-
+        ),
+            // Full-screen punch-out overlay
+            if (isPunchingOut)
+              Container(
+                color: Colors.black.withOpacity(0.65),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(color: Colors.white),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Punching out...',
+                        style: AppTheme.sora(16,
+                            weight: FontWeight.w600, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
@@ -539,7 +555,7 @@ class _HomeScreenState extends State<HomeScreen>
             isTrackTab ? 'Distance' : 'Expense',
             isTrackTab
                 ? (isPunchedIn
-                    ? AppUtils.formatDistance(loaded!.attendance?.distance ?? 0)
+                    ? AppUtils.formatDistance(loaded!.displayDistance)
                     : '-')
                 : (isPunchedIn
                     ? '₹${_totalExpense(loaded?.visits ?? []).toStringAsFixed(0)}'

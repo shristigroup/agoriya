@@ -131,6 +131,27 @@ class LocalStorageService {
         .toList();
   }
 
+  // ─── Distance tracking ───────────────────────────────────────────────────────
+  /// OSRM-accurate road distance up to the last snapped batch.
+  static Future<void> saveTotalDistance(double km) async =>
+      _settingsBox.put(AppConstants.totalDistanceKey, km);
+
+  static double getTotalDistance() =>
+      (_settingsBox.get(AppConstants.totalDistanceKey) as num?)?.toDouble() ?? 0.0;
+
+  /// OSRM total + haversine estimate for dirty (unsnapped) points.
+  /// This is what the UI shows as the current distance.
+  static Future<void> saveTotalDistanceDirty(double km) async =>
+      _settingsBox.put(AppConstants.totalDistanceDirtyKey, km);
+
+  static double getTotalDistanceDirty() =>
+      (_settingsBox.get(AppConstants.totalDistanceDirtyKey) as num?)?.toDouble() ?? 0.0;
+
+  static Future<void> clearDistances() async {
+    await _settingsBox.delete(AppConstants.totalDistanceKey);
+    await _settingsBox.delete(AppConstants.totalDistanceDirtyKey);
+  }
+
   // ─── Settings ────────────────────────────────────────────────────────────
   static Future<void> setSetting(String key, dynamic value) async {
     await _settingsBox.put(key, value);

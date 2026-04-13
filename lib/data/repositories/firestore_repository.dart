@@ -93,6 +93,24 @@ class FirestoreRepository {
     return DayLocations.fromFirestore(doc);
   }
 
+  /// Atomically removes [dirty] points and adds their [snapped] replacements.
+  /// Uses two sequential writes — arrayRemove then arrayUnion — so the map
+  /// keys must match exactly what was stored (geoPoint, timestamp, snapped: false).
+  Future<void> replaceLocationsWithSnapped(
+    String userId,
+    String date,
+    List<LocationPoint> dirty,
+    List<LocationPoint> snapped,
+  ) async {
+    final ref = _locationsDoc(userId, date);
+    await ref.update({
+      'locations': FieldValue.arrayRemove(dirty.map((p) => p.toFirestore()).toList()),
+    });
+    await ref.set({
+      'locations': FieldValue.arrayUnion(snapped.map((p) => p.toFirestore()).toList()),
+    }, SetOptions(merge: true));
+  }
+
   // ─── Visits ──────────────────────────────────────────────────────────────
   CollectionReference _visitsCol(String userId) =>
       _users.doc(userId).collection(AppConstants.visitsCollection);

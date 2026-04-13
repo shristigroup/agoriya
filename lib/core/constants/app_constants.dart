@@ -14,8 +14,12 @@ class AppConstants {
 
   // Location tracking
   static const int locationSamplingSeconds = 60;  // sample every 1 min
-  static const int locationBatchSize = 10;         // flush to Firestore every 10 points (~10 min)
-  static const int distanceCalculationMinutes = 10;
+  static const int locationBatchSize = 15;         // flush to Firestore every 15 points (~15 min)
+  static const int distanceCalculationMinutes = 15;
+
+  // Distance storage keys
+  static const String totalDistanceKey = 'total_distance';
+  static const String totalDistanceDirtyKey = 'total_distance_dirty';
 
   // OSRM
   static const String osrmBaseUrl = 'https://router.project-osrm.org';

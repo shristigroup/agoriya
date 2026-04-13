@@ -21,8 +21,6 @@ class NewLocationPointEvent extends HomeEvent {
   NewLocationPointEvent({required this.lat, required this.lng, required this.timestamp});
 }
 
-class RefreshDistanceEvent extends HomeEvent {}
-
 class CreateVisitEvent extends HomeEvent {
   final String clientName;
   final String location;
@@ -54,3 +52,6 @@ class AddCommentEvent extends HomeEvent {
     required this.targetUserId,
   });
 }
+
+/// Triggered after each Firestore batch flush to OSRM-snap the new dirty points.
+class SnapDirtyPointsEvent extends HomeEvent {}

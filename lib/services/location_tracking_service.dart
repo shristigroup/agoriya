@@ -111,6 +111,8 @@ void _onStart(ServiceInstance service) async {
             SetOptions(merge: true),
           );
       debugPrint('[LocationService] Flushed ${batch.length} point(s) to Firestore');
+      // Notify UI so it can OSRM-snap this batch
+      service.invoke('batchFlushed', {'batchSize': batch.length});
     } catch (e) {
       debugPrint('[LocationService] flushBatch error: $e');
     }
@@ -178,6 +180,7 @@ void _onStart(ServiceInstance service) async {
       final point = {
         'geoPoint': GeoPoint(pos.latitude, pos.longitude),
         'timestamp': Timestamp.fromDate(now),
+        'snapped': false, // raw GPS — UI will OSRM-snap in batches
       };
       pendingBatch.add(point);
       allPoints.add(point);

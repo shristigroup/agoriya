@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -17,6 +21,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final FirestoreRepository _repo;
   final String userId;
 
+  // Guards against concurrent or duplicate operations
+  bool _snapping = false;
+  bool _punchingOut = false;
+
+  // Background service subscriptions (owned here so home_screen.dart stays clean)
+  StreamSubscription? _newPointSub;
+  StreamSubscription? _batchFlushedSub;
+
   HomeBloc({required this.userId, FirestoreRepository? repo})
       : _repo = repo ?? FirestoreRepository(),
         super(HomeInitial()) {
@@ -24,33 +36,53 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<PunchInEvent>(_onPunchIn);
     on<PunchOutEvent>(_onPunchOut);
     on<NewLocationPointEvent>(_onNewLocationPoint);
-    on<RefreshDistanceEvent>(_onRefreshDistance);
+    on<SnapDirtyPointsEvent>(_onSnapDirtyPoints);
     on<CreateVisitEvent>(_onCreateVisit);
     on<UpdateVisitEvent>(_onUpdateVisit);
     on<CheckOutVisitEvent>(_onCheckOutVisit);
     on<FilterVisitsByClientEvent>(_onFilterVisits);
     on<AddCommentEvent>(_onAddComment);
+
+    final bgService = FlutterBackgroundService();
+
+    _newPointSub = bgService.on('newPoint').listen((data) {
+      if (data == null) return;
+      add(NewLocationPointEvent(
+        lat: (data['lat'] as num).toDouble(),
+        lng: (data['lng'] as num).toDouble(),
+        timestamp: DateTime.parse(data['timestamp'] as String),
+      ));
+    });
+
+    _batchFlushedSub = bgService.on('batchFlushed').listen((_) {
+      add(SnapDirtyPointsEvent());
+    });
   }
+
+  @override
+  Future<void> close() {
+    _newPointSub?.cancel();
+    _batchFlushedSub?.cancel();
+    return super.close();
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
 
   Future<void> _onInit(HomeInitEvent event, Emitter<HomeState> emit) async {
     emit(HomeLoading());
 
     final today = AppUtils.todayKey();
 
-    // ── Phase 1: emit from local cache immediately ──────────────────────────
-    // Synchronous — FAB and UI are always enabled right away.
+    // Phase 1: emit from local cache immediately
     AttendanceModel? attendance = LocalStorageService.getAttendance(today);
     final visits = LocalStorageService.getAllVisits();
     final locations = LocalStorageService.getTodayLocations();
+    final displayDistance = LocalStorageService.getTotalDistanceDirty();
 
-    // Use last known GPS position to centre the map — faster and simpler than
-    // reading a stored punch-out location from Firestore or local storage.
     LatLng? lastKnownLocation;
     try {
       final pos = await Geolocator.getLastKnownPosition();
-      if (pos != null) {
-        lastKnownLocation = LatLng(pos.latitude, pos.longitude);
-      }
+      if (pos != null) lastKnownLocation = LatLng(pos.latitude, pos.longitude);
     } catch (_) {}
 
     emit(HomeLoaded(
@@ -59,10 +91,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       visits: visits,
       filteredVisits: visits,
       lastKnownLocation: lastKnownLocation,
+      displayDistance: displayDistance,
     ));
 
-    // ── Phase 2: background refresh from Firestore ──────────────────────────
-    // Errors here must NOT override the HomeLoaded state above.
+    // Phase 2: background refresh from Firestore
     try {
       final freshAttendance = await _repo.getAttendance(userId, today);
       if (freshAttendance != null) {
@@ -85,13 +117,27 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
       final freshLocations = LocalStorageService.getTodayLocations();
 
+      // Use the better of local estimate vs Firestore haversine distance
+      final firestoreDist = freshAttendance?.distance ?? 0.0;
+      final localDist = LocalStorageService.getTotalDistanceDirty();
+      final bestDist = firestoreDist > localDist ? firestoreDist : localDist;
+      if (bestDist > localDist) {
+        await LocalStorageService.saveTotalDistanceDirty(bestDist);
+      }
+
       emit(HomeLoaded(
         attendance: attendance,
         locations: freshLocations,
         visits: allVisits,
         filteredVisits: allVisits,
         lastKnownLocation: lastKnownLocation,
+        displayDistance: bestDist,
       ));
+
+      // Phase 3: snap dirty points if any exist
+      if (freshLocations.any((p) => !p.isSnapped)) {
+        add(SnapDirtyPointsEvent());
+      }
     } catch (e) {
       emit(HomeError(e.toString()));
       emit(HomeLoaded(
@@ -100,9 +146,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         visits: visits,
         filteredVisits: visits,
         lastKnownLocation: lastKnownLocation,
+        displayDistance: displayDistance,
       ));
     }
   }
+
+  // ── Punch In ──────────────────────────────────────────────────────────────
 
   Future<void> _onPunchIn(PunchInEvent event, Emitter<HomeState> emit) async {
     try {
@@ -116,8 +165,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       await _repo.punchIn(userId, today, now, event.imageUrl);
       await LocalStorageService.saveAttendance(attendance);
       await LocalStorageService.clearTodayLocations();
+      await LocalStorageService.clearDistances(); // reset for new day
 
-      // Start background tracking
       await LocationTrackingService.start(userId, today);
 
       emit(PunchInSuccess(attendance));
@@ -126,20 +175,30 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
+  // ── Punch Out ─────────────────────────────────────────────────────────────
+
   Future<void> _onPunchOut(PunchOutEvent event, Emitter<HomeState> emit) async {
+    if (_punchingOut) return;
+    _punchingOut = true;
+
     final current = state;
-    if (current is! HomeLoaded) return;
+    if (current is! HomeLoaded) { _punchingOut = false; return; }
+
+    // Show loading overlay immediately — prevents double-tap and shows feedback.
+    emit(current.copyWith(isPunchingOut: true));
 
     try {
       final today = AppUtils.todayKey();
       final now = DateTime.now();
 
-      // Get current location for punch out
+      // Stop background tracking first, wait briefly for final flush.
+      LocationTrackingService.stop();
+      await Future.delayed(const Duration(seconds: 1));
+
+      // Determine last known position.
       final locations = LocalStorageService.getTodayLocations();
       LatLng? lastLoc = locations.isNotEmpty ? locations.last.position : null;
-
       if (lastLoc == null) {
-        // Try to get current location
         try {
           final pos = await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
@@ -148,16 +207,39 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         } catch (_) {}
       }
 
-      // Stop tracking
-      LocationTrackingService.stop();
+      // Snap any remaining dirty points (≤15, one fast OSRM call).
+      final dirty = locations.where((p) => !p.isSnapped).toList();
+      double finalDistance = LocalStorageService.getTotalDistance();
 
-      // Calculate final distance via OSRM
-      double finalDistance = current.attendance?.distance ?? 0.0;
-      if (locations.length >= 2) {
-        final snapped = await OsrmService.snapToRoads(
-          locations.map((p) => p.position).toList(),
+      if (dirty.isNotEmpty) {
+        LocationPoint? anchor;
+        for (final p in locations.reversed) {
+          if (p.isSnapped) { anchor = p; break; }
+        }
+
+        final input = [if (anchor != null) anchor, ...dirty];
+        final tracepoints = await OsrmService.snapTracepoints(
+          input.map((p) => p.position).toList(),
         );
-        finalDistance = await OsrmService.calculateRouteDistance(snapped);
+
+        final startIdx = anchor != null ? 1 : 0;
+        final snappedDirty = <LocationPoint>[];
+        for (int i = startIdx; i < input.length; i++) {
+          final pos = tracepoints[i] ?? input[i].position;
+          snappedDirty.add(LocationPoint(
+            position: pos,
+            timestamp: input[i].timestamp,
+            isSnapped: true,
+          ));
+        }
+
+        // Incremental road distance for this final batch.
+        final distInput = [if (anchor != null) anchor, ...snappedDirty];
+        for (int i = 0; i < distInput.length - 1; i++) {
+          finalDistance += _haversine(distInput[i].position, distInput[i + 1].position);
+        }
+
+        await _repo.replaceLocationsWithSnapped(userId, today, dirty, snappedDirty);
       }
 
       final geoPoint = lastLoc != null
@@ -173,51 +255,141 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         distance: finalDistance,
       );
       await LocalStorageService.saveAttendance(updatedAttendance);
-
-      // Clear today's locations from local (only keep for current day)
       await LocalStorageService.clearTodayLocations();
+      await LocalStorageService.clearDistances();
 
-      final totalTime = updatedAttendance.attendanceDuration;
-      emit(PunchOutSuccess(attendance: updatedAttendance, totalTime: totalTime));
+      emit(PunchOutSuccess(
+        attendance: updatedAttendance,
+        totalTime: updatedAttendance.attendanceDuration,
+      ));
     } catch (e) {
+      debugPrint('[HomeBloc] punchOut error: $e');
+      try {
+        emit(current.copyWith(isPunchingOut: false));
+      } catch (_) {}
       emit(HomeError(e.toString()));
+    } finally {
+      _punchingOut = false;
     }
   }
+
+  // ── New Location Point ────────────────────────────────────────────────────
 
   Future<void> _onNewLocationPoint(
       NewLocationPointEvent event, Emitter<HomeState> emit) async {
     if (state is! HomeLoaded) return;
     final current = state as HomeLoaded;
+
     final newPoint = LocationPoint(
       position: LatLng(event.lat, event.lng),
       timestamp: event.timestamp,
+      isSnapped: false, // raw GPS — will be snapped on next batchFlushed
     );
+
+    // Haversine delta for live distance display.
+    double delta = 0;
+    if (current.locations.isNotEmpty) {
+      delta = _haversine(current.locations.last.position, newPoint.position);
+    }
+
     final updatedLocations = [...current.locations, newPoint];
+    final newDisplayDistance = current.displayDistance + delta;
+
     await LocalStorageService.saveTodayLocations(updatedLocations);
-    emit(current.copyWith(locations: updatedLocations));
+    await LocalStorageService.saveTotalDistanceDirty(newDisplayDistance);
+
+    emit(current.copyWith(
+      locations: updatedLocations,
+      displayDistance: newDisplayDistance,
+    ));
   }
 
-  Future<void> _onRefreshDistance(
-      RefreshDistanceEvent event, Emitter<HomeState> emit) async {
+  // ── Snap Dirty Points ─────────────────────────────────────────────────────
+
+  Future<void> _onSnapDirtyPoints(
+      SnapDirtyPointsEvent event, Emitter<HomeState> emit) async {
     if (state is! HomeLoaded) return;
+    if (_snapping) return; // already in progress
+
     final current = state as HomeLoaded;
-    final locations = current.locations;
-    if (locations.length < 2) return;
+    final dirty = current.locations.where((p) => !p.isSnapped).toList();
+    if (dirty.isEmpty) return;
+
+    _snapping = true;
+    emit(current.copyWith(isSnapping: true));
 
     try {
-      final snapped = await OsrmService.snapToRoads(
-        locations.map((p) => p.position).toList(),
-      );
-      final distance = await OsrmService.calculateRouteDistance(snapped);
       final today = AppUtils.todayKey();
-      await _repo.updateDistance(userId, today, distance);
-      final updatedAtt = current.attendance?.copyWith(distance: distance);
-      if (updatedAtt != null) {
-        await LocalStorageService.saveAttendance(updatedAtt);
+      double totalDistance = LocalStorageService.getTotalDistance();
+
+      // Find last snapped point as the distance anchor.
+      LocationPoint? anchor;
+      for (final p in current.locations.reversed) {
+        if (p.isSnapped) { anchor = p; break; }
       }
-      emit(current.copyWith(attendance: updatedAtt));
-    } catch (_) {}
+
+      // Process dirty points in sub-batches of 15 (aligned with flush cadence).
+      final batches = _chunk(dirty, 15);
+      final allSnapped = <LocationPoint>[];
+
+      for (final batch in batches) {
+        final input = [if (anchor != null) anchor, ...batch];
+        final tracepoints = await OsrmService.snapTracepoints(
+          input.map((p) => p.position).toList(),
+        );
+
+        final startIdx = anchor != null ? 1 : 0;
+        final snappedBatch = <LocationPoint>[];
+        for (int i = startIdx; i < input.length; i++) {
+          final pos = tracepoints[i] ?? input[i].position;
+          snappedBatch.add(LocationPoint(
+            position: pos,
+            timestamp: input[i].timestamp,
+            isSnapped: true,
+          ));
+        }
+
+        // Haversine between consecutive snapped points for road-accurate distance.
+        final distInput = [if (anchor != null) anchor, ...snappedBatch];
+        for (int i = 0; i < distInput.length - 1; i++) {
+          totalDistance += _haversine(distInput[i].position, distInput[i + 1].position);
+        }
+
+        allSnapped.addAll(snappedBatch);
+        anchor = snappedBatch.last;
+
+        // Replace this batch in Firestore.
+        await _repo.replaceLocationsWithSnapped(userId, today, batch, snappedBatch);
+      }
+
+      await LocalStorageService.saveTotalDistance(totalDistance);
+      await LocalStorageService.saveTotalDistanceDirty(totalDistance); // no dirty remaining
+      await _repo.updateDistance(userId, today, totalDistance);
+
+      // Rebuild location list: existing snapped + newly snapped, sorted by time.
+      final updatedLocations = [
+        ...current.locations.where((p) => p.isSnapped),
+        ...allSnapped,
+      ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      await LocalStorageService.saveTodayLocations(updatedLocations);
+
+      emit(current.copyWith(
+        isSnapping: false,
+        locations: updatedLocations,
+        displayDistance: totalDistance,
+      ));
+    } catch (e) {
+      debugPrint('[HomeBloc] snapDirtyPoints error: $e');
+      if (state is HomeLoaded) {
+        emit((state as HomeLoaded).copyWith(isSnapping: false));
+      }
+    } finally {
+      _snapping = false;
+    }
   }
+
+  // ── Visits ────────────────────────────────────────────────────────────────
 
   Future<void> _onCreateVisit(CreateVisitEvent event, Emitter<HomeState> emit) async {
     if (state is! HomeLoaded) return;
@@ -234,7 +406,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       await _repo.createVisit(userId, visit);
       await LocalStorageService.saveVisit(visit);
 
-      // Increment visit count in attendance
       final today = AppUtils.todayKey();
       await _repo.incrementVisitCount(userId, today);
       final updatedAtt = current.attendance?.copyWith(
@@ -276,8 +447,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
 
   Future<void> _onCheckOutVisit(CheckOutVisitEvent event, Emitter<HomeState> emit) async {
-    final updated = event.visit.copyWith(checkoutTimestamp: DateTime.now());
-    add(UpdateVisitEvent(updated));
+    add(UpdateVisitEvent(event.visit.copyWith(checkoutTimestamp: DateTime.now())));
   }
 
   Future<void> _onFilterVisits(
@@ -298,16 +468,43 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     try {
       final user = LocalStorageService.getUser();
       if (user == null) return;
-      final comment = VisitComment(
-        id: '',
-        userId: user.id,
-        userName: user.fullName,
-        text: event.text,
-        timestamp: DateTime.now(),
+      await _repo.addComment(
+        event.targetUserId,
+        event.visitId,
+        VisitComment(
+          id: '',
+          userId: user.id,
+          userName: user.fullName,
+          text: event.text,
+          timestamp: DateTime.now(),
+        ),
       );
-      await _repo.addComment(event.targetUserId, event.visitId, comment);
     } catch (e) {
       emit(HomeError(e.toString()));
     }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /// Haversine distance in km between two LatLng points.
+  double _haversine(LatLng a, LatLng b) {
+    const r = 6371.0;
+    final dLat = _rad(b.latitude - a.latitude);
+    final dLng = _rad(b.longitude - a.longitude);
+    final h = math.pow(math.sin(dLat / 2), 2) +
+        math.cos(_rad(a.latitude)) *
+            math.cos(_rad(b.latitude)) *
+            math.pow(math.sin(dLng / 2), 2);
+    return 2 * r * math.asin(math.sqrt(h));
+  }
+
+  double _rad(double deg) => deg * math.pi / 180;
+
+  List<List<T>> _chunk<T>(List<T> list, int size) {
+    final chunks = <List<T>>[];
+    for (int i = 0; i < list.length; i += size) {
+      chunks.add(list.sublist(i, (i + size).clamp(0, list.length)));
+    }
+    return chunks;
   }
 }

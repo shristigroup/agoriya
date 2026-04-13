@@ -105,6 +105,35 @@ class OsrmService {
     return total;
   }
 
+  /// Snaps each input point to its nearest road position using OSRM tracepoints.
+  /// Returns a list of the same length — null at an index means OSRM could not
+  /// match that point; callers should fall back to the original position.
+  static Future<List<LatLng?>> snapTracepoints(List<LatLng> points) async {
+    if (points.length < 2) return points.map<LatLng?>((p) => p).toList();
+
+    try {
+      final coords = points.map((p) => '${p.longitude},${p.latitude}').join(';');
+      final url = '${AppConstants.osrmMatchUrl}/$coords'
+          '?overview=false&annotations=false';
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['code'] == 'Ok' && data['tracepoints'] != null) {
+          return (data['tracepoints'] as List).map<LatLng?>((tp) {
+            if (tp == null) return null;
+            final loc = tp['location'] as List;
+            return LatLng((loc[1] as num).toDouble(), (loc[0] as num).toDouble());
+          }).toList();
+        }
+      }
+    } catch (_) {}
+
+    // Fall back to original points on any error
+    return points.map<LatLng?>((p) => p).toList();
+  }
+
   static double _toRad(double deg) => deg * math.pi / 180;
 
   static List<List<T>> _chunkList<T>(List<T> list, int size) {

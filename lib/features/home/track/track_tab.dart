@@ -5,13 +5,13 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/app_utils.dart';
 import '../../../../data/models/attendance_model.dart';
 import '../../../../data/models/location_model.dart';
-import '../../../../services/osrm_service.dart';
 
 class TrackTab extends StatefulWidget {
   final AttendanceModel? attendance;
   final List<LocationPoint> locations;
   final LatLng? lastKnownLocation;
   final bool isReadOnly;
+  final bool isSnapping; // OSRM snap in progress — shows indicator
 
   const TrackTab({
     super.key,
@@ -19,6 +19,7 @@ class TrackTab extends StatefulWidget {
     this.locations = const [],
     this.lastKnownLocation,
     this.isReadOnly = false,
+    this.isSnapping = false,
   });
 
   @override
@@ -28,14 +29,6 @@ class TrackTab extends StatefulWidget {
 class _TrackTabState extends State<TrackTab> {
   final MapController _mapController = MapController();
   bool _showMarkers = true;
-  List<LatLng> _snappedPoints = [];
-  bool _snapping = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _snapPoints();
-  }
 
   @override
   void dispose() {
@@ -43,46 +36,16 @@ class _TrackTabState extends State<TrackTab> {
     super.dispose();
   }
 
-  @override
-  void didUpdateWidget(TrackTab old) {
-    super.didUpdateWidget(old);
-    if (old.locations.length != widget.locations.length) {
-      _snapPoints();
-    }
-  }
-
-  Future<void> _snapPoints() async {
-    if (widget.locations.length < 2) {
-      if (mounted) {
-        setState(() => _snappedPoints =
-            widget.locations.map((p) => p.position).toList());
-      }
-      return;
-    }
-    if (mounted) setState(() => _snapping = true);
-    try {
-      final snapped = await OsrmService.snapToRoads(
-        widget.locations.map((p) => p.position).toList(),
-      );
-      if (mounted) setState(() => _snappedPoints = snapped);
-    } catch (_) {
-      if (mounted) {
-        setState(() => _snappedPoints =
-            widget.locations.map((p) => p.position).toList());
-      }
-    }
-    if (mounted) setState(() => _snapping = false);
-  }
-
   LatLng get _mapCenter {
     if (widget.locations.isNotEmpty) return widget.locations.last.position;
     if (widget.lastKnownLocation != null) return widget.lastKnownLocation!;
-    return const LatLng(20.5937, 78.9629); // India center
+    return const LatLng(20.5937, 78.9629); // India centre
   }
 
   @override
   Widget build(BuildContext context) {
     final hasData = widget.locations.isNotEmpty;
+    final points = widget.locations.map((p) => p.position).toList();
 
     return Stack(
       children: [
@@ -100,12 +63,12 @@ class _TrackTabState extends State<TrackTab> {
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.agoriya.app',
             ),
-            // Polyline
-            if (_snappedPoints.length >= 2)
+            // Polyline — drawn directly from stored points (snapped where available)
+            if (points.length >= 2)
               PolylineLayer(
                 polylines: [
                   Polyline(
-                    points: _snappedPoints,
+                    points: points,
                     strokeWidth: 4.0,
                     color: AppTheme.primary,
                   ),
@@ -115,7 +78,7 @@ class _TrackTabState extends State<TrackTab> {
             if (_showMarkers && hasData)
               MarkerLayer(
                 markers: [
-                  // Start marker
+                  // Start
                   Marker(
                     point: widget.locations.first.position,
                     width: 32,
@@ -125,29 +88,31 @@ class _TrackTabState extends State<TrackTab> {
                         color: AppTheme.punchIn,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.play_arrow, color: Colors.white, size: 18),
+                      child: const Icon(Icons.play_arrow,
+                          color: Colors.white, size: 18),
                     ),
                   ),
-                  // Intermediate points (only when there are 3+ locations)
+                  // Intermediate dots
                   if (widget.locations.length > 2)
-                  ...widget.locations
-                      .skip(1)
-                      .take(widget.locations.length - 2)
-                      .map(
-                        (p) => Marker(
-                          point: p.position,
-                          width: 12,
-                          height: 12,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: AppTheme.primary.withOpacity(0.7),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 1.5),
+                    ...widget.locations
+                        .skip(1)
+                        .take(widget.locations.length - 2)
+                        .map(
+                          (p) => Marker(
+                            point: p.position,
+                            width: 12,
+                            height: 12,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary.withOpacity(0.7),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: Colors.white, width: 1.5),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  // Current / last marker
+                  // Current position
                   if (widget.locations.length > 1)
                     Marker(
                       point: widget.locations.last.position,
@@ -166,7 +131,8 @@ class _TrackTabState extends State<TrackTab> {
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.person_pin, color: Colors.white, size: 22),
+                        child: const Icon(Icons.person_pin,
+                            color: Colors.white, size: 22),
                       ),
                     ),
                 ],
@@ -182,7 +148,8 @@ class _TrackTabState extends State<TrackTab> {
             final acquiring = isPunchedIn && !isPunchedOut;
             return Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(16),
@@ -204,8 +171,12 @@ class _TrackTabState extends State<TrackTab> {
                           color: AppTheme.textHint, size: 40),
                     const SizedBox(height: 10),
                     Text(
-                      acquiring ? 'Acquiring GPS location...' : 'No location data yet',
-                      style: AppTheme.sora(14, weight: FontWeight.w500, color: AppTheme.textSecondary),
+                      acquiring
+                          ? 'Acquiring GPS location...'
+                          : 'No location data yet',
+                      style: AppTheme.sora(14,
+                          weight: FontWeight.w500,
+                          color: AppTheme.textSecondary),
                     ),
                   ],
                 ),
@@ -213,21 +184,24 @@ class _TrackTabState extends State<TrackTab> {
             );
           }),
 
-        // Controls overlay
+        // Map controls
         Positioned(
           right: 12,
           bottom: 20,
           child: Column(
             children: [
-              // Toggle markers
               _mapButton(
-                icon: _showMarkers ? Icons.location_on : Icons.location_off,
-                color: _showMarkers ? AppTheme.primary : AppTheme.textSecondary,
-                onTap: () => setState(() => _showMarkers = !_showMarkers),
+                icon: _showMarkers
+                    ? Icons.location_on
+                    : Icons.location_off,
+                color: _showMarkers
+                    ? AppTheme.primary
+                    : AppTheme.textSecondary,
+                onTap: () =>
+                    setState(() => _showMarkers = !_showMarkers),
                 tooltip: _showMarkers ? 'Hide markers' : 'Show markers',
               ),
               const SizedBox(height: 8),
-              // Zoom in
               _mapButton(
                 icon: Icons.add,
                 onTap: () => _mapController.move(
@@ -236,7 +210,6 @@ class _TrackTabState extends State<TrackTab> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Zoom out
               _mapButton(
                 icon: Icons.remove,
                 onTap: () => _mapController.move(
@@ -245,7 +218,6 @@ class _TrackTabState extends State<TrackTab> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Center on current
               if (hasData)
                 _mapButton(
                   icon: Icons.my_location,
@@ -258,13 +230,14 @@ class _TrackTabState extends State<TrackTab> {
           ),
         ),
 
-        // Last location time
+        // Last location timestamp
         if (hasData)
           Positioned(
             bottom: 20,
             left: 12,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -278,7 +251,8 @@ class _TrackTabState extends State<TrackTab> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.access_time, size: 14, color: AppTheme.textSecondary),
+                  const Icon(Icons.access_time,
+                      size: 14, color: AppTheme.textSecondary),
                   const SizedBox(width: 4),
                   Text(
                     'Last: ${AppUtils.formatTime(widget.locations.last.timestamp)}',
@@ -289,15 +263,16 @@ class _TrackTabState extends State<TrackTab> {
             ),
           ),
 
-        // Snapping indicator
-        if (_snapping)
+        // OSRM snapping indicator
+        if (widget.isSnapping)
           Positioned(
             top: 12,
             left: 0,
             right: 0,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppTheme.primary,
                   borderRadius: BorderRadius.circular(20),
@@ -314,7 +289,8 @@ class _TrackTabState extends State<TrackTab> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text('Snapping to roads...', style: AppTheme.sora(12, color: Colors.white)),
+                    Text('Snapping to roads...',
+                        style: AppTheme.sora(12, color: Colors.white)),
                   ],
                 ),
               ),
