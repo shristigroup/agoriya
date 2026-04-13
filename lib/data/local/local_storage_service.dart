@@ -5,6 +5,7 @@ import '../models/user_model.dart';
 import '../models/attendance_model.dart';
 import '../models/visit_model.dart';
 import '../models/location_model.dart';
+import '../models/monthly_summary_model.dart';
 
 class LocalStorageService {
   static late Box _userBox;
@@ -150,6 +151,25 @@ class LocalStorageService {
   static Future<void> clearDistances() async {
     await _settingsBox.delete(AppConstants.totalDistanceKey);
     await _settingsBox.delete(AppConstants.totalDistanceDirtyKey);
+  }
+
+  // ─── Monthly Summary Cache ────────────────────────────────────────────────
+  /// Key: 'monthly_{userId}_{monthKey}' — works for both own user and manager
+  /// viewing a report, since the key is namespaced by userId.
+  static String _monthlyKey(String userId, String monthKey) =>
+      '${AppConstants.monthlyCachePrefix}${userId}_$monthKey';
+
+  static Future<void> saveMonthlySummary(
+      String userId, String monthKey, MonthlySummaryModel summary) async {
+    await _settingsBox.put(
+        _monthlyKey(userId, monthKey), jsonEncode(summary.toJson()));
+  }
+
+  static MonthlySummaryModel? getMonthlySummary(String userId, String monthKey) {
+    final raw = _settingsBox.get(_monthlyKey(userId, monthKey));
+    if (raw == null) return null;
+    return MonthlySummaryModel.fromJson(
+        Map<String, dynamic>.from(jsonDecode(raw)));
   }
 
   // ─── Settings ────────────────────────────────────────────────────────────

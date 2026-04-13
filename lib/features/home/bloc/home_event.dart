@@ -55,3 +55,8 @@ class AddCommentEvent extends HomeEvent {
 
 /// Triggered after each Firestore batch flush to OSRM-snap the new dirty points.
 class SnapDirtyPointsEvent extends HomeEvent {}
+
+/// Undo an accidental punch-out for today — clears punchOutTimestamp and
+/// restarts location tracking. The Firestore write triggers the Cloud Function
+/// to notify the manager.
+class ResumeSessionEvent extends HomeEvent {}

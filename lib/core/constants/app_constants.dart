@@ -32,6 +32,10 @@ class AppConstants {
   static const String locationsCollection = 'Locations';
   static const String visitsCollection = 'Visits';
   static const String commentsCollection = 'Comments';
+  static const String monthlyCollection = 'Monthly';
+
+  // Cache key prefix for monthly summaries (used in settingsBox)
+  static const String monthlyCachePrefix = 'monthly_';
 
   // Storage paths
   static String punchInImagePath(String userId, String date, String ext) =>

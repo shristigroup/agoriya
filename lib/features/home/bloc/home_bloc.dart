@@ -35,6 +35,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<HomeInitEvent>(_onInit);
     on<PunchInEvent>(_onPunchIn);
     on<PunchOutEvent>(_onPunchOut);
+    on<ResumeSessionEvent>(_onResumeSession);
     on<NewLocationPointEvent>(_onNewLocationPoint);
     on<SnapDirtyPointsEvent>(_onSnapDirtyPoints);
     on<CreateVisitEvent>(_onCreateVisit);
@@ -270,6 +271,42 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(HomeError(e.toString()));
     } finally {
       _punchingOut = false;
+    }
+  }
+
+  // ── Resume Session ────────────────────────────────────────────────────────
+
+  Future<void> _onResumeSession(
+      ResumeSessionEvent event, Emitter<HomeState> emit) async {
+    if (state is! HomeLoaded) return;
+    final current = state as HomeLoaded;
+    if (current.attendance?.isPunchedOut != true) return;
+
+    try {
+      final today = AppUtils.todayKey();
+
+      // Clears punchOutTimestamp + punchOutLocation — Cloud Function detects
+      // this write and sends FCM "resumed session" notification to the manager.
+      await _repo.resumeSession(userId, today);
+
+      final resumed = AttendanceModel(
+        date: current.attendance!.date,
+        punchInTimestamp: current.attendance!.punchInTimestamp,
+        punchOutTimestamp: null,
+        punchInImage: current.attendance!.punchInImage,
+        distance: current.attendance!.distance,
+        punchOutLocation: null,
+        customerVisitCount: current.attendance!.customerVisitCount,
+      );
+      await LocalStorageService.saveAttendance(resumed);
+
+      // Restart background location tracking from where it left off.
+      await LocationTrackingService.start(userId, today);
+
+      emit(current.copyWith(attendance: resumed));
+    } catch (e) {
+      debugPrint('[HomeBloc] resumeSession error: $e');
+      emit(HomeError(e.toString()));
     }
   }
 
