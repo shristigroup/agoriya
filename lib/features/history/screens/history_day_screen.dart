@@ -9,6 +9,7 @@ import '../../../data/models/attendance_model.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/models/visit_model.dart';
 import '../../home/track/track_tab.dart';
+import '../../home/visits/visit_detail_screen.dart';
 
 class HistoryDayScreen extends StatefulWidget {
   final String userId;
@@ -327,7 +328,11 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
     return ListView.builder(
       padding: const EdgeInsets.only(top: 8, bottom: 24),
       itemCount: _visits.length,
-      itemBuilder: (_, i) => _HistoryVisitCard(visit: _visits[i]),
+      itemBuilder: (_, i) => _HistoryVisitCard(
+        visit: _visits[i],
+        targetUserId: widget.userId,
+        isReadOnly: !DataManager.isOwner(widget.userId),
+      ),
     );
   }
 }
@@ -338,81 +343,98 @@ enum _RouteState { idle, loading, loaded, error }
 
 class _HistoryVisitCard extends StatelessWidget {
   final VisitModel visit;
-  const _HistoryVisitCard({required this.visit});
+  final String targetUserId;
+  final bool isReadOnly;
+
+  const _HistoryVisitCard({
+    required this.visit,
+    required this.targetUserId,
+    required this.isReadOnly,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.check_circle_rounded,
-                    color: AppTheme.primary, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(visit.clientName,
-                        style: AppTheme.sora(14, weight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(visit.location,
-                        style: AppTheme.sora(12,
-                            color: AppTheme.textSecondary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.login_rounded,
-                            size: 12, color: AppTheme.textHint),
-                        const SizedBox(width: 4),
-                        Text(AppUtils.formatTime(visit.checkinTimestamp),
-                            style: AppTheme.sora(11,
-                                color: AppTheme.textHint)),
-                        if (visit.checkoutTimestamp != null) ...[
-                          Text(' → ',
-                              style: AppTheme.sora(11,
-                                  color: AppTheme.textHint)),
-                          Text(
-                              AppUtils.formatTime(
-                                  visit.checkoutTimestamp!),
-                              style: AppTheme.sora(11,
-                                  color: AppTheme.textHint)),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              if (visit.expenseAmount != null) ...[
-                const SizedBox(width: 8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => VisitDetailScreen(
+              visit: visit,
+              targetUserId: targetUserId,
+              isReadOnly: isReadOnly,
+            ),
+          )),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 4),
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                      '₹${visit.expenseAmount!.toStringAsFixed(0)}',
-                      style: AppTheme.sora(12,
-                          weight: FontWeight.w700,
-                          color: AppTheme.primary)),
+                  child: const Icon(Icons.check_circle_rounded,
+                      color: AppTheme.primary, size: 24),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(visit.clientName,
+                          style: AppTheme.sora(14, weight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text(visit.location,
+                          style: AppTheme.sora(12,
+                              color: AppTheme.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.login_rounded,
+                              size: 12, color: AppTheme.textHint),
+                          const SizedBox(width: 4),
+                          Text(AppUtils.formatTime(visit.checkinTimestamp),
+                              style: AppTheme.sora(11,
+                                  color: AppTheme.textHint)),
+                          if (visit.checkoutTimestamp != null) ...[
+                            Text(' → ',
+                                style: AppTheme.sora(11,
+                                    color: AppTheme.textHint)),
+                            Text(
+                                AppUtils.formatTime(
+                                    visit.checkoutTimestamp!),
+                                style: AppTheme.sora(11,
+                                    color: AppTheme.textHint)),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (visit.expenseAmount != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                        '₹${visit.expenseAmount!.toStringAsFixed(0)}',
+                        style: AppTheme.sora(12,
+                            weight: FontWeight.w700,
+                            color: AppTheme.primary)),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
