@@ -164,14 +164,21 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
   Widget _headerStat(IconData icon, String label, String value) {
     return Expanded(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, size: 14, color: Colors.white60),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: Colors.white60),
+              const SizedBox(width: 4),
+              Text(label, style: AppTheme.sora(10, color: Colors.white60)),
+            ],
+          ),
           const SizedBox(height: 3),
           Text(value,
               style: AppTheme.sora(13,
                   weight: FontWeight.w700, color: Colors.white)),
-          Text(label,
-              style: AppTheme.sora(10, color: Colors.white60)),
         ],
       ),
     );
