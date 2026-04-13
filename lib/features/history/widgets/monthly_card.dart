@@ -7,11 +7,15 @@ import '../../../data/models/monthly_summary_model.dart';
 class MonthlyCard extends StatefulWidget {
   final String userId;
   final String monthKey; // 'YYYY-MM'
+  /// Pre-loaded by the parent tab. For past months this avoids a second
+  /// Firestore round-trip; for the current month a background refresh still runs.
+  final MonthlySummaryModel? initialSummary;
 
   const MonthlyCard({
     super.key,
     required this.userId,
     required this.monthKey,
+    this.initialSummary,
   });
 
   @override
@@ -26,20 +30,25 @@ class _MonthlyCardState extends State<MonthlyCard> {
   @override
   void initState() {
     super.initState();
+    // Show pre-loaded summary immediately (no blank card on first render).
+    if (widget.initialSummary != null) {
+      _summary = widget.initialSummary;
+    }
     _load();
   }
 
   Future<void> _load() async {
-    // Phase 1: show cached data immediately — no wait, no blank card.
-    final cached = DataManager.getCachedMonthlySummary(
-        widget.userId, widget.monthKey);
-    if (cached != null) {
-      setState(() { _summary = cached; _loading = true; });
-    } else {
-      setState(() { _loading = true; _error = null; });
+    final isCurrentMonth = widget.monthKey == DataManager.currentMonthKey;
+
+    // Past months are sealed — the initialSummary is already the final value.
+    if (!isCurrentMonth && _summary != null) {
+      setState(() => _loading = false);
+      return;
     }
 
-    // Phase 2: refresh in background; small spinner in card header signals this.
+    setState(() { _loading = true; _error = null; });
+
+    // Current month: refresh in background so live data is always shown.
     try {
       final fresh = await DataManager.getMonthlySummary(
           widget.userId, widget.monthKey);
@@ -47,7 +56,7 @@ class _MonthlyCardState extends State<MonthlyCard> {
     } catch (e) {
       if (mounted) setState(() {
         _loading = false;
-        if (_summary == null) _error = e.toString(); // only show error if nothing to display
+        if (_summary == null) _error = e.toString();
       });
     }
   }

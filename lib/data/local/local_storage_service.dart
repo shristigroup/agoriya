@@ -229,6 +229,15 @@ class LocalStorageService {
         Map<String, dynamic>.from(jsonDecode(raw)));
   }
 
+  /// Sentinel: marks that a past month was checked and had no attendance data,
+  /// so we skip the Firestore query on subsequent loads without creating any
+  /// Firestore document for the empty month.
+  static bool isMonthEmpty(String userId, String monthKey) =>
+      _settingsBox.get('monthly_empty_${userId}_$monthKey') == true;
+
+  static Future<void> markMonthEmpty(String userId, String monthKey) async =>
+      _settingsBox.put('monthly_empty_${userId}_$monthKey', true);
+
   // ─── Settings ────────────────────────────────────────────────────────────
   static Future<void> setSetting(String key, dynamic value) async {
     await _settingsBox.put(key, value);

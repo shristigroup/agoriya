@@ -189,37 +189,55 @@ class DataManager {
 
   static Future<MonthlySummaryModel?> getMonthlySummary(
       String userId, String monthKey) async {
-    // Current month is always recomputed (data is still changing).
-    // Save to local cache so the next load can show stale data immediately.
     if (!_isPastMonth(monthKey)) {
+      // Current month: always recompute (data is still changing).
       final summary = await computeMonthlySummary(userId, monthKey);
+      if (summary == null) return null; // no activity yet this month
       await _repo.saveMonthlySummary(userId, summary);
       await LocalStorageService.saveMonthlySummary(userId, monthKey, summary);
       return summary;
     }
 
-    // Past month — local cache first.
-    final cached = LocalStorageService.getMonthlySummary(userId, monthKey);
-    if (cached != null) return cached;
+    // Past month: empty sentinel → skip immediately, no Firestore call.
+    if (LocalStorageService.isMonthEmpty(userId, monthKey)) return null;
 
-    // Firestore next.
+    // Past month: Hive cache (sealed after first fetch).
+    // If the cached summary has no data (stale zero from an older build),
+    // treat it as empty — mark the sentinel so future loads are instant.
+    final cached = LocalStorageService.getMonthlySummary(userId, monthKey);
+    if (cached != null) {
+      if (cached.punchCount == 0 && cached.totalVisits == 0) {
+        await LocalStorageService.markMonthEmpty(userId, monthKey);
+        return null;
+      }
+      return cached;
+    }
+
+    // Past month: Firestore (summary doc written by a previous install).
     final fromDb = await _repo.getMonthlySummary(userId, monthKey);
     if (fromDb != null) {
       await LocalStorageService.saveMonthlySummary(userId, monthKey, fromDb);
       return fromDb;
     }
 
-    // Compute from raw data, persist everywhere.
+    // Past month: compute from raw attendance. If empty, seal and return null
+    // without creating any Firestore document for the month.
     final summary = await computeMonthlySummary(userId, monthKey);
+    if (summary == null) {
+      await LocalStorageService.markMonthEmpty(userId, monthKey);
+      return null;
+    }
     await _repo.saveMonthlySummary(userId, summary);
     await LocalStorageService.saveMonthlySummary(userId, monthKey, summary);
     return summary;
   }
 
-  static Future<MonthlySummaryModel> computeMonthlySummary(
+  /// Returns null if the month has no attendance records at all — callers
+  /// should treat null as "no data" and skip creating any Firestore entry.
+  static Future<MonthlySummaryModel?> computeMonthlySummary(
       String userId, String monthKey) async {
-    final attendance =
-        await _repo.getAttendanceForMonth(userId, monthKey);
+    final attendance = await _repo.getAttendanceForMonth(userId, monthKey);
+    if (attendance.isEmpty) return null;
 
     final monthStart = DateTime.parse('$monthKey-01');
     final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 1);
@@ -248,6 +266,57 @@ class DataManager {
       totalExpense: totalExpense.round(),
       computedAt: DateTime.now(),
     );
+  }
+
+  // ─── Monthly Tab helpers ───────────────────────────────────────────────────
+
+  /// Returns the last [count] month keys, newest first (e.g. ['2025-04', ...]).
+  static List<String> lastMonthKeys({int count = 12}) {
+    final now = DateTime.now();
+    return List.generate(count, (i) {
+      final dt = DateTime(now.year, now.month - i, 1);
+      return '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+    });
+  }
+
+  /// Phase 1 — synchronous Hive read, zero network.
+  /// Returns only months that have cached data with at least one punch or visit.
+  static List<({String monthKey, MonthlySummaryModel summary})>
+      getCachedActiveMonths(String userId) {
+    final result = <({String monthKey, MonthlySummaryModel summary})>[];
+    for (final key in lastMonthKeys()) {
+      if (LocalStorageService.isMonthEmpty(userId, key)) continue;
+      final cached = LocalStorageService.getMonthlySummary(userId, key);
+      if (cached != null && (cached.punchCount > 0 || cached.totalVisits > 0)) {
+        result.add((monthKey: key, summary: cached));
+      }
+    }
+    return result;
+  }
+
+  /// Phase 2 — async, background. Hits Firestore only for:
+  ///   • past months not yet in Hive (no cache, no sentinel)
+  ///   • current month (always recomputed — data is still changing)
+  ///
+  /// [onMonthResolved] is called for each month as it completes so the UI can
+  /// update incrementally rather than waiting for all months.
+  static Future<void> fetchUncachedMonths(
+    String userId,
+    void Function(String monthKey, MonthlySummaryModel? summary) onMonthResolved,
+  ) async {
+    for (final key in lastMonthKeys()) {
+      final isCurrent = key == currentMonthKey;
+
+      // Past month already resolved — skip.
+      if (!isCurrent &&
+          (LocalStorageService.isMonthEmpty(userId, key) ||
+           LocalStorageService.getMonthlySummary(userId, key) != null)) {
+        continue;
+      }
+
+      final summary = await getMonthlySummary(userId, key);
+      onMonthResolved(key, summary);
+    }
   }
 
   // ─── Attendance History (paginated) ────────────────────────────────────────

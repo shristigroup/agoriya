@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/attendance_model.dart';
+import '../../../data/models/monthly_summary_model.dart';
 import '../../../data/data_manager.dart';
 import '../widgets/daily_tile.dart';
 import '../widgets/monthly_card.dart';
@@ -224,26 +225,75 @@ class _DailyTabState extends State<_DailyTab>
 
 // ─── Monthly Tab ──────────────────────────────────────────────────────────────
 
-class _MonthlyTab extends StatelessWidget {
+class _MonthlyTab extends StatefulWidget {
   final String userId;
   const _MonthlyTab({required this.userId});
 
-  List<String> _last12Months() {
-    final now = DateTime.now();
-    return List.generate(12, (i) {
-      final dt = DateTime(now.year, now.month - i, 1);
-      return '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+  @override
+  State<_MonthlyTab> createState() => _MonthlyTabState();
+}
+
+class _MonthlyTabState extends State<_MonthlyTab>
+    with AutomaticKeepAliveClientMixin {
+  // Months that have at least one attendance record, newest first.
+  List<({String monthKey, MonthlySummaryModel summary})> _activeMonths = [];
+  bool _loading = true;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Phase 1: show whatever is already in Hive immediately — no spinner.
+    _activeMonths = DataManager.getCachedActiveMonths(widget.userId);
+    _loading = false;
+
+    // Phase 2: background — Firestore only for uncached/current month.
+    DataManager.fetchUncachedMonths(widget.userId, (key, summary) {
+      if (!mounted) return;
+      setState(() {
+        _activeMonths = _activeMonths.where((m) => m.monthKey != key).toList();
+        if (summary != null && (summary.punchCount > 0 || summary.totalVisits > 0)) {
+          _activeMonths = [..._activeMonths, (monthKey: key, summary: summary)]
+            ..sort((a, b) => b.monthKey.compareTo(a.monthKey));
+        }
+      });
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final months = _last12Months();
+    super.build(context);
+
+    if (_loading) {
+      return const Center(
+          child: CircularProgressIndicator(color: AppTheme.primary));
+    }
+
+    if (_activeMonths.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.bar_chart_rounded,
+                size: 56, color: AppTheme.textHint),
+            const SizedBox(height: 16),
+            Text('No monthly data yet',
+                style: AppTheme.sora(15, color: AppTheme.textSecondary)),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.only(top: 8, bottom: 24),
-      itemCount: months.length,
-      itemBuilder: (_, i) =>
-          MonthlyCard(userId: userId, monthKey: months[i]),
+      itemCount: _activeMonths.length,
+      itemBuilder: (_, i) => MonthlyCard(
+        userId: widget.userId,
+        monthKey: _activeMonths[i].monthKey,
+        initialSummary: _activeMonths[i].summary,
+      ),
     );
   }
 }
