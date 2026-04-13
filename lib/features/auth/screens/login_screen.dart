@@ -124,25 +124,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Agoriya',
-                        style: TextStyle(
-                          fontFamily: 'Sora',
-                          fontSize: 40,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: -1,
-                        ),
+                      Text('Agoriya',
+                        style: AppTheme.sora(40, weight: FontWeight.w800, color: Colors.white, letterSpacing: -1),
                       ).animate().fadeIn(duration: 600.ms).slideY(begin: -0.2),
                       const SizedBox(height: 4),
-                      Text(
-                        'Field Force Tracker',
-                        style: TextStyle(
-                          fontFamily: 'Sora',
-                          fontSize: 16,
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontWeight: FontWeight.w400,
-                        ),
+                      Text('Field Force Tracker',
+                        style: AppTheme.sora(16, color: Colors.white.withValues(alpha: 0.7)),
                       ).animate().fadeIn(delay: 200.ms),
                     ],
                   ),
@@ -330,16 +317,8 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _sectionTitle(String title) => Text(
-        title,
-        style: const TextStyle(
-          fontFamily: 'Sora',
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.textSecondary,
-          letterSpacing: 0.5,
-        ),
-      );
+  Widget _sectionTitle(String title) =>
+      Text(title, style: AppTheme.sora(13, weight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 0.5));
 
   Widget _buildManagerDropdown(bool submitting) {
     final filtered = _allUsers

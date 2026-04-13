@@ -226,23 +226,10 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.visit.clientName,
-                    style: const TextStyle(
-                      fontFamily: 'Sora',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    widget.visit.location,
-                    style: const TextStyle(
-                      fontFamily: 'Sora',
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
+                  Text(widget.visit.clientName,
+                      style: AppTheme.sora(15, weight: FontWeight.w700)),
+                  Text(widget.visit.location,
+                      style: AppTheme.sora(12, color: AppTheme.textSecondary)),
                 ],
               ),
             ),
@@ -275,14 +262,8 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
             ),
             if (!widget.isEditMode && !isCheckedOut) ...[
               const SizedBox(height: 8),
-              Text(
-                'Checkout time is set to now and cannot be changed',
-                style: TextStyle(
-                  fontFamily: 'Sora',
-                  fontSize: 11,
-                  color: AppTheme.textHint,
-                ),
-              ),
+              Text('Checkout time is set to now and cannot be changed',
+                  style: AppTheme.sora(11, color: AppTheme.textHint)),
             ],
           ],
         ),
@@ -290,17 +271,14 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
     );
   }
 
-  Widget _timeRow(IconData icon, String label, String value, Color color) {
-    return Row(
-      children: [
+  Widget _timeRow(IconData icon, String label, String value, Color color) =>
+      Row(children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontFamily: 'Sora')),
+        Text(label, style: AppTheme.sora(13, color: AppTheme.textSecondary)),
         const Spacer(),
-        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color, fontFamily: 'Sora')),
-      ],
-    );
-  }
+        Text(value, style: AppTheme.sora(13, weight: FontWeight.w600, color: color)),
+      ]);
 
   Widget _buildBillSection() {
     return Column(
@@ -317,15 +295,8 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
                   color: AppTheme.error.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
-                  'Required',
-                  style: TextStyle(
-                    fontFamily: 'Sora',
-                    fontSize: 10,
-                    color: AppTheme.error,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: Text('Required',
+                  style: AppTheme.sora(10, weight: FontWeight.w600, color: AppTheme.error)),
               ),
             ],
           ],
@@ -358,14 +329,8 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
                         color: _requiresBill ? AppTheme.error : AppTheme.textHint,
                         size: 28),
                     const SizedBox(height: 6),
-                    Text(
-                      'Tap to upload bill',
-                      style: TextStyle(
-                        fontFamily: 'Sora',
-                        fontSize: 13,
-                        color: _requiresBill ? AppTheme.error : AppTheme.textHint,
-                      ),
-                    ),
+                    Text('Tap to upload bill',
+                      style: AppTheme.sora(13, color: _requiresBill ? AppTheme.error : AppTheme.textHint)),
                   ],
                 ),
               ),
@@ -392,14 +357,6 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
     );
   }
 
-  Widget _buildLabel(String text) => Text(
-        text,
-        style: const TextStyle(
-          fontFamily: 'Sora',
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.textSecondary,
-          letterSpacing: 0.3,
-        ),
-      );
+  Widget _buildLabel(String text) =>
+      Text(text, style: AppTheme.sora(13, weight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 0.3));
 }

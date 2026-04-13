@@ -232,27 +232,35 @@ class _HomeScreenState extends State<HomeScreen>
     return true;
   }
 
-  Future<bool> _ensureCameraPermission() async {
-    var status = await Permission.camera.status;
-    if (status.isGranted) return true;
-
-    if (status.isPermanentlyDenied) {
-      await _showPermissionDialog(
-        'Camera Permission Required',
-        'Camera access has been permanently denied.\n\n'
-        'Please go to Settings → Agoriya → Camera and enable it.',
+  Future<bool> _ensureCameraPermission() =>
+      _ensureSimplePermission(
+        permission: Permission.camera,
+        title: 'Camera Permission Required',
+        permanentlyDeniedMessage:
+            'Camera access has been permanently denied.\n\n'
+            'Please go to Settings → Agoriya → Camera and enable it.',
+        deniedMessage:
+            'Agoriya needs camera access to take a selfie when you punch in.\n\n'
+            'Please enable camera permission in Settings.',
       );
+
+  /// Generic helper for single-step permissions (camera, photos, etc.).
+  /// Location uses a custom multi-step flow and is handled separately.
+  Future<bool> _ensureSimplePermission({
+    required Permission permission,
+    required String title,
+    required String permanentlyDeniedMessage,
+    required String deniedMessage,
+  }) async {
+    var status = await permission.status;
+    if (status.isGranted) return true;
+    if (status.isPermanentlyDenied) {
+      await _showPermissionDialog(title, permanentlyDeniedMessage);
       return false;
     }
-
-    status = await Permission.camera.request();
+    status = await permission.request();
     if (status.isGranted) return true;
-
-    await _showPermissionDialog(
-      'Camera Permission Required',
-      'Agoriya needs camera access to take a selfie when you punch in.\n\n'
-      'Please enable camera permission in Settings.',
-    );
+    await _showPermissionDialog(title, deniedMessage);
     return false;
   }
 
@@ -343,7 +351,7 @@ class _HomeScreenState extends State<HomeScreen>
           children: [
             const CircularProgressIndicator(),
             const SizedBox(width: 16),
-            Text(message, style: const TextStyle(fontFamily: 'Sora')),
+            Text(message, style: AppTheme.sora(14)),
           ],
         ),
       ),
@@ -404,15 +412,8 @@ class _HomeScreenState extends State<HomeScreen>
                   )
                 : null,
             title: Text(
-              _isReadOnly
-                  ? (widget.viewingUserName ?? 'Team Member')
-                  : 'Agoriya',
-              style: const TextStyle(
-                fontFamily: 'Sora',
-                fontWeight: FontWeight.w700,
-                fontSize: 22,
-                color: Colors.white,
-              ),
+              _isReadOnly ? (widget.viewingUserName ?? 'Team Member') : 'Agoriya',
+              style: AppTheme.sora(22, weight: FontWeight.w700, color: Colors.white),
             ),
             actions: [
               if (!_isReadOnly)
@@ -465,16 +466,8 @@ class _HomeScreenState extends State<HomeScreen>
                   indicatorWeight: 3,
                   labelColor: Colors.white,
                   unselectedLabelColor: Colors.white60,
-                  labelStyle: const TextStyle(
-                    fontFamily: 'Sora',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                  unselectedLabelStyle: const TextStyle(
-                    fontFamily: 'Sora',
-                    fontWeight: FontWeight.w400,
-                    fontSize: 14,
-                  ),
+                  labelStyle: AppTheme.sora(14, weight: FontWeight.w600),
+                  unselectedLabelStyle: AppTheme.sora(14),
                   tabs: const [
                     Tab(text: 'Track'),
                     Tab(text: 'Visits'),
@@ -584,23 +577,8 @@ class _HomeScreenState extends State<HomeScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontFamily: 'Sora',
-                    fontSize: 11,
-                    color: Colors.white.withOpacity(0.65),
-                  ),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontFamily: 'Sora',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
+                Text(label, style: AppTheme.sora(11, color: Colors.white.withOpacity(0.65))),
+                Text(value, style: AppTheme.sora(18, weight: FontWeight.w800, color: Colors.white)),
               ],
             ),
           ],
@@ -624,8 +602,7 @@ class _HomeScreenState extends State<HomeScreen>
         onPressed: loaded != null ? () => _handlePunchIn(loaded) : null,
         backgroundColor: AppTheme.punchIn,
         icon: const Icon(Icons.fingerprint_rounded),
-        label: const Text('Punch In',
-            style: TextStyle(fontFamily: 'Sora', fontWeight: FontWeight.w600)),
+        label: Text('Punch In', style: AppTheme.sora(14, weight: FontWeight.w600, color: Colors.white)),
       );
     }
 
@@ -635,8 +612,7 @@ class _HomeScreenState extends State<HomeScreen>
         onPressed: _handlePunchOut,
         backgroundColor: AppTheme.punchOut,
         icon: const Icon(Icons.logout_rounded),
-        label: const Text('Punch Out',
-            style: TextStyle(fontFamily: 'Sora', fontWeight: FontWeight.w600)),
+        label: Text('Punch Out', style: AppTheme.sora(14, weight: FontWeight.w600, color: Colors.white)),
       );
     }
 
@@ -652,8 +628,7 @@ class _HomeScreenState extends State<HomeScreen>
       },
       backgroundColor: AppTheme.checkIn,
       icon: const Icon(Icons.add_location_alt_rounded),
-      label: const Text('Check In',
-          style: TextStyle(fontFamily: 'Sora', fontWeight: FontWeight.w600)),
+      label: Text('Check In', style: AppTheme.sora(14, weight: FontWeight.w600, color: Colors.white)),
     );
   }
 }

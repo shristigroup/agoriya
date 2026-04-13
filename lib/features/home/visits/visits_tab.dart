@@ -6,7 +6,6 @@ import '../../../../data/models/visit_model.dart';
 import '../../../../data/local/local_storage_service.dart';
 import '../bloc/home_bloc.dart';
 import '../bloc/home_event.dart';
-import '../bloc/home_state.dart';
 import '../visits/visit_detail_screen.dart';
 import '../visits/visit_edit_screen.dart';
 
@@ -34,33 +33,8 @@ class VisitsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Punched-out banner
-        if (isPunchedOut)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-            color: AppTheme.punchOut.withOpacity(0.1),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.lock_clock_rounded,
-                    size: 16, color: AppTheme.punchOut.withOpacity(0.8)),
-                const SizedBox(width: 8),
-                Text(
-                  'Punched Out — day is complete',
-                  style: TextStyle(
-                    fontFamily: 'Sora',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.punchOut.withOpacity(0.8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        // Filter bar
-        if (clientNames.isNotEmpty)
-          _buildFilterBar(context),
+        if (isPunchedOut) _PunchedOutBanner(),
+        if (clientNames.isNotEmpty) _buildFilterBar(context),
         Expanded(
           child: filteredVisits.isEmpty
               ? _buildEmptyState()
@@ -76,37 +50,35 @@ class VisitsTab extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          const Icon(Icons.filter_list_rounded, size: 18, color: AppTheme.textSecondary),
+          const Icon(Icons.filter_list_rounded, size: 18,
+              color: AppTheme.textSecondary),
           const SizedBox(width: 8),
           Expanded(
             child: DropdownButton<String>(
               value: filterClient,
-              hint: const Text(
-                'All clients',
-                style: TextStyle(fontFamily: 'Sora', fontSize: 13, color: AppTheme.textSecondary),
-              ),
+              hint: Text('All clients',
+                  style: AppTheme.sora(13, color: AppTheme.textSecondary)),
               isExpanded: true,
               underline: const SizedBox(),
               items: [
-                const DropdownMenuItem(
-                  value: null,
-                  child: Text('All clients', style: TextStyle(fontFamily: 'Sora', fontSize: 13)),
-                ),
+                DropdownMenuItem(
+                    value: null,
+                    child: Text('All clients', style: AppTheme.sora(13))),
                 ...clientNames.map((name) => DropdownMenuItem(
-                      value: name,
-                      child: Text(name, style: const TextStyle(fontFamily: 'Sora', fontSize: 13)),
-                    )),
+                    value: name,
+                    child: Text(name, style: AppTheme.sora(13)))),
               ],
-              onChanged: (val) {
-                context.read<HomeBloc>().add(FilterVisitsByClientEvent(val));
-              },
+              onChanged: (val) =>
+                  context.read<HomeBloc>().add(FilterVisitsByClientEvent(val)),
             ),
           ),
           if (filterClient != null)
             IconButton(
-              icon: const Icon(Icons.clear, size: 18, color: AppTheme.textSecondary),
-              onPressed: () =>
-                  context.read<HomeBloc>().add(FilterVisitsByClientEvent(null)),
+              icon: const Icon(Icons.clear, size: 18,
+                  color: AppTheme.textSecondary),
+              onPressed: () => context
+                  .read<HomeBloc>()
+                  .add(FilterVisitsByClientEvent(null)),
             ),
         ],
       ),
@@ -114,44 +86,32 @@ class VisitsTab extends StatelessWidget {
   }
 
   Widget _buildEmptyState() {
-    final String message;
-    final IconData icon;
-    if (filterClient != null) {
-      message = 'No visits for $filterClient';
-      icon = Icons.storefront_outlined;
-    } else if (isPunchedOut) {
-      message = 'No visits recorded today';
-      icon = Icons.lock_clock_rounded;
-    } else {
-      message = 'No customer visits yet';
-      icon = Icons.storefront_outlined;
-    }
-
+    final icon = isPunchedOut
+        ? Icons.lock_clock_rounded
+        : Icons.storefront_outlined;
+    final message = filterClient != null
+        ? 'No visits for $filterClient'
+        : isPunchedOut
+            ? 'No visits recorded today'
+            : 'No customer visits yet';
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 56, color: AppTheme.textHint),
           const SizedBox(height: 16),
-          Text(
-            message,
-            style: const TextStyle(
-              fontFamily: 'Sora',
-              fontSize: 15,
-              color: AppTheme.textSecondary,
-            ),
-          ),
+          Text(message,
+              style: AppTheme.sora(15, color: AppTheme.textSecondary)),
         ],
       ),
     );
   }
 
   Widget _buildVisitList(BuildContext context) {
-    // Group by date
     final grouped = <String, List<VisitModel>>{};
-    for (final visit in filteredVisits) {
-      final dateKey = AppUtils.formatDate(visit.checkinTimestamp);
-      grouped.putIfAbsent(dateKey, () => []).add(visit);
+    for (final v in filteredVisits) {
+      grouped.putIfAbsent(AppUtils.formatDate(v.checkinTimestamp), () => [])
+          .add(v);
     }
     final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
@@ -161,57 +121,103 @@ class VisitsTab extends StatelessWidget {
       itemBuilder: (context, i) {
         final date = sortedDates[i];
         final dayVisits = grouped[date]!;
-        final displayDate = AppUtils.isSameDay(
-          DateTime.parse(date),
-          DateTime.now(),
-        )
+        final dt = DateTime.parse(date);
+        final displayDate = AppUtils.isSameDay(dt, DateTime.now())
             ? 'Today'
-            : AppUtils.isSameDay(
-                DateTime.parse(date),
-                DateTime.now().subtract(const Duration(days: 1)),
-              )
+            : AppUtils.isSameDay(dt, DateTime.now().subtract(const Duration(days: 1)))
                 ? 'Yesterday'
-                : AppUtils.formatDateDisplay(DateTime.parse(date));
+                : AppUtils.formatDateDisplay(dt);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                displayDate,
-                style: const TextStyle(
-                  fontFamily: 'Sora',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textSecondary,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              child: Text(displayDate,
+                  style: AppTheme.sora(12,
+                      weight: FontWeight.w700,
+                      color: AppTheme.textSecondary,
+                      letterSpacing: 0.5)),
             ),
-            ...dayVisits.map((v) => _buildVisitCard(context, v)),
+            ...dayVisits.map((v) => _VisitCard(
+                  visit: v,
+                  targetUserId: targetUserId,
+                  isReadOnly: isReadOnly,
+                )),
           ],
         );
       },
     );
   }
+}
 
-  Widget _buildVisitCard(BuildContext context, VisitModel visit) {
+class _PunchedOutBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        color: AppTheme.punchOut.withOpacity(0.1),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lock_clock_rounded,
+                size: 16, color: AppTheme.punchOut.withOpacity(0.8)),
+            const SizedBox(width: 8),
+            Text('Punched Out — day is complete',
+                style: AppTheme.sora(13,
+                    weight: FontWeight.w600,
+                    color: AppTheme.punchOut.withOpacity(0.8))),
+          ],
+        ),
+      );
+}
+
+class _VisitCard extends StatelessWidget {
+  final VisitModel visit;
+  final String targetUserId;
+  final bool isReadOnly;
+  const _VisitCard(
+      {required this.visit,
+      required this.targetUserId,
+      required this.isReadOnly});
+
+  void _onTap(BuildContext context) {
+    if (isReadOnly) {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: context.read<HomeBloc>(),
+          child: VisitDetailScreen(
+              visit: visit, targetUserId: targetUserId, isReadOnly: true),
+        ),
+      ));
+      return;
+    }
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => BlocProvider.value(
+        value: context.read<HomeBloc>(),
+        child: visit.isCheckedOut
+            ? VisitDetailScreen(visit: visit, targetUserId: targetUserId)
+            : VisitEditScreen(
+                visit: visit, targetUserId: targetUserId, isEditMode: false),
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isActive = !visit.isCheckedOut;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Card(
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => _onCardTap(context, visit),
+          onTap: () => _onTap(context),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Status indicator
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 44, height: 44,
                   decoration: BoxDecoration(
                     color: isActive
                         ? AppTheme.accent.withOpacity(0.12)
@@ -219,7 +225,9 @@ class VisitsTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    isActive ? Icons.radio_button_checked : Icons.check_circle_rounded,
+                    isActive
+                        ? Icons.radio_button_checked
+                        : Icons.check_circle_rounded,
                     color: isActive ? AppTheme.accent : AppTheme.primary,
                     size: 24,
                   ),
@@ -229,123 +237,58 @@ class VisitsTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        visit.clientName,
-                        style: const TextStyle(
-                          fontFamily: 'Sora',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
+                      Text(visit.clientName,
+                          style: AppTheme.sora(14, weight: FontWeight.w700)),
                       const SizedBox(height: 2),
-                      Text(
-                        visit.location,
-                        style: const TextStyle(
-                          fontFamily: 'Sora',
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      Text(visit.location,
+                          style: AppTheme.sora(12, color: AppTheme.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.login_rounded, size: 12, color: AppTheme.textHint),
+                          const Icon(Icons.login_rounded, size: 12,
+                              color: AppTheme.textHint),
                           const SizedBox(width: 4),
-                          Text(
-                            AppUtils.formatTime(visit.checkinTimestamp),
-                            style: const TextStyle(
-                              fontFamily: 'Sora',
-                              fontSize: 11,
-                              color: AppTheme.textHint,
-                            ),
-                          ),
+                          Text(AppUtils.formatTime(visit.checkinTimestamp),
+                              style: AppTheme.sora(11, color: AppTheme.textHint)),
                           if (visit.checkoutTimestamp != null) ...[
-                            const Text(' → ', style: TextStyle(fontSize: 11, color: AppTheme.textHint)),
+                            Text(' → ',
+                                style: AppTheme.sora(11,
+                                    color: AppTheme.textHint)),
                             Text(
-                              AppUtils.formatTime(visit.checkoutTimestamp!),
-                              style: const TextStyle(
-                                fontFamily: 'Sora',
-                                fontSize: 11,
-                                color: AppTheme.textHint,
-                              ),
-                            ),
+                                AppUtils.formatTime(visit.checkoutTimestamp!),
+                                style: AppTheme.sora(11,
+                                    color: AppTheme.textHint)),
                           ],
                         ],
                       ),
                     ],
                   ),
                 ),
-                // Expense chip
                 if (visit.expenseAmount != null) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppTheme.primary.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '₹${visit.expenseAmount!.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        fontFamily: 'Sora',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.primary,
-                      ),
-                    ),
+                        '₹${visit.expenseAmount!.toStringAsFixed(0)}',
+                        style: AppTheme.sora(12,
+                            weight: FontWeight.w700, color: AppTheme.primary)),
                   ),
                 ],
                 const SizedBox(width: 4),
-                const Icon(Icons.chevron_right, color: AppTheme.textHint, size: 18),
+                const Icon(Icons.chevron_right,
+                    color: AppTheme.textHint, size: 18),
               ],
             ),
           ),
         ),
       ),
     );
-  }
-
-  void _onCardTap(BuildContext context, VisitModel visit) {
-    if (isReadOnly) {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => BlocProvider.value(
-          value: context.read<HomeBloc>(),
-          child: VisitDetailScreen(
-            visit: visit,
-            targetUserId: targetUserId,
-            isReadOnly: true,
-          ),
-        ),
-      ));
-      return;
-    }
-
-    if (!visit.isCheckedOut) {
-      // Go directly to edit/checkout screen
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => BlocProvider.value(
-          value: context.read<HomeBloc>(),
-          child: VisitEditScreen(
-            visit: visit,
-            targetUserId: targetUserId,
-            isEditMode: false,
-          ),
-        ),
-      ));
-    } else {
-      // Go to detail screen
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => BlocProvider.value(
-          value: context.read<HomeBloc>(),
-          child: VisitDetailScreen(
-            visit: visit,
-            targetUserId: targetUserId,
-          ),
-        ),
-      ));
-    }
   }
 }

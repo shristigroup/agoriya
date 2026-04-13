@@ -19,6 +19,23 @@ class AppTheme {
   static const Color checkIn = Color(0xFF1565C0);
   static const Color checkOut = Color(0xFF6A1B9A);
 
+  /// Convenience helper — avoids repeating fontFamily: 'Sora' everywhere.
+  static TextStyle sora(
+    double size, {
+    FontWeight weight = FontWeight.w400,
+    Color color = textPrimary,
+    double? height,
+    double? letterSpacing,
+  }) =>
+      TextStyle(
+        fontFamily: 'Sora',
+        fontSize: size,
+        fontWeight: weight,
+        color: color,
+        height: height,
+        letterSpacing: letterSpacing,
+      );
+
   static ThemeData get light {
     final soraTextTheme = GoogleFonts.soraTextTheme(
       const TextTheme(

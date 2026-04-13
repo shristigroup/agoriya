@@ -128,6 +128,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       await _repo.createOrUpdateUser(user);
       await LocalStorageService.saveUser(user);
+
+      // Keep the manager's `reports` map in Firestore up to date so the
+      // hierarchy JSON stays consistent (used for legacy reads).
+      if (event.managerId != null) {
+        try {
+          final manager = await _repo.getUserById(event.managerId!);
+          if (manager != null && !manager.reports.containsKey(docId)) {
+            await _repo.createOrUpdateUser(manager.copyWith(
+              reports: {...manager.reports, docId: {'name': user.fullName, 'reports': {}}},
+            ));
+          }
+        } catch (_) {} // Never fail registration because of manager update
+      }
+
       emit(AuthAuthenticated(user));
     } catch (e) {
       emit(AuthError(e.toString()));

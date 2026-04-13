@@ -103,15 +103,8 @@ class _PunchInSuccessScreenState extends State<PunchInSuccessScreen>
 
               const SizedBox(height: 32),
 
-              const Text(
-                'Punched In!',
-                style: TextStyle(
-                  fontFamily: 'Sora',
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                ),
+              Text('Punched In!',
+                style: AppTheme.sora(32, weight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5),
               )
                   .animate()
                   .fadeIn(delay: 300.ms)
@@ -119,24 +112,14 @@ class _PunchInSuccessScreenState extends State<PunchInSuccessScreen>
 
               const SizedBox(height: 8),
 
-              Text(
-                'Started at $punchInTime',
-                style: TextStyle(
-                  fontFamily: 'Sora',
-                  fontSize: 16,
-                  color: Colors.white.withOpacity(0.75),
-                ),
+              Text('Started at $punchInTime',
+                style: AppTheme.sora(16, color: Colors.white.withOpacity(0.75)),
               ).animate().fadeIn(delay: 500.ms),
 
               const SizedBox(height: 16),
 
-              Text(
-                'Have a great day! 🎯',
-                style: TextStyle(
-                  fontFamily: 'Sora',
-                  fontSize: 14,
-                  color: Colors.white.withOpacity(0.6),
-                ),
+              Text('Have a great day! 🎯',
+                style: AppTheme.sora(14, color: Colors.white.withOpacity(0.6)),
               ).animate().fadeIn(delay: 700.ms),
             ],
           ),
@@ -213,16 +196,9 @@ class _PunchOutSummaryScreenState extends State<PunchOutSummaryScreen>
 
               const SizedBox(height: 32),
 
-              const Text(
-                'Day Complete!',
+              Text('Day Complete!',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Sora',
-                  fontSize: 30,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                ),
+                style: AppTheme.sora(30, weight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5),
               ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.3, delay: 400.ms),
 
               const SizedBox(height: 32),
@@ -263,12 +239,7 @@ class _PunchOutSummaryScreenState extends State<PunchOutSummaryScreen>
               Text(
                 '🌟 Your manager has been informed. Keep up the great work!',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Sora',
-                  fontSize: 14,
-                  color: Colors.white.withOpacity(0.6),
-                  height: 1.6,
-                ),
+                style: AppTheme.sora(14, color: Colors.white.withOpacity(0.6), height: 1.6),
               ).animate().fadeIn(delay: 900.ms),
             ],
           ),
@@ -283,24 +254,9 @@ class _PunchOutSummaryScreenState extends State<PunchOutSummaryScreen>
         Icon(icon, color: AppTheme.accent, size: 20),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Sora',
-              fontSize: 13,
-              color: Colors.white.withOpacity(0.6),
-            ),
-          ),
+          child: Text(label, style: AppTheme.sora(13, color: Colors.white.withOpacity(0.6))),
         ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontFamily: 'Sora',
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
+        Text(value, style: AppTheme.sora(16, weight: FontWeight.w700, color: Colors.white)),
       ],
     );
   }

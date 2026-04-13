@@ -204,15 +204,8 @@ class _TrackTabState extends State<TrackTab> {
                           color: AppTheme.textHint, size: 40),
                     const SizedBox(height: 10),
                     Text(
-                      acquiring
-                          ? 'Acquiring GPS location...'
-                          : 'No location data yet',
-                      style: const TextStyle(
-                        fontFamily: 'Sora',
-                        fontSize: 14,
-                        color: AppTheme.textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      acquiring ? 'Acquiring GPS location...' : 'No location data yet',
+                      style: AppTheme.sora(14, weight: FontWeight.w500, color: AppTheme.textSecondary),
                     ),
                   ],
                 ),
@@ -289,11 +282,7 @@ class _TrackTabState extends State<TrackTab> {
                   const SizedBox(width: 4),
                   Text(
                     'Last: ${AppUtils.formatTime(widget.locations.last.timestamp)}',
-                    style: const TextStyle(
-                      fontFamily: 'Sora',
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
+                    style: AppTheme.sora(12, color: AppTheme.textSecondary),
                   ),
                 ],
               ),
@@ -313,10 +302,10 @@ class _TrackTabState extends State<TrackTab> {
                   color: AppTheme.primary,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
+                    const SizedBox(
                       width: 12,
                       height: 12,
                       child: CircularProgressIndicator(
@@ -324,15 +313,8 @@ class _TrackTabState extends State<TrackTab> {
                         color: Colors.white,
                       ),
                     ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Snapping to roads...',
-                      style: TextStyle(
-                        fontFamily: 'Sora',
-                        fontSize: 12,
-                        color: Colors.white,
-                      ),
-                    ),
+                    const SizedBox(width: 8),
+                    Text('Snapping to roads...', style: AppTheme.sora(12, color: Colors.white)),
                   ],
                 ),
               ),

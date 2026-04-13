@@ -46,12 +46,14 @@ mkdir -p "$DIST_DIR"
 BUILD_IOS=true
 BUILD_ANDROID=true
 UPLOAD_IOS=false
+SKIP_CLEAN=true
 
 for arg in "$@"; do
   case $arg in
     --ios-only)     BUILD_ANDROID=false ;;
     --android-only) BUILD_IOS=false ;;
     --upload)       UPLOAD_IOS=true ;;
+    --full-clean)     SKIP_CLEAN=false ;;
   esac
 done
 
@@ -80,8 +82,12 @@ if [[ "$UPLOAD_IOS" == true ]]; then
 fi
 
 # ─── Flutter clean & pub get ──────────────────────────────────────────────────
-info "Running flutter clean..."
-flutter clean
+if [[ "$SKIP_CLEAN" == true ]]; then
+  warn "Skipping flutter clean (--no-clean). Using existing build cache."
+else
+  info "Running flutter clean..."
+  flutter clean
+fi
 
 info "Running flutter pub get..."
 flutter pub get

@@ -106,16 +106,11 @@ class _PunchInCameraScreenState extends State<PunchInCameraScreen>
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close, color: Colors.white),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Take a Selfie to Punch In',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Sora',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+                      style: AppTheme.sora(16, weight: FontWeight.w600, color: Colors.white),
                     ),
                   ),
                   const SizedBox(width: 48),
@@ -175,11 +170,7 @@ class _PunchInCameraScreenState extends State<PunchInCameraScreen>
                 children: [
                   Text(
                     'Position your face in the oval',
-                    style: TextStyle(
-                      fontFamily: 'Sora',
-                      fontSize: 13,
-                      color: Colors.white.withOpacity(0.7),
-                    ),
+                    style: AppTheme.sora(13, color: Colors.white.withOpacity(0.7)),
                   ),
                   const SizedBox(height: 28),
                   GestureDetector(

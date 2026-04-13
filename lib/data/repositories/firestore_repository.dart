@@ -19,6 +19,11 @@ class FirestoreRepository {
     return snap.docs.map((d) => UserModel.fromFirestore(d)).toList();
   }
 
+  Future<List<UserModel>> getUsersByManagerId(String managerId) async {
+    final snap = await _users.where('managerId', isEqualTo: managerId).get();
+    return snap.docs.map((d) => UserModel.fromFirestore(d)).toList();
+  }
+
   Future<UserModel?> getUserByPhone(String phone) async {
     final snap = await _users.where('phoneNumber', isEqualTo: phone).limit(1).get();
     if (snap.docs.isEmpty) return null;

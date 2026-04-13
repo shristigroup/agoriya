@@ -110,14 +110,6 @@ class _CheckInScreenState extends State<CheckInScreen> {
     );
   }
 
-  Widget _buildLabel(String text) => Text(
-        text,
-        style: const TextStyle(
-          fontFamily: 'Sora',
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.textSecondary,
-          letterSpacing: 0.3,
-        ),
-      );
+  Widget _buildLabel(String text) =>
+      Text(text, style: AppTheme.sora(13, weight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 0.3));
 }
