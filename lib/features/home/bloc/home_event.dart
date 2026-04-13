@@ -37,15 +37,10 @@ class CheckOutVisitEvent extends HomeEvent {
   CheckOutVisitEvent(this.visit);
 }
 
-class FilterVisitsByClientEvent extends HomeEvent {
-  final String? clientName;
-  FilterVisitsByClientEvent(this.clientName);
-}
-
 class AddCommentEvent extends HomeEvent {
   final String visitId;
   final String text;
-  final String targetUserId; // whose visit
+  final String targetUserId;
   AddCommentEvent({
     required this.visitId,
     required this.text,

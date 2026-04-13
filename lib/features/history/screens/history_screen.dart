@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/attendance_model.dart';
-import '../../../data/repositories/firestore_repository.dart';
+import '../../../data/data_manager.dart';
 import '../widgets/daily_tile.dart';
 import '../widgets/monthly_card.dart';
 import 'history_day_screen.dart';
@@ -77,7 +77,6 @@ class _DailyTab extends StatefulWidget {
 
 class _DailyTabState extends State<_DailyTab>
     with AutomaticKeepAliveClientMixin {
-  final _repo = FirestoreRepository();
   final List<AttendanceModel> _records = [];
   bool _loading = true;
   bool _loadingMore = false;
@@ -106,7 +105,7 @@ class _DailyTabState extends State<_DailyTab>
     }
 
     try {
-      final (records, lastDate) = await _repo.getAttendanceHistory(
+      final (records, lastDate) = await DataManager.getAttendanceHistory(
         widget.userId,
         limit: 30,
         startAfterDate: refresh ? null : _lastDate,

@@ -42,7 +42,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<CreateVisitEvent>(_onCreateVisit);
     on<UpdateVisitEvent>(_onUpdateVisit);
     on<CheckOutVisitEvent>(_onCheckOutVisit);
-    on<FilterVisitsByClientEvent>(_onFilterVisits);
     on<AddCommentEvent>(_onAddComment);
 
     final bgService = FlutterBackgroundService();
@@ -85,19 +84,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       if (pos != null) lastKnownLocation = LatLng(pos.latitude, pos.longitude);
     } catch (_) {}
 
-    // Own user: live distance from Hive (includes haversine on dirty points).
-    // Manager: use what Firestore last recorded on the attendance doc.
-    final displayDistance = DataManager.isOwner(userId)
-        ? LocalStorageService.getTotalDistanceDirty()
-        : (attendance?.distance ?? 0.0);
-
     emit(HomeLoaded(
       attendance: attendance,
       visits: visits,
-      filteredVisits: visits,
       locations: locations,
       lastKnownLocation: lastKnownLocation,
-      displayDistance: displayDistance,
+      displayDistance: DataManager.getDisplayDistance(userId, attendance),
     ));
 
     if (locations.any((p) => !p.isSnapped)) add(SnapDirtyPointsEvent());
@@ -409,16 +401,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       );
       if (updatedAtt != null) await LocalStorageService.saveAttendance(updatedAtt);
 
-      final allVisits = LocalStorageService.getOwnVisitsForDate(today);
-      final filtered = current.filterClient != null
-          ? allVisits.where((v) => v.clientName == current.filterClient).toList()
-          : allVisits;
+      final allVisits = await DataManager.getVisitsForDay(userId, today);
 
       emit(VisitCreated(visit));
       emit(current.copyWith(
         attendance: updatedAtt,
         visits: allVisits,
-        filteredVisits: filtered,
       ));
     } catch (e) {
       emit(HomeError(e.toString()));
@@ -431,12 +419,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     try {
       await _repo.updateVisit(userId, event.visit);
       await LocalStorageService.saveVisit(event.visit);
-      final allVisits = LocalStorageService.getOwnVisitsForDate(AppUtils.todayKey());
-      final filtered = current.filterClient != null
-          ? allVisits.where((v) => v.clientName == current.filterClient).toList()
-          : allVisits;
+      final allVisits = await DataManager.getVisitsForDay(userId, AppUtils.todayKey());
       emit(VisitUpdated(event.visit));
-      emit(current.copyWith(visits: allVisits, filteredVisits: filtered));
+      emit(current.copyWith(visits: allVisits));
     } catch (e) {
       emit(HomeError(e.toString()));
     }
@@ -444,20 +429,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   Future<void> _onCheckOutVisit(CheckOutVisitEvent event, Emitter<HomeState> emit) async {
     add(UpdateVisitEvent(event.visit.copyWith(checkoutTimestamp: DateTime.now())));
-  }
-
-  Future<void> _onFilterVisits(
-      FilterVisitsByClientEvent event, Emitter<HomeState> emit) async {
-    if (state is! HomeLoaded) return;
-    final current = state as HomeLoaded;
-    final filtered = event.clientName == null
-        ? current.visits
-        : current.visits.where((v) => v.clientName == event.clientName).toList();
-    emit(current.copyWith(
-      filteredVisits: filtered,
-      filterClient: event.clientName,
-      clearFilter: event.clientName == null,
-    ));
   }
 
   Future<void> _onAddComment(AddCommentEvent event, Emitter<HomeState> emit) async {

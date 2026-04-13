@@ -3,6 +3,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../data/local/local_storage_service.dart';
 import '../../../data/models/attendance_model.dart';
+import '../../../data/data_manager.dart';
 import '../../../data/repositories/firestore_repository.dart';
 import '../../history/screens/history_screen.dart';
 
@@ -33,16 +34,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
         return;
       }
 
-      final repo = FirestoreRepository();
       // Always query Firestore directly — local cache is stale when new
       // team members register after this user last logged in.
-      final directReports = await repo.getUsersByManagerId(currentUser.id);
+      final directReports = await FirestoreRepository().getUsersByManagerId(currentUser.id);
 
       final today = AppUtils.todayKey();
       final entries = await Future.wait(
         directReports.map((u) async {
           AttendanceModel? att;
-          try { att = await repo.getAttendance(u.id, today); } catch (_) {}
+          try { att = await DataManager.getAttendance(u.id, today); } catch (_) {}
           return _ReportEntry(userId: u.id, name: u.fullName, attendance: att);
         }),
       );

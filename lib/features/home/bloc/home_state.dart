@@ -13,20 +13,16 @@ class HomeLoaded extends HomeState {
   final AttendanceModel? attendance;
   final List<LocationPoint> locations;
   final List<VisitModel> visits;
-  final List<VisitModel> filteredVisits;
-  final String? filterClient;
   final LatLng? lastKnownLocation;
   final bool isRefreshing;
-  final bool isSnapping;      // OSRM snap in progress — punch out shows snackbar
-  final bool isPunchingOut;   // punch out in flight — full-screen overlay shown
-  final double displayDistance; // totalDistanceDirty: shown in UI immediately
+  final bool isSnapping;
+  final bool isPunchingOut;
+  final double displayDistance;
 
   HomeLoaded({
     this.attendance,
     this.locations = const [],
     this.visits = const [],
-    this.filteredVisits = const [],
-    this.filterClient,
     this.lastKnownLocation,
     this.isRefreshing = false,
     this.isSnapping = false,
@@ -41,22 +37,17 @@ class HomeLoaded extends HomeState {
     AttendanceModel? attendance,
     List<LocationPoint>? locations,
     List<VisitModel>? visits,
-    List<VisitModel>? filteredVisits,
-    String? filterClient,
     LatLng? lastKnownLocation,
     bool? isRefreshing,
     bool? isSnapping,
     bool? isPunchingOut,
     double? displayDistance,
-    bool clearFilter = false,
     bool clearLastKnown = false,
   }) =>
       HomeLoaded(
         attendance: attendance ?? this.attendance,
         locations: locations ?? this.locations,
         visits: visits ?? this.visits,
-        filteredVisits: filteredVisits ?? this.filteredVisits,
-        filterClient: clearFilter ? null : (filterClient ?? this.filterClient),
         lastKnownLocation:
             clearLastKnown ? null : (lastKnownLocation ?? this.lastKnownLocation),
         isRefreshing: isRefreshing ?? this.isRefreshing,

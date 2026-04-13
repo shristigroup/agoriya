@@ -621,10 +621,6 @@ class _HomeScreenState extends State<HomeScreen>
                             value: context.read<HomeBloc>(),
                             child: VisitsTab(
                               visits: loaded?.visits ?? [],
-                              filteredVisits: loaded?.filteredVisits ?? [],
-                              filterClient: loaded?.filterClient,
-                              clientNames:
-                                  LocalStorageService.getDistinctClientNames(),
                               targetUserId: _targetUserId,
                               isReadOnly: _isReadOnly,
                               isPunchedOut: isPunchedOut,

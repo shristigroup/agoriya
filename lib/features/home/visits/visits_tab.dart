@@ -3,17 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/app_utils.dart';
 import '../../../../data/models/visit_model.dart';
-import '../../../../data/local/local_storage_service.dart';
 import '../bloc/home_bloc.dart';
-import '../bloc/home_event.dart';
 import '../visits/visit_detail_screen.dart';
 import '../visits/visit_edit_screen.dart';
 
 class VisitsTab extends StatelessWidget {
   final List<VisitModel> visits;
-  final List<VisitModel> filteredVisits;
-  final String? filterClient;
-  final List<String> clientNames;
   final String targetUserId;
   final bool isReadOnly;
   final bool isPunchedOut;
@@ -21,9 +16,6 @@ class VisitsTab extends StatelessWidget {
   const VisitsTab({
     super.key,
     required this.visits,
-    required this.filteredVisits,
-    this.filterClient,
-    required this.clientNames,
     required this.targetUserId,
     this.isReadOnly = false,
     this.isPunchedOut = false,
@@ -34,9 +26,8 @@ class VisitsTab extends StatelessWidget {
     return Column(
       children: [
         if (isPunchedOut) _PunchedOutBanner(),
-        if (clientNames.isNotEmpty) _buildFilterBar(context),
         Expanded(
-          child: filteredVisits.isEmpty
+          child: visits.isEmpty
               ? _buildEmptyState()
               : _buildVisitList(context),
         ),
@@ -44,109 +35,35 @@ class VisitsTab extends StatelessWidget {
     );
   }
 
-  Widget _buildFilterBar(BuildContext context) {
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          const Icon(Icons.filter_list_rounded, size: 18,
-              color: AppTheme.textSecondary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: DropdownButton<String>(
-              value: filterClient,
-              hint: Text('All clients',
-                  style: AppTheme.sora(13, color: AppTheme.textSecondary)),
-              isExpanded: true,
-              underline: const SizedBox(),
-              items: [
-                DropdownMenuItem(
-                    value: null,
-                    child: Text('All clients', style: AppTheme.sora(13))),
-                ...clientNames.map((name) => DropdownMenuItem(
-                    value: name,
-                    child: Text(name, style: AppTheme.sora(13)))),
-              ],
-              onChanged: (val) =>
-                  context.read<HomeBloc>().add(FilterVisitsByClientEvent(val)),
-            ),
-          ),
-          if (filterClient != null)
-            IconButton(
-              icon: const Icon(Icons.clear, size: 18,
-                  color: AppTheme.textSecondary),
-              onPressed: () => context
-                  .read<HomeBloc>()
-                  .add(FilterVisitsByClientEvent(null)),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildEmptyState() {
-    final icon = isPunchedOut
-        ? Icons.lock_clock_rounded
-        : Icons.storefront_outlined;
-    final message = filterClient != null
-        ? 'No visits for $filterClient'
-        : isPunchedOut
-            ? 'No visits recorded today'
-            : 'No customer visits yet';
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 56, color: AppTheme.textHint),
+          Icon(
+            isPunchedOut ? Icons.lock_clock_rounded : Icons.storefront_outlined,
+            size: 56,
+            color: AppTheme.textHint,
+          ),
           const SizedBox(height: 16),
-          Text(message,
-              style: AppTheme.sora(15, color: AppTheme.textSecondary)),
+          Text(
+            isPunchedOut ? 'No visits recorded today' : 'No customer visits yet',
+            style: AppTheme.sora(15, color: AppTheme.textSecondary),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildVisitList(BuildContext context) {
-    final grouped = <String, List<VisitModel>>{};
-    for (final v in filteredVisits) {
-      grouped.putIfAbsent(AppUtils.formatDate(v.checkinTimestamp), () => [])
-          .add(v);
-    }
-    final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
-
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 100),
-      itemCount: sortedDates.length,
-      itemBuilder: (context, i) {
-        final date = sortedDates[i];
-        final dayVisits = grouped[date]!;
-        final dt = DateTime.parse(date);
-        final displayDate = AppUtils.isSameDay(dt, DateTime.now())
-            ? 'Today'
-            : AppUtils.isSameDay(dt, DateTime.now().subtract(const Duration(days: 1)))
-                ? 'Yesterday'
-                : AppUtils.formatDateDisplay(dt);
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(displayDate,
-                  style: AppTheme.sora(12,
-                      weight: FontWeight.w700,
-                      color: AppTheme.textSecondary,
-                      letterSpacing: 0.5)),
-            ),
-            ...dayVisits.map((v) => _VisitCard(
-                  visit: v,
-                  targetUserId: targetUserId,
-                  isReadOnly: isReadOnly,
-                )),
-          ],
-        );
-      },
+      itemCount: visits.length,
+      itemBuilder: (context, i) => _VisitCard(
+        visit: visits[i],
+        targetUserId: targetUserId,
+        isReadOnly: isReadOnly,
+      ),
     );
   }
 }
@@ -254,12 +171,9 @@ class _VisitCard extends StatelessWidget {
                               style: AppTheme.sora(11, color: AppTheme.textHint)),
                           if (visit.checkoutTimestamp != null) ...[
                             Text(' → ',
-                                style: AppTheme.sora(11,
-                                    color: AppTheme.textHint)),
-                            Text(
-                                AppUtils.formatTime(visit.checkoutTimestamp!),
-                                style: AppTheme.sora(11,
-                                    color: AppTheme.textHint)),
+                                style: AppTheme.sora(11, color: AppTheme.textHint)),
+                            Text(AppUtils.formatTime(visit.checkoutTimestamp!),
+                                style: AppTheme.sora(11, color: AppTheme.textHint)),
                           ],
                         ],
                       ),
@@ -269,21 +183,18 @@ class _VisitCard extends StatelessWidget {
                 if (visit.expenseAmount != null) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppTheme.primary.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                        '₹${visit.expenseAmount!.toStringAsFixed(0)}',
+                    child: Text('₹${visit.expenseAmount!.toStringAsFixed(0)}',
                         style: AppTheme.sora(12,
                             weight: FontWeight.w700, color: AppTheme.primary)),
                   ),
                 ],
                 const SizedBox(width: 4),
-                const Icon(Icons.chevron_right,
-                    color: AppTheme.textHint, size: 18),
+                const Icon(Icons.chevron_right, color: AppTheme.textHint, size: 18),
               ],
             ),
           ),

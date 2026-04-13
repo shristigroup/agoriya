@@ -23,6 +23,14 @@ class DataManager {
 
   static bool isOwner(String userId) => userId == _ownerId;
 
+  /// Returns the distance to display in the UI for today's session.
+  /// Own user → live dirty distance from Hive (includes unsnapped haversine).
+  /// Manager view → last value written to the attendance doc on Firestore.
+  static double getDisplayDistance(String userId, AttendanceModel? attendance) {
+    if (isOwner(userId)) return LocalStorageService.getTotalDistanceDirty();
+    return attendance?.distance ?? 0.0;
+  }
+
   static bool _isPastDay(String date) =>
       date.compareTo(AppUtils.todayKey()) < 0;
 

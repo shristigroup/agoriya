@@ -91,10 +91,6 @@ class LocalStorageService {
       ..sort((a, b) => b.checkinTimestamp.compareTo(a.checkinTimestamp));
   }
 
-  static List<String> getDistinctClientNames() {
-    return getAllVisits().map((v) => v.clientName).toSet().toList()..sort();
-  }
-
   /// Own-user visits for a specific date (already in _visitsBox keyed by visitId).
   static List<VisitModel> getOwnVisitsForDate(String date) {
     return _visitsBox.values
