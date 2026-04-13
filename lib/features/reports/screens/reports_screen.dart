@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../data/local/local_storage_service.dart';
 import '../../../data/models/attendance_model.dart';
 import '../../../data/repositories/firestore_repository.dart';
-import '../../home/bloc/home_bloc.dart';
-import '../../home/bloc/home_event.dart';
-import '../../home/screens/home_screen.dart';
+import '../../history/screens/history_screen.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -144,13 +141,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
             style: AppTheme.sora(11, weight: FontWeight.w600, color: statusColor)),
       ),
       onTap: () => Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => BlocProvider(
-          create: (_) => HomeBloc(userId: entry.userId)
-            ..add(HomeInitEvent(entry.userId)),
-          child: HomeScreen(
-            viewingUserId: entry.userId,
-            viewingUserName: entry.name,
-          ),
+        builder: (_) => HistoryScreen(
+          userId: entry.userId,
+          userName: entry.name,
         ),
       )),
     );

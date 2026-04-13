@@ -91,27 +91,32 @@ class FirestoreRepository {
   }
 
   // ─── Attendance History (paginated, newest-first) ─────────────────────────
-  /// Returns up to [limit] attendance records ordered by date descending.
-  /// Pass [startAfterDate] (a 'YYYY-MM-DD' string) to get the next page.
-  /// Returns a tuple of (records, lastDateKey) — lastDateKey is null when
-  /// there are no more pages.
+  /// Returns up to [limit] attendance records ordered by punch-in time descending.
+  /// Pass [startAfterCursor] (an opaque ISO timestamp string) to get the next page.
+  /// Returns a tuple of (records, cursor) — cursor is null when there are no more pages.
   Future<(List<AttendanceModel>, String?)> getAttendanceHistory(
     String userId, {
     int limit = 30,
     String? startAfterDate,
   }) async {
     Query query = _attendanceCol(userId)
-        .orderBy(FieldPath.documentId, descending: true)
+        .orderBy('punchInTimestamp', descending: true)
         .limit(limit);
 
     if (startAfterDate != null) {
-      query = query.startAfter([startAfterDate]);
+      final dt = DateTime.parse(startAfterDate);
+      query = query.startAfter([Timestamp.fromDate(dt)]);
     }
 
     final snap = await query.get();
     final models = snap.docs.map((d) => AttendanceModel.fromFirestore(d)).toList();
-    final lastDate = snap.docs.length == limit ? snap.docs.last.id : null;
-    return (models, lastDate);
+    String? cursor;
+    if (snap.docs.length == limit) {
+      final data = snap.docs.last.data() as Map<String, dynamic>;
+      final ts = data['punchInTimestamp'] as Timestamp?;
+      cursor = ts?.toDate().toIso8601String();
+    }
+    return (models, cursor);
   }
 
   /// All attendance docs for a given month ('YYYY-MM'). Used to compute

@@ -638,6 +638,7 @@ class _HomeScreenState extends State<HomeScreen>
           floatingActionButton: _isReadOnly
               ? null
               : _buildFAB(context, loaded, isPunchedIn, isPunchedOut),
+          floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
         ),
             // Full-screen punch-out overlay
             if (isPunchingOut)
