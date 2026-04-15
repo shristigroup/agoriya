@@ -22,6 +22,7 @@ import '../screens/punch_animations_screen.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_event.dart';
 import '../../reports/screens/reports_screen.dart';
+import '../../history/screens/history_screen.dart';
 import '../../../services/notification_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -356,6 +357,121 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  /// Bottom sheet shown when the user taps "Punch In" after already being
+  /// punched out today. Offers "Resume Session" (undo punch-out) or
+  /// "Fresh Punch In" (start a brand-new session, overwriting today's data).
+  Future<void> _showPunchInOptions(
+      BuildContext context, HomeLoaded state) async {
+    final punchOutTime = state.attendance?.punchOutTimestamp;
+
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text('Punch In',
+                  style: AppTheme.sora(18, weight: FontWeight.w700)),
+              const SizedBox(height: 20),
+              if (punchOutTime != null) ...[
+                _punchInOption(
+                  context: context,
+                  icon: Icons.replay_rounded,
+                  iconColor: AppTheme.accent,
+                  title: 'Resume Session',
+                  subtitle:
+                      'Punched out at ${AppUtils.formatTime(punchOutTime)}',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.read<HomeBloc>().add(ResumeSessionEvent());
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
+              _punchInOption(
+                context: context,
+                icon: Icons.fingerprint_rounded,
+                iconColor: AppTheme.punchIn,
+                title: 'Fresh Punch In',
+                subtitle: 'Start a new session for today',
+                onTap: () {
+                  Navigator.pop(context);
+                  _handlePunchIn(state);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _punchInOption({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: iconColor.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: iconColor.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: AppTheme.sora(14, weight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: AppTheme.sora(12,
+                          color: AppTheme.textSecondary)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                color: AppTheme.textHint, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<HomeBloc, HomeState>(
@@ -411,19 +527,34 @@ class _HomeScreenState extends State<HomeScreen>
               style: AppTheme.sora(22, weight: FontWeight.w700, color: Colors.white),
             ),
             actions: [
-              if (!_isReadOnly)
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.menu, color: Colors.white),
-                  onSelected: (val) {
-                    if (val == 'reports') {
-                      Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const ReportsScreen(),
-                      ));
-                    } else if (val == 'logout') {
-                      context.read<AuthBloc>().add(LogoutEvent());
-                    }
-                  },
-                  itemBuilder: (_) => [
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.menu, color: Colors.white),
+                onSelected: (val) {
+                  if (val == 'history') {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => HistoryScreen(
+                        userId: _targetUserId,
+                        userName: _isReadOnly ? widget.viewingUserName : null,
+                      ),
+                    ));
+                  } else if (val == 'reports') {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const ReportsScreen(),
+                    ));
+                  } else if (val == 'logout') {
+                    context.read<AuthBloc>().add(LogoutEvent());
+                  }
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'history',
+                    child: Row(children: [
+                      Icon(Icons.history_rounded, size: 18),
+                      SizedBox(width: 10),
+                      Text('History'),
+                    ]),
+                  ),
+                  if (!_isReadOnly) ...[
                     const PopupMenuItem(
                       value: 'reports',
                       child: Row(children: [
@@ -441,7 +572,8 @@ class _HomeScreenState extends State<HomeScreen>
                       ]),
                     ),
                   ],
-                ),
+                ],
+              ),
             ],
           ),
           body: Column(
@@ -489,10 +621,6 @@ class _HomeScreenState extends State<HomeScreen>
                             value: context.read<HomeBloc>(),
                             child: VisitsTab(
                               visits: loaded?.visits ?? [],
-                              filteredVisits: loaded?.filteredVisits ?? [],
-                              filterClient: loaded?.filterClient,
-                              clientNames:
-                                  LocalStorageService.getDistinctClientNames(),
                               targetUserId: _targetUserId,
                               isReadOnly: _isReadOnly,
                               isPunchedOut: isPunchedOut,
@@ -506,6 +634,7 @@ class _HomeScreenState extends State<HomeScreen>
           floatingActionButton: _isReadOnly
               ? null
               : _buildFAB(context, loaded, isPunchedIn, isPunchedOut),
+          floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
         ),
             // Full-screen punch-out overlay
             if (isPunchingOut)
@@ -609,10 +738,18 @@ class _HomeScreenState extends State<HomeScreen>
     bool isPunchedIn,
     bool isPunchedOut,
   ) {
-    // Day is done — no actions available.
-    if (isPunchedOut) return null;
+    // Day is done — show Punch In FAB that opens the options sheet.
+    // User can resume today's accidental punch-out or start a fresh session.
+    if (isPunchedOut) {
+      return FloatingActionButton.extended(
+        onPressed: loaded != null ? () => _showPunchInOptions(context, loaded) : null,
+        backgroundColor: AppTheme.punchIn,
+        icon: const Icon(Icons.fingerprint_rounded),
+        label: Text('Punch In', style: AppTheme.sora(14, weight: FontWeight.w600, color: Colors.white)),
+      );
+    }
 
-    // Not yet punched in.
+    // Not yet punched in — go straight to camera (no resumable session today).
     if (!isPunchedIn) {
       return FloatingActionButton.extended(
         onPressed: loaded != null ? () => _handlePunchIn(loaded) : null,

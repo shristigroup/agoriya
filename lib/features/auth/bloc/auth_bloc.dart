@@ -6,6 +6,7 @@ import 'auth_state.dart';
 import '../../../data/repositories/firestore_repository.dart';
 import '../../../data/local/local_storage_service.dart';
 import '../../../data/models/user_model.dart';
+import '../../../data/data_manager.dart';
 import '../../../core/utils/app_utils.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
@@ -27,6 +28,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onCheckAuth(CheckAuthEvent event, Emitter<AuthState> emit) async {
     final user = LocalStorageService.getUser();
     if (user != null && _auth.currentUser != null) {
+      DataManager.init(user.id);
       emit(AuthAuthenticated(user));
     } else {
       emit(AuthUnauthenticated());
@@ -128,6 +130,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       await _repo.createOrUpdateUser(user);
       await LocalStorageService.saveUser(user);
+      DataManager.init(user.id);
 
       // Keep the manager's `reports` map in Firestore up to date so the
       // hierarchy JSON stays consistent (used for legacy reads).

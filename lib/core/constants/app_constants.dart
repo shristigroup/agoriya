@@ -32,6 +32,10 @@ class AppConstants {
   static const String locationsCollection = 'Locations';
   static const String visitsCollection = 'Visits';
   static const String commentsCollection = 'Comments';
+  static const String monthlyCollection = 'Monthly';
+
+  // Cache key prefix for monthly summaries (used in settingsBox)
+  static const String monthlyCachePrefix = 'monthly_';
 
   // Storage paths
   static String punchInImagePath(String userId, String date, String ext) =>
@@ -39,7 +43,12 @@ class AppConstants {
   static String billCopyPath(String userId, String visitId, String ext) =>
       '$userId/$visitId.$ext';
 
+  // Cached app version — used by DataManager to detect reinstall / update
+  // and re-seed today's data from Firestore into Hive.
+  static const String cacheVersionKey = 'cache_version';
+
   // Background service
   static const String bgServiceChannel = 'agoriya_location_channel';
   static const int bgNotificationId = 1001;
+
 }

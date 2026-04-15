@@ -5,6 +5,7 @@ import '../models/user_model.dart';
 import '../models/attendance_model.dart';
 import '../models/visit_model.dart';
 import '../models/location_model.dart';
+import '../models/monthly_summary_model.dart';
 
 class LocalStorageService {
   static late Box _userBox;
@@ -57,6 +58,17 @@ class LocalStorageService {
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
+  /// For manager/report views: namespaced by userId so they don't collide with own attendance.
+  static Future<void> saveAttendanceForUser(String userId, AttendanceModel att) async {
+    await _attendanceBox.put('${userId}_att_${att.date}', jsonEncode(att.toJson()));
+  }
+
+  static AttendanceModel? getAttendanceForUser(String userId, String date) {
+    final raw = _attendanceBox.get('${userId}_att_$date');
+    if (raw == null) return null;
+    return AttendanceModel.fromJson(jsonDecode(raw));
+  }
+
   // ─── Visits ──────────────────────────────────────────────────────────────
   static Future<void> saveVisit(VisitModel visit) async {
     await _visitsBox.put(visit.id, jsonEncode(visit.toJson()));
@@ -79,9 +91,40 @@ class LocalStorageService {
       ..sort((a, b) => b.checkinTimestamp.compareTo(a.checkinTimestamp));
   }
 
-  static List<String> getDistinctClientNames() {
-    return getAllVisits().map((v) => v.clientName).toSet().toList()..sort();
+  /// Own-user visits for a specific date (already in _visitsBox keyed by visitId).
+  static List<VisitModel> getOwnVisitsForDate(String date) {
+    return _visitsBox.values
+        .map((raw) => VisitModel.fromJson(jsonDecode(raw)))
+        .where((v) {
+          final d = v.checkinTimestamp;
+          final key = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+          return key == date;
+        })
+        .toList()
+      ..sort((a, b) => a.checkinTimestamp.compareTo(b.checkinTimestamp));
   }
+
+  /// Report (manager-view) visits for a specific user+date, stored as a JSON array.
+  static Future<void> saveReportVisitsForDay(
+      String userId, String date, List<VisitModel> visits) async {
+    final key = 'visits_${userId}_$date';
+    await _reportsBox.put(key, jsonEncode(visits.map((v) => v.toJson()).toList()));
+  }
+
+  static List<VisitModel>? getReportVisitsForDay(String userId, String date) {
+    final raw = _reportsBox.get('visits_${userId}_$date');
+    if (raw == null) return null;
+    return (jsonDecode(raw) as List<dynamic>)
+        .map((e) => VisitModel.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  /// Sealed flag — marks that all visits for a past day have been fetched from Firestore.
+  static bool isVisitsSealed(String userId, String date) =>
+      _settingsBox.get('vseal_${userId}_$date') == true;
+
+  static Future<void> sealVisits(String userId, String date) async =>
+      _settingsBox.put('vseal_${userId}_$date', true);
 
   // ─── Today's Locations (only stored for current day) ────────────────────
   static Future<void> saveTodayLocations(List<LocationPoint> points) async {
@@ -98,6 +141,21 @@ class LocalStorageService {
 
   static Future<void> clearTodayLocations() async {
     await _locationsBox.delete(AppConstants.todayLocationsKey);
+  }
+
+  /// Persisted locations for any user+date (used for past days and manager views).
+  static Future<void> saveLocations(
+      String userId, String date, List<LocationPoint> points) async {
+    final json = points.map((p) => p.toJson()).toList();
+    await _locationsBox.put('${userId}_locs_$date', jsonEncode(json));
+  }
+
+  static List<LocationPoint> getLocations(String userId, String date) {
+    final raw = _locationsBox.get('${userId}_locs_$date');
+    if (raw == null) return [];
+    return (jsonDecode(raw) as List<dynamic>)
+        .map((e) => LocationPoint.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   // ─── Reports cache (per reportUserId) ───────────────────────────────────
@@ -151,6 +209,34 @@ class LocalStorageService {
     await _settingsBox.delete(AppConstants.totalDistanceKey);
     await _settingsBox.delete(AppConstants.totalDistanceDirtyKey);
   }
+
+  // ─── Monthly Summary Cache ────────────────────────────────────────────────
+  /// Key: 'monthly_{userId}_{monthKey}' — works for both own user and manager
+  /// viewing a report, since the key is namespaced by userId.
+  static String _monthlyKey(String userId, String monthKey) =>
+      '${AppConstants.monthlyCachePrefix}${userId}_$monthKey';
+
+  static Future<void> saveMonthlySummary(
+      String userId, String monthKey, MonthlySummaryModel summary) async {
+    await _settingsBox.put(
+        _monthlyKey(userId, monthKey), jsonEncode(summary.toJson()));
+  }
+
+  static MonthlySummaryModel? getMonthlySummary(String userId, String monthKey) {
+    final raw = _settingsBox.get(_monthlyKey(userId, monthKey));
+    if (raw == null) return null;
+    return MonthlySummaryModel.fromJson(
+        Map<String, dynamic>.from(jsonDecode(raw)));
+  }
+
+  /// Sentinel: marks that a past month was checked and had no attendance data,
+  /// so we skip the Firestore query on subsequent loads without creating any
+  /// Firestore document for the empty month.
+  static bool isMonthEmpty(String userId, String monthKey) =>
+      _settingsBox.get('monthly_empty_${userId}_$monthKey') == true;
+
+  static Future<void> markMonthEmpty(String userId, String monthKey) async =>
+      _settingsBox.put('monthly_empty_${userId}_$monthKey', true);
 
   // ─── Settings ────────────────────────────────────────────────────────────
   static Future<void> setSetting(String key, dynamic value) async {

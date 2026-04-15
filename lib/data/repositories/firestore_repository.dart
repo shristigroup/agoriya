@@ -6,6 +6,7 @@ import '../models/user_model.dart';
 import '../models/attendance_model.dart';
 import '../models/visit_model.dart';
 import '../models/location_model.dart';
+import '../models/monthly_summary_model.dart';
 
 class FirestoreRepository {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -41,8 +42,11 @@ class FirestoreRepository {
   }
 
   // ─── Attendance ──────────────────────────────────────────────────────────
+  CollectionReference _attendanceCol(String userId) =>
+      _users.doc(userId).collection(AppConstants.attendanceCollection);
+
   DocumentReference _attendanceDoc(String userId, String date) =>
-      _users.doc(userId).collection(AppConstants.attendanceCollection).doc(date);
+      _attendanceCol(userId).doc(date);
 
   Future<AttendanceModel?> getAttendance(String userId, String date) async {
     final doc = await _attendanceDoc(userId, date).get();
@@ -50,19 +54,29 @@ class FirestoreRepository {
     return AttendanceModel.fromFirestore(doc);
   }
 
+  /// Always overwrites the document (no merge) so a "Fresh Punch In" clears
+  /// any previous punchOut fields from the same day.
   Future<void> punchIn(String userId, String date, DateTime time, String imageUrl) async {
     await _attendanceDoc(userId, date).set({
       'punchInTimestamp': Timestamp.fromDate(time),
       'punchInImage': imageUrl,
       'distance': 0.0,
       'customerVisitCount': 0,
-    }, SetOptions(merge: true));
+    });
   }
 
   Future<void> punchOut(String userId, String date, DateTime time, GeoPoint location) async {
     await _attendanceDoc(userId, date).update({
       'punchOutTimestamp': Timestamp.fromDate(time),
       'punchOutLocation': location,
+    });
+  }
+
+  /// Clears punchOut fields — triggers Cloud Function to notify the manager.
+  Future<void> resumeSession(String userId, String date) async {
+    await _attendanceDoc(userId, date).update({
+      'punchOutTimestamp': FieldValue.delete(),
+      'punchOutLocation': FieldValue.delete(),
     });
   }
 
@@ -74,6 +88,47 @@ class FirestoreRepository {
     await _attendanceDoc(userId, date).update({
       'customerVisitCount': FieldValue.increment(1),
     });
+  }
+
+  // ─── Attendance History (paginated, newest-first) ─────────────────────────
+  /// Returns up to [limit] attendance records ordered by punch-in time descending.
+  /// Pass [startAfterCursor] (an opaque ISO timestamp string) to get the next page.
+  /// Returns a tuple of (records, cursor) — cursor is null when there are no more pages.
+  Future<(List<AttendanceModel>, String?)> getAttendanceHistory(
+    String userId, {
+    int limit = 30,
+    String? startAfterDate,
+  }) async {
+    Query query = _attendanceCol(userId)
+        .orderBy('punchInTimestamp', descending: true)
+        .limit(limit);
+
+    if (startAfterDate != null) {
+      final dt = DateTime.parse(startAfterDate);
+      query = query.startAfter([Timestamp.fromDate(dt)]);
+    }
+
+    final snap = await query.get();
+    final models = snap.docs.map((d) => AttendanceModel.fromFirestore(d)).toList();
+    String? cursor;
+    if (snap.docs.length == limit) {
+      final data = snap.docs.last.data() as Map<String, dynamic>;
+      final ts = data['punchInTimestamp'] as Timestamp?;
+      cursor = ts?.toDate().toIso8601String();
+    }
+    return (models, cursor);
+  }
+
+  /// All attendance docs for a given month ('YYYY-MM'). Used to compute
+  /// monthly summaries. Doc IDs are 'YYYY-MM-DD' so lexicographic range works.
+  Future<List<AttendanceModel>> getAttendanceForMonth(
+      String userId, String monthKey) async {
+    final snap = await _attendanceCol(userId)
+        .orderBy(FieldPath.documentId)
+        .startAt(['$monthKey-01'])
+        .endAt(['$monthKey-31'])
+        .get();
+    return snap.docs.map((d) => AttendanceModel.fromFirestore(d)).toList();
   }
 
   // ─── Locations ───────────────────────────────────────────────────────────
@@ -94,8 +149,6 @@ class FirestoreRepository {
   }
 
   /// Atomically removes [dirty] points and adds their [snapped] replacements.
-  /// Uses two sequential writes — arrayRemove then arrayUnion — so the map
-  /// keys must match exactly what was stored (geoPoint, timestamp, snapped: false).
   Future<void> replaceLocationsWithSnapped(
     String userId,
     String date,
@@ -133,6 +186,19 @@ class FirestoreRepository {
     return snap.docs.map((d) => VisitModel.fromFirestore(d)).toList();
   }
 
+  /// Visits within [start, end) — used for per-day and per-month history.
+  /// Requires no composite index (range + orderBy on the same field).
+  Future<List<VisitModel>> getVisitsByDateRange(
+      String userId, DateTime start, DateTime end) async {
+    final snap = await _visitsCol(userId)
+        .where('checkinTimestamp',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('checkinTimestamp', isLessThan: Timestamp.fromDate(end))
+        .orderBy('checkinTimestamp', descending: true)
+        .get();
+    return snap.docs.map((d) => VisitModel.fromFirestore(d)).toList();
+  }
+
   // ─── Comments ────────────────────────────────────────────────────────────
   CollectionReference _commentsCol(String userId, String visitId) =>
       _visitDoc(userId, visitId).collection(AppConstants.commentsCollection);
@@ -146,6 +212,22 @@ class FirestoreRepository {
         .orderBy('timestamp')
         .get();
     return snap.docs.map((d) => VisitComment.fromFirestore(d)).toList();
+  }
+
+  // ─── Monthly Summary ──────────────────────────────────────────────────────
+  CollectionReference _monthlyCol(String userId) =>
+      _users.doc(userId).collection(AppConstants.monthlyCollection);
+
+  Future<MonthlySummaryModel?> getMonthlySummary(
+      String userId, String monthKey) async {
+    final doc = await _monthlyCol(userId).doc(monthKey).get();
+    if (!doc.exists) return null;
+    return MonthlySummaryModel.fromFirestore(doc);
+  }
+
+  Future<void> saveMonthlySummary(
+      String userId, MonthlySummaryModel summary) async {
+    await _monthlyCol(userId).doc(summary.monthKey).set(summary.toFirestore());
   }
 
   // ─── Storage ─────────────────────────────────────────────────────────────

@@ -82,11 +82,6 @@ Future<bool> _onIosBackground(ServiceInstance service) async {
 void _onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
-  // Passing options directly avoids slow native config discovery which
-  // can push past Android's 5-second startForeground() deadline.
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  debugPrint('[LocationService] Isolate started, Firebase ready');
-
   String? userId;
   String? date;
   Position? lastPosition;
@@ -213,10 +208,12 @@ void _onStart(ServiceInstance service) async {
   }
 
   // ── Listeners ─────────────────────────────────────────────────────────────
+  // Registered BEFORE Firebase.initializeApp() so that setParams sent by the
+  // main isolate (after its 1200 ms startup delay) is never missed — Firebase
+  // init on iOS cold-start can take 2-5 s, longer than that delay.
+  // collectLocation() only uses Geolocator; Firestore writes are deferred
+  // until a batch of 15 points is accumulated, well after Firebase is ready.
 
-  // setParams is sent by the app after startService(). Once received,
-  // trigger an immediate collection so the UI gets a point right away
-  // instead of waiting for the first timer tick.
   service.on('setParams').listen((data) {
     if (data == null) return;
     userId = data['userId'] as String?;
@@ -237,6 +234,12 @@ void _onStart(ServiceInstance service) async {
     debugPrint('[LocationService] Stopped');
     service.stopSelf();
   });
+
+  // ── Firebase init ─────────────────────────────────────────────────────────
+  // Done after listener registration. Passing options directly avoids slow
+  // native config discovery which can push past Android's 5-s startForeground deadline.
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  debugPrint('[LocationService] Isolate started, Firebase ready');
 
   // ── Periodic sampling ─────────────────────────────────────────────────────
   samplingTimer = Timer.periodic(

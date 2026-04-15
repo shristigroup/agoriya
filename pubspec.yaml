@@ -1,7 +1,7 @@
 name: agoriya
 description: Agoriya v1.0 - Field Force Tracking App
 publish_to: 'none'
-version: 0.1.8
+version: 0.2.4
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -47,6 +47,9 @@ dependencies:
 
   # Fonts
   google_fonts: ^8.0.2
+
+  # App info
+  package_info_plus: ^8.0.0
 
   # Utilities
   intl: ^0.20.2

@@ -37,15 +37,10 @@ class CheckOutVisitEvent extends HomeEvent {
   CheckOutVisitEvent(this.visit);
 }
 
-class FilterVisitsByClientEvent extends HomeEvent {
-  final String? clientName;
-  FilterVisitsByClientEvent(this.clientName);
-}
-
 class AddCommentEvent extends HomeEvent {
   final String visitId;
   final String text;
-  final String targetUserId; // whose visit
+  final String targetUserId;
   AddCommentEvent({
     required this.visitId,
     required this.text,
@@ -55,3 +50,8 @@ class AddCommentEvent extends HomeEvent {
 
 /// Triggered after each Firestore batch flush to OSRM-snap the new dirty points.
 class SnapDirtyPointsEvent extends HomeEvent {}
+
+/// Undo an accidental punch-out for today — clears punchOutTimestamp and
+/// restarts location tracking. The Firestore write triggers the Cloud Function
+/// to notify the manager.
+class ResumeSessionEvent extends HomeEvent {}

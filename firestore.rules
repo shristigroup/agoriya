@@ -42,6 +42,11 @@ service cloud.firestore {
             request.resource.data.timestamp is timestamp;
         }
       }
+
+      match /Monthly/{yearMonth} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
     }
   }
 }
