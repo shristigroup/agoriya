@@ -91,17 +91,13 @@ class DataManager {
       return LocalStorageService.getAttendance(date);
     }
 
-    final cached = LocalStorageService.getAttendanceForUser(userId, date);
-    if (cached != null && _isPastDay(date)) return cached;
-    if (cached != null) {
-      _repo.getAttendance(userId, date).then((remote) async {
-        if (remote != null) {
-          await LocalStorageService.saveAttendanceForUser(userId, remote);
-        }
-      });
-      return cached;
+    // Past day: Hive is sealed after first fetch — no Firestore call needed.
+    if (_isPastDay(date)) {
+      final cached = LocalStorageService.getAttendanceForUser(userId, date);
+      if (cached != null) return cached;
     }
 
+    // Today (or past-day cache miss): always fetch fresh from Firestore.
     final remote = await _repo.getAttendance(userId, date);
     if (remote != null) {
       await LocalStorageService.saveAttendanceForUser(userId, remote);
@@ -147,17 +143,21 @@ class DataManager {
   static Future<List<LocationPoint>> getLocations(
       String userId, String date) async {
     // Own user today: merge finalLocations (Firestore truth) + currentBatch
-    // (unsynced live points) — sorted by timestamp.
+    // (unsynced live points). Both arrays are maintained in order so no sort needed.
     if (isOwner(userId) && date == AppUtils.todayKey()) {
-      final final_ = LocalStorageService.getFinalLocations();
-      final batch = LocalStorageService.getCurrentBatch();
-      return [...final_, ...batch]
-        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      return [
+        ...LocalStorageService.getFinalLocations(),
+        ...LocalStorageService.getCurrentBatch(),
+      ];
     }
 
-    final cached = LocalStorageService.getLocations(userId, date);
-    if (cached.isNotEmpty) return cached;
+    // Past day: Hive is sealed after first fetch — no Firestore call needed.
+    if (_isPastDay(date)) {
+      final cached = LocalStorageService.getLocations(userId, date);
+      if (cached.isNotEmpty) return cached;
+    }
 
+    // Today (or past-day cache miss): always fetch fresh from Firestore.
     final dayLocs = await _repo.getDayLocations(userId, date);
     final points = dayLocs?.points ?? [];
     if (points.isNotEmpty) {
