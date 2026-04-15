@@ -61,11 +61,6 @@ class _HomeScreenState extends State<HomeScreen>
     });
     if (!_isReadOnly) {
       _checkNotificationPermission();
-      // Request location permissions on first open — runs after first frame
-      // so the widget tree is ready to show dialogs.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _ensureLocationPermission();
-      });
     }
   }
 

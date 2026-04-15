@@ -83,6 +83,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       }
     } catch (_) {}
 
+    // Stop any lingering background service if the user is not punched in.
+    // This can happen when the service survives an app restart but setParams
+    // was never re-sent because no punch-in occurred this session.
+    if (attendance?.isPunchedIn != true) {
+      final running = await LocationTrackingService.isRunning;
+      if (running) LocationTrackingService.stop();
+    }
+
     emit(HomeLoaded(
       attendance: attendance,
       finalLocations: finalLocations,
