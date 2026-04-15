@@ -612,7 +612,7 @@ class _HomeScreenState extends State<HomeScreen>
                         children: [
                           TrackTab(
                             attendance: attendance,
-                            locations: loaded?.locations ?? [],
+                            locations: loaded?.allLocations ?? [],
                             lastKnownLocation: loaded?.lastKnownLocation,
                             isReadOnly: _isReadOnly,
                             isSnapping: loaded?.isSnapping ?? false,

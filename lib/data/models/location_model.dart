@@ -4,12 +4,23 @@ import 'package:latlong2/latlong.dart';
 class LocationPoint {
   final LatLng position;
   final DateTime timestamp;
-  final bool isSnapped; // true = OSRM-snapped, false = raw GPS (dirty)
+  final bool isSnapped;
+
+  /// Set only on the last point of each snapped batch written to Firestore.
+  /// Equals the running total (finalLocationsDistance) at the moment that
+  /// batch was committed — useful for debugging without reading the attendance doc.
+  final double? cumulativeDistanceKm;
+
+  /// Set only on the last point of each snapped batch written to Firestore.
+  /// Equals the OSRM distance for just this batch (not the running total).
+  final double? batchDistanceKm;
 
   const LocationPoint({
     required this.position,
     required this.timestamp,
     this.isSnapped = false,
+    this.cumulativeDistanceKm,
+    this.batchDistanceKm,
   });
 
   factory LocationPoint.fromFirestore(Map<String, dynamic> map) {
@@ -18,33 +29,58 @@ class LocationPoint {
       position: LatLng(gp.latitude, gp.longitude),
       timestamp: (map['timestamp'] as Timestamp).toDate(),
       isSnapped: map['snapped'] as bool? ?? false,
+      cumulativeDistanceKm:
+          (map['cumulativeDistanceKm'] as num?)?.toDouble(),
+      batchDistanceKm: (map['batchDistanceKm'] as num?)?.toDouble(),
     );
   }
 
-  Map<String, dynamic> toFirestore() => {
-        'geoPoint': GeoPoint(position.latitude, position.longitude),
-        'timestamp': Timestamp.fromDate(timestamp),
-        'snapped': isSnapped,
-      };
+  Map<String, dynamic> toFirestore() {
+    final m = <String, dynamic>{
+      'geoPoint': GeoPoint(position.latitude, position.longitude),
+      'timestamp': Timestamp.fromDate(timestamp),
+      'snapped': isSnapped,
+    };
+    if (cumulativeDistanceKm != null) m['cumulativeDistanceKm'] = cumulativeDistanceKm;
+    if (batchDistanceKm != null) m['batchDistanceKm'] = batchDistanceKm;
+    return m;
+  }
 
   factory LocationPoint.fromJson(Map<String, dynamic> json) => LocationPoint(
-        position: LatLng(json['lat'], json['lng']),
-        timestamp: DateTime.parse(json['timestamp']),
+        position: LatLng(
+            (json['lat'] as num).toDouble(), (json['lng'] as num).toDouble()),
+        timestamp: DateTime.parse(json['timestamp'] as String),
         isSnapped: json['snapped'] as bool? ?? false,
+        cumulativeDistanceKm:
+            (json['cumulativeDistanceKm'] as num?)?.toDouble(),
+        batchDistanceKm: (json['batchDistanceKm'] as num?)?.toDouble(),
       );
 
-  Map<String, dynamic> toJson() => {
-        'lat': position.latitude,
-        'lng': position.longitude,
-        'timestamp': timestamp.toIso8601String(),
-        'snapped': isSnapped,
-      };
+  Map<String, dynamic> toJson() {
+    final m = <String, dynamic>{
+      'lat': position.latitude,
+      'lng': position.longitude,
+      'timestamp': timestamp.toIso8601String(),
+      'snapped': isSnapped,
+    };
+    if (cumulativeDistanceKm != null) m['cumulativeDistanceKm'] = cumulativeDistanceKm;
+    if (batchDistanceKm != null) m['batchDistanceKm'] = batchDistanceKm;
+    return m;
+  }
 
-  LocationPoint copyWith({LatLng? position, DateTime? timestamp, bool? isSnapped}) =>
+  LocationPoint copyWith({
+    LatLng? position,
+    DateTime? timestamp,
+    bool? isSnapped,
+    double? cumulativeDistanceKm,
+    double? batchDistanceKm,
+  }) =>
       LocationPoint(
         position: position ?? this.position,
         timestamp: timestamp ?? this.timestamp,
         isSnapped: isSnapped ?? this.isSnapped,
+        cumulativeDistanceKm: cumulativeDistanceKm ?? this.cumulativeDistanceKm,
+        batchDistanceKm: batchDistanceKm ?? this.batchDistanceKm,
       );
 }
 
@@ -56,17 +92,20 @@ class DayLocations {
 
   factory DayLocations.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    final rawList = List<Map<String, dynamic>>.from(data['locations'] ?? []);
-    return DayLocations(
-      date: doc.id,
-      points: rawList.map((e) => LocationPoint.fromFirestore(e)).toList(),
-    );
+    final rawList =
+        List<Map<String, dynamic>>.from(data['locations'] ?? []);
+    final points = rawList
+        .map((e) => LocationPoint.fromFirestore(e))
+        .toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return DayLocations(date: doc.id, points: points);
   }
 
   factory DayLocations.fromJson(Map<String, dynamic> json) => DayLocations(
         date: json['date'] ?? '',
         points: (json['points'] as List<dynamic>? ?? [])
-            .map((e) => LocationPoint.fromJson(Map<String, dynamic>.from(e)))
+            .map((e) =>
+                LocationPoint.fromJson(Map<String, dynamic>.from(e)))
             .toList(),
       );
 

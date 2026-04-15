@@ -11,49 +11,84 @@ class HomeLoading extends HomeState {}
 
 class HomeLoaded extends HomeState {
   final AttendanceModel? attendance;
-  final List<LocationPoint> locations;
+
+  /// OSRM-snapped points committed to Firestore. Reading these back after each
+  /// commit means this list is always identical to the Firestore locations doc,
+  /// ensuring owner and manager see the same snapped path.
+  final List<LocationPoint> finalLocations;
+
+  /// Raw GPS points collected since the last committed batch.
+  /// These are NOT yet in Firestore. Cleared at the start of each
+  /// ProcessCurrentBatch operation (before the OSRM await) so new points
+  /// arriving during snapping accumulate into a fresh batch.
+  final List<LocationPoint> currentBatch;
+
   final List<VisitModel> visits;
   final LatLng? lastKnownLocation;
   final bool isRefreshing;
-  final bool isSnapping;
+  final bool isSnapping; // true while OSRM snap is in flight
   final bool isPunchingOut;
-  final double displayDistance;
+
+  /// OSRM-accurate total for all committed batches.
+  final double finalLocationsDistance;
+
+  /// Live haversine estimate for the points in currentBatch.
+  final double currentBatchDistance;
 
   HomeLoaded({
     this.attendance,
-    this.locations = const [],
+    this.finalLocations = const [],
+    this.currentBatch = const [],
     this.visits = const [],
     this.lastKnownLocation,
     this.isRefreshing = false,
     this.isSnapping = false,
     this.isPunchingOut = false,
-    this.displayDistance = 0.0,
+    this.finalLocationsDistance = 0.0,
+    this.currentBatchDistance = 0.0,
   });
+
+  /// Combined view used by TrackTab and punchOut logic.
+  /// finalLocations is always sorted (written sorted from Firestore).
+  /// currentBatch is always appended in GPS collection order (newest last).
+  /// _snapBatch filters out any currentBatch point older than finalLocations.last,
+  /// so concatenation is always chronological — no sort needed here.
+  List<LocationPoint> get allLocations => [...finalLocations, ...currentBatch];
+
+  /// Single display value shown in the stats strip.
+  double get displayDistance => finalLocationsDistance + currentBatchDistance;
 
   bool get isPunchedIn => attendance?.isPunchedIn ?? false;
   bool get isPunchedOut => attendance?.isPunchedOut ?? false;
 
   HomeLoaded copyWith({
     AttendanceModel? attendance,
-    List<LocationPoint>? locations,
+    List<LocationPoint>? finalLocations,
+    List<LocationPoint>? currentBatch,
     List<VisitModel>? visits,
     LatLng? lastKnownLocation,
     bool? isRefreshing,
     bool? isSnapping,
     bool? isPunchingOut,
-    double? displayDistance,
+    double? finalLocationsDistance,
+    double? currentBatchDistance,
     bool clearLastKnown = false,
   }) =>
       HomeLoaded(
         attendance: attendance ?? this.attendance,
-        locations: locations ?? this.locations,
+        finalLocations: finalLocations ?? this.finalLocations,
+        currentBatch: currentBatch ?? this.currentBatch,
         visits: visits ?? this.visits,
-        lastKnownLocation:
-            clearLastKnown ? null : (lastKnownLocation ?? this.lastKnownLocation),
+        lastKnownLocation: clearLastKnown
+            ? null
+            : (lastKnownLocation ?? this.lastKnownLocation),
         isRefreshing: isRefreshing ?? this.isRefreshing,
         isSnapping: isSnapping ?? this.isSnapping,
         isPunchingOut: isPunchingOut ?? this.isPunchingOut,
-        displayDistance: displayDistance ?? this.displayDistance,
+        finalLocationsDistance:
+            finalLocationsDistance ?? this.finalLocationsDistance,
+        currentBatchDistance:
+            currentBatchDistance ?? this.currentBatchDistance,
       );
 }
 
