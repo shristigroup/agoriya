@@ -135,32 +135,22 @@ class FirestoreRepository {
   DocumentReference _locationsDoc(String userId, String date) =>
       _users.doc(userId).collection(AppConstants.locationsCollection).doc(date);
 
-  Future<void> appendLocations(String userId, String date, List<LocationPoint> points) async {
-    final batch = points.map((p) => p.toFirestore()).toList();
-    await _locationsDoc(userId, date).set({
-      'locations': FieldValue.arrayUnion(batch),
-    }, SetOptions(merge: true));
-  }
-
   Future<DayLocations?> getDayLocations(String userId, String date) async {
     final doc = await _locationsDoc(userId, date).get();
     if (!doc.exists) return null;
     return DayLocations.fromFirestore(doc);
   }
 
-  /// Atomically removes [dirty] points and adds their [snapped] replacements.
-  Future<void> replaceLocationsWithSnapped(
+  /// Appends [snapped] points to the locations doc via arrayUnion.
+  /// Only ever called with OSRM-snapped points — raw GPS is never written to Firestore.
+  Future<void> appendSnappedBatch(
     String userId,
     String date,
-    List<LocationPoint> dirty,
     List<LocationPoint> snapped,
   ) async {
-    final ref = _locationsDoc(userId, date);
-    await ref.update({
-      'locations': FieldValue.arrayRemove(dirty.map((p) => p.toFirestore()).toList()),
-    });
-    await ref.set({
-      'locations': FieldValue.arrayUnion(snapped.map((p) => p.toFirestore()).toList()),
+    await _locationsDoc(userId, date).set({
+      'locations':
+          FieldValue.arrayUnion(snapped.map((p) => p.toFirestore()).toList()),
     }, SetOptions(merge: true));
   }
 

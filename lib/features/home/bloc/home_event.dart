@@ -18,8 +18,14 @@ class NewLocationPointEvent extends HomeEvent {
   final double lat;
   final double lng;
   final DateTime timestamp;
-  NewLocationPointEvent({required this.lat, required this.lng, required this.timestamp});
+  NewLocationPointEvent(
+      {required this.lat, required this.lng, required this.timestamp});
 }
+
+/// Triggered by the background service's batchFlushed signal.
+/// Sorts + filters currentBatch, OSRM-snaps it, writes snapped points to
+/// Firestore, reads back the fresh doc, and updates finalLocations + distances.
+class ProcessCurrentBatchEvent extends HomeEvent {}
 
 class CreateVisitEvent extends HomeEvent {
   final String clientName;
@@ -47,9 +53,6 @@ class AddCommentEvent extends HomeEvent {
     required this.targetUserId,
   });
 }
-
-/// Triggered after each Firestore batch flush to OSRM-snap the new dirty points.
-class SnapDirtyPointsEvent extends HomeEvent {}
 
 /// Undo an accidental punch-out for today — clears punchOutTimestamp and
 /// restarts location tracking. The Firestore write triggers the Cloud Function

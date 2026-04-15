@@ -59,8 +59,10 @@ class LocalStorageService {
   }
 
   /// For manager/report views: namespaced by userId so they don't collide with own attendance.
-  static Future<void> saveAttendanceForUser(String userId, AttendanceModel att) async {
-    await _attendanceBox.put('${userId}_att_${att.date}', jsonEncode(att.toJson()));
+  static Future<void> saveAttendanceForUser(
+      String userId, AttendanceModel att) async {
+    await _attendanceBox.put(
+        '${userId}_att_${att.date}', jsonEncode(att.toJson()));
   }
 
   static AttendanceModel? getAttendanceForUser(String userId, String date) {
@@ -97,7 +99,8 @@ class LocalStorageService {
         .map((raw) => VisitModel.fromJson(jsonDecode(raw)))
         .where((v) {
           final d = v.checkinTimestamp;
-          final key = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+          final key =
+              '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
           return key == date;
         })
         .toList()
@@ -108,7 +111,8 @@ class LocalStorageService {
   static Future<void> saveReportVisitsForDay(
       String userId, String date, List<VisitModel> visits) async {
     final key = 'visits_${userId}_$date';
-    await _reportsBox.put(key, jsonEncode(visits.map((v) => v.toJson()).toList()));
+    await _reportsBox.put(
+        key, jsonEncode(visits.map((v) => v.toJson()).toList()));
   }
 
   static List<VisitModel>? getReportVisitsForDay(String userId, String date) {
@@ -126,28 +130,76 @@ class LocalStorageService {
   static Future<void> sealVisits(String userId, String date) async =>
       _settingsBox.put('vseal_${userId}_$date', true);
 
-  // ─── Today's Locations (only stored for current day) ────────────────────
-  static Future<void> saveTodayLocations(List<LocationPoint> points) async {
-    final json = points.map((p) => p.toJson()).toList();
-    await _locationsBox.put(AppConstants.todayLocationsKey, jsonEncode(json));
+  // ─── Today's tracking state ───────────────────────────────────────────────
+  //
+  // Two arrays:
+  //   finalLocations  — OSRM-snapped, exactly mirrors the Firestore locations doc
+  //   currentBatch    — raw GPS since the last committed batch, not yet in Firestore
+  //
+  // Two distances:
+  //   finalLocationsDistance  — OSRM total for all committed batches
+  //   currentBatchDistance    — live haversine estimate for currentBatch points
+
+  static Future<void> saveFinalLocations(List<LocationPoint> points) async {
+    await _locationsBox.put(
+        AppConstants.finalLocationsKey,
+        jsonEncode(points.map((p) => p.toJson()).toList()));
   }
 
-  static List<LocationPoint> getTodayLocations() {
-    final raw = _locationsBox.get(AppConstants.todayLocationsKey);
+  static List<LocationPoint> getFinalLocations() {
+    final raw = _locationsBox.get(AppConstants.finalLocationsKey);
     if (raw == null) return [];
-    final list = jsonDecode(raw) as List<dynamic>;
-    return list.map((e) => LocationPoint.fromJson(Map<String, dynamic>.from(e))).toList();
+    return (jsonDecode(raw) as List<dynamic>)
+        .map((e) => LocationPoint.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
-  static Future<void> clearTodayLocations() async {
-    await _locationsBox.delete(AppConstants.todayLocationsKey);
+  static Future<void> saveCurrentBatch(List<LocationPoint> points) async {
+    await _locationsBox.put(
+        AppConstants.currentBatchKey,
+        jsonEncode(points.map((p) => p.toJson()).toList()));
   }
 
-  /// Persisted locations for any user+date (used for past days and manager views).
+  static List<LocationPoint> getCurrentBatch() {
+    final raw = _locationsBox.get(AppConstants.currentBatchKey);
+    if (raw == null) return [];
+    return (jsonDecode(raw) as List<dynamic>)
+        .map((e) => LocationPoint.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  static Future<void> saveFinalLocationsDistance(double km) async =>
+      _settingsBox.put(AppConstants.finalLocationsDistanceKey, km);
+
+  static double getFinalLocationsDistance() =>
+      (_settingsBox.get(AppConstants.finalLocationsDistanceKey) as num?)
+          ?.toDouble() ??
+      0.0;
+
+  static Future<void> saveCurrentBatchDistance(double km) async =>
+      _settingsBox.put(AppConstants.currentBatchDistanceKey, km);
+
+  static double getCurrentBatchDistance() =>
+      (_settingsBox.get(AppConstants.currentBatchDistanceKey) as num?)
+          ?.toDouble() ??
+      0.0;
+
+  /// Clears all four tracking-state keys. Called on punchIn to start fresh.
+  static Future<void> clearTodayTrackingState() async {
+    await _locationsBox.delete(AppConstants.finalLocationsKey);
+    await _locationsBox.delete(AppConstants.currentBatchKey);
+    await _settingsBox.delete(AppConstants.finalLocationsDistanceKey);
+    await _settingsBox.delete(AppConstants.currentBatchDistanceKey);
+  }
+
+  // ─── Persisted locations for any user+date ────────────────────────────────
+  // Used for past days and manager views (keyed by userId+date).
+
   static Future<void> saveLocations(
       String userId, String date, List<LocationPoint> points) async {
-    final json = points.map((p) => p.toJson()).toList();
-    await _locationsBox.put('${userId}_locs_$date', jsonEncode(json));
+    await _locationsBox.put(
+        '${userId}_locs_$date',
+        jsonEncode(points.map((p) => p.toJson()).toList()));
   }
 
   static List<LocationPoint> getLocations(String userId, String date) {
@@ -158,8 +210,9 @@ class LocalStorageService {
         .toList();
   }
 
-  // ─── Reports cache (per reportUserId) ───────────────────────────────────
-  static Future<void> saveReportData(String reportUserId, Map<String, dynamic> data) async {
+  // ─── Reports cache (per reportUserId) ────────────────────────────────────
+  static Future<void> saveReportData(
+      String reportUserId, Map<String, dynamic> data) async {
     await _reportsBox.put(reportUserId, jsonEncode(data));
   }
 
@@ -169,17 +222,18 @@ class LocalStorageService {
     return Map<String, dynamic>.from(jsonDecode(raw));
   }
 
-  // Save report locations separately (merged into existing)
   static Future<void> mergeReportLocations(
       String reportUserId, String date, List<LocationPoint> points) async {
     final existing = getReportData(reportUserId) ?? {};
-    final locations = Map<String, dynamic>.from(existing['locations'] ?? {});
+    final locations =
+        Map<String, dynamic>.from(existing['locations'] ?? {});
     locations[date] = points.map((p) => p.toJson()).toList();
     existing['locations'] = locations;
     await saveReportData(reportUserId, existing);
   }
 
-  static List<LocationPoint> getReportLocations(String reportUserId, String date) {
+  static List<LocationPoint> getReportLocations(
+      String reportUserId, String date) {
     final data = getReportData(reportUserId);
     if (data == null) return [];
     final locations = data['locations'] as Map<String, dynamic>?;
@@ -189,30 +243,7 @@ class LocalStorageService {
         .toList();
   }
 
-  // ─── Distance tracking ───────────────────────────────────────────────────────
-  /// OSRM-accurate road distance up to the last snapped batch.
-  static Future<void> saveTotalDistance(double km) async =>
-      _settingsBox.put(AppConstants.totalDistanceKey, km);
-
-  static double getTotalDistance() =>
-      (_settingsBox.get(AppConstants.totalDistanceKey) as num?)?.toDouble() ?? 0.0;
-
-  /// OSRM total + haversine estimate for dirty (unsnapped) points.
-  /// This is what the UI shows as the current distance.
-  static Future<void> saveTotalDistanceDirty(double km) async =>
-      _settingsBox.put(AppConstants.totalDistanceDirtyKey, km);
-
-  static double getTotalDistanceDirty() =>
-      (_settingsBox.get(AppConstants.totalDistanceDirtyKey) as num?)?.toDouble() ?? 0.0;
-
-  static Future<void> clearDistances() async {
-    await _settingsBox.delete(AppConstants.totalDistanceKey);
-    await _settingsBox.delete(AppConstants.totalDistanceDirtyKey);
-  }
-
   // ─── Monthly Summary Cache ────────────────────────────────────────────────
-  /// Key: 'monthly_{userId}_{monthKey}' — works for both own user and manager
-  /// viewing a report, since the key is namespaced by userId.
   static String _monthlyKey(String userId, String monthKey) =>
       '${AppConstants.monthlyCachePrefix}${userId}_$monthKey';
 
@@ -222,23 +253,21 @@ class LocalStorageService {
         _monthlyKey(userId, monthKey), jsonEncode(summary.toJson()));
   }
 
-  static MonthlySummaryModel? getMonthlySummary(String userId, String monthKey) {
+  static MonthlySummaryModel? getMonthlySummary(
+      String userId, String monthKey) {
     final raw = _settingsBox.get(_monthlyKey(userId, monthKey));
     if (raw == null) return null;
     return MonthlySummaryModel.fromJson(
         Map<String, dynamic>.from(jsonDecode(raw)));
   }
 
-  /// Sentinel: marks that a past month was checked and had no attendance data,
-  /// so we skip the Firestore query on subsequent loads without creating any
-  /// Firestore document for the empty month.
   static bool isMonthEmpty(String userId, String monthKey) =>
       _settingsBox.get('monthly_empty_${userId}_$monthKey') == true;
 
   static Future<void> markMonthEmpty(String userId, String monthKey) async =>
       _settingsBox.put('monthly_empty_${userId}_$monthKey', true);
 
-  // ─── Settings ────────────────────────────────────────────────────────────
+  // ─── Settings ─────────────────────────────────────────────────────────────
   static Future<void> setSetting(String key, dynamic value) async {
     await _settingsBox.put(key, value);
   }

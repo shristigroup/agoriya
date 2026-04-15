@@ -4,14 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../../core/constants/app_constants.dart';
 import '../../firebase_options.dart';
 
 class LocationTrackingService {
-  static final FlutterBackgroundService _bgService = FlutterBackgroundService();
+  static final FlutterBackgroundService _bgService =
+      FlutterBackgroundService();
 
   static Future<void> initialize() async {
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -54,13 +53,13 @@ class LocationTrackingService {
       // Wait for the background isolate to boot and register its listeners.
       await Future.delayed(const Duration(milliseconds: 1200));
     } else {
-      // Service survived a previous session — don't spawn a second isolate,
-      // just update the params on the already-running one.
-      debugPrint('[LocationService] Service already running — updating params');
+      debugPrint(
+          '[LocationService] Service already running — updating params');
     }
 
     _bgService.invoke('setParams', {'userId': userId, 'date': date});
-    debugPrint('[LocationService] setParams sent → userId=$userId, date=$date');
+    debugPrint(
+        '[LocationService] setParams sent → userId=$userId, date=$date');
   }
 
   static void stop() {
@@ -84,71 +83,22 @@ void _onStart(ServiceInstance service) async {
 
   String? userId;
   String? date;
-  Position? lastPosition;
-  final List<Map<String, dynamic>> pendingBatch = [];
-  final List<Map<String, dynamic>> allPoints = []; // never cleared — for distance calc
-  DateTime? lastDistanceUpdate;
+  // Counts collected points since the last batchFlushed signal.
+  // HomeBloc owns all location storage and distance calculation —
+  // the bg service only drives the GPS sampling cadence.
+  int pointsSinceLastSignal = 0;
   Timer? samplingTimer;
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  Future<void> flushBatch(List<Map<String, dynamic>> batch) async {
-    if (batch.isEmpty || userId == null || date == null) return;
-    try {
-      final db = FirebaseFirestore.instance;
-      await db
-          .collection(AppConstants.usersCollection)
-          .doc(userId!)
-          .collection(AppConstants.locationsCollection)
-          .doc(date!)
-          .set(
-            {'locations': FieldValue.arrayUnion(List.from(batch))},
-            SetOptions(merge: true),
-          );
-      debugPrint('[LocationService] Flushed ${batch.length} point(s) to Firestore');
-      // Notify UI so it can OSRM-snap this batch
-      service.invoke('batchFlushed', {'batchSize': batch.length});
-    } catch (e) {
-      debugPrint('[LocationService] flushBatch error: $e');
-    }
-  }
-
-  Future<void> updateDistance(List<Map<String, dynamic>> allPoints) async {
-    if (allPoints.length < 2 || userId == null || date == null) return;
-    try {
-      double totalKm = 0.0;
-      final dist = const Distance();
-      for (int i = 0; i < allPoints.length - 1; i++) {
-        final a = allPoints[i]['geoPoint'] as GeoPoint;
-        final b = allPoints[i + 1]['geoPoint'] as GeoPoint;
-        totalKm += dist.as(
-          LengthUnit.Kilometer,
-          LatLng(a.latitude, a.longitude),
-          LatLng(b.latitude, b.longitude),
-        );
-      }
-      final db = FirebaseFirestore.instance;
-      await db
-          .collection(AppConstants.usersCollection)
-          .doc(userId!)
-          .collection(AppConstants.attendanceCollection)
-          .doc(date!)
-          .update({'distance': totalKm});
-      debugPrint('[LocationService] Distance updated: ${totalKm.toStringAsFixed(3)} km');
-    } catch (e) {
-      debugPrint('[LocationService] updateDistance error: $e');
-    }
-  }
-
   Future<void> collectLocation() async {
     if (userId == null || date == null) {
-      debugPrint('[LocationService] collectLocation skipped: params not set yet');
+      debugPrint(
+          '[LocationService] collectLocation skipped: params not set yet');
       return;
     }
     debugPrint('[LocationService] Collecting GPS position...');
     try {
-      // Use medium accuracy so network/WiFi positioning works indoors.
-      // Cap at 15 s — if no fix arrives, fall back to last known position.
       Position? pos;
       try {
         pos = await Geolocator.getCurrentPosition(
@@ -158,7 +108,8 @@ void _onStart(ServiceInstance service) async {
           ),
         );
       } catch (_) {
-        debugPrint('[LocationService] getCurrentPosition timed out, using last known');
+        debugPrint(
+            '[LocationService] getCurrentPosition timed out, using last known');
         pos = await Geolocator.getLastKnownPosition();
       }
 
@@ -166,20 +117,12 @@ void _onStart(ServiceInstance service) async {
         debugPrint('[LocationService] No position available, skipping');
         return;
       }
-      debugPrint('[LocationService] Position: ${pos.latitude}, ${pos.longitude} '
+      debugPrint(
+          '[LocationService] Position: ${pos.latitude}, ${pos.longitude} '
           '(accuracy: ${pos.accuracy.toStringAsFixed(1)}m)');
 
-      // Record every sample — the 1-min timer is the throttle.
-      lastPosition = pos;
       final now = DateTime.now();
-      final point = {
-        'geoPoint': GeoPoint(pos.latitude, pos.longitude),
-        'timestamp': Timestamp.fromDate(now),
-        'snapped': false, // raw GPS — UI will OSRM-snap in batches
-      };
-      pendingBatch.add(point);
-      allPoints.add(point);
-      debugPrint('[LocationService] Point recorded — batch: ${pendingBatch.length}, total: ${allPoints.length}');
+      pointsSinceLastSignal++;
 
       // Notify UI so it can update the map and local storage immediately.
       service.invoke('newPoint', {
@@ -188,19 +131,15 @@ void _onStart(ServiceInstance service) async {
         'timestamp': now.toIso8601String(),
       });
 
-      // Flush to Firestore every 10 points (~10 min at 1-min sampling).
-      if (pendingBatch.length >= AppConstants.locationBatchSize) {
-        final toFlush = List<Map<String, dynamic>>.from(pendingBatch);
-        pendingBatch.clear();
-        await flushBatch(toFlush);
-      }
-
-      // Update distance every 10 min (use allPoints so history isn't lost after flushes)
-      if (lastDistanceUpdate == null ||
-          DateTime.now().difference(lastDistanceUpdate!).inMinutes >=
-              AppConstants.distanceCalculationMinutes) {
-        lastDistanceUpdate = DateTime.now();
-        await updateDistance(allPoints);
+      // Signal HomeBloc to OSRM-snap and commit every N points.
+      // HomeBloc is the sole owner of Firestore writes and distance calculation.
+      if (pointsSinceLastSignal >= AppConstants.locationBatchSize) {
+        pointsSinceLastSignal = 0;
+        service.invoke('batchFlushed', {
+          'batchSize': AppConstants.locationBatchSize,
+        });
+        debugPrint(
+            '[LocationService] batchFlushed signal sent → HomeBloc will snap & commit');
       }
     } catch (e) {
       debugPrint('[LocationService] collectLocation error: $e');
@@ -209,35 +148,31 @@ void _onStart(ServiceInstance service) async {
 
   // ── Listeners ─────────────────────────────────────────────────────────────
   // Registered BEFORE Firebase.initializeApp() so that setParams sent by the
-  // main isolate (after its 1200 ms startup delay) is never missed — Firebase
-  // init on iOS cold-start can take 2-5 s, longer than that delay.
-  // collectLocation() only uses Geolocator; Firestore writes are deferred
-  // until a batch of 15 points is accumulated, well after Firebase is ready.
+  // main isolate (after its 1200 ms startup delay) is never missed.
 
   service.on('setParams').listen((data) {
     if (data == null) return;
     userId = data['userId'] as String?;
     date = data['date'] as String?;
-    debugPrint('[LocationService] setParams received → userId=$userId, date=$date');
+    debugPrint(
+        '[LocationService] setParams received → userId=$userId, date=$date');
     collectLocation();
   });
 
   service.on('stopTracking').listen((_) async {
-    debugPrint('[LocationService] Stopping — flushing remaining ${pendingBatch.length} point(s)');
+    debugPrint('[LocationService] Stopping');
     samplingTimer?.cancel();
-    if (pendingBatch.isNotEmpty) {
-      await flushBatch(pendingBatch);
-    }
-    if (allPoints.length >= 2) {
-      await updateDistance(allPoints);
+    // Signal HomeBloc to snap and commit any remaining points in currentBatch.
+    if (pointsSinceLastSignal > 0) {
+      service.invoke('batchFlushed', {'batchSize': pointsSinceLastSignal});
+      debugPrint(
+          '[LocationService] Final batchFlushed signal sent (${pointsSinceLastSignal} remaining points)');
     }
     debugPrint('[LocationService] Stopped');
     service.stopSelf();
   });
 
   // ── Firebase init ─────────────────────────────────────────────────────────
-  // Done after listener registration. Passing options directly avoids slow
-  // native config discovery which can push past Android's 5-s startForeground deadline.
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   debugPrint('[LocationService] Isolate started, Firebase ready');
 
