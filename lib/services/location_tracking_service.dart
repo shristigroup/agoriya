@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -35,6 +36,7 @@ class LocationTrackingService {
         initialNotificationTitle: 'Agoriya',
         initialNotificationContent: 'Tracking location...',
         foregroundServiceNotificationId: AppConstants.bgNotificationId,
+        foregroundServiceTypes: [AndroidForegroundType.location],
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,
@@ -45,16 +47,37 @@ class LocationTrackingService {
   }
 
   static Future<void> start(String userId, String date) async {
-    final already = await _bgService.isRunning();
+    // If a previous service is still shutting down (stopSelf is async),
+    // wait until it fully stops before starting fresh. Without this, isRunning()
+    // can return true mid-shutdown → we skip startService() → dying service
+    // gets setParams → stopSelf() completes → service dies → no notification.
+    if (await _bgService.isRunning()) {
+      debugPrint('[LocationService] Service still stopping — waiting...');
+      for (int i = 0; i < 20; i++) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (!await _bgService.isRunning()) break;
+      }
+    }
 
-    if (!already) {
+    if (!await _bgService.isRunning()) {
+      // Listen for the ready signal BEFORE starting the service so we never
+      // miss it even if the isolate boots faster than expected.
+      final readyCompleter = Completer<void>();
+      final readySub = _bgService.on('serviceReady').listen((_) {
+        if (!readyCompleter.isCompleted) readyCompleter.complete();
+      });
+
       await _bgService.startService();
-      debugPrint('[LocationService] Service started fresh');
-      // Wait for the background isolate to boot and register its listeners.
-      await Future.delayed(const Duration(milliseconds: 1200));
+      debugPrint('[LocationService] Service started — waiting for isolate ready signal');
+
+      // Wait for the background isolate to signal it's ready, with a 4s fallback.
+      await readyCompleter.future.timeout(
+        const Duration(seconds: 4),
+        onTimeout: () => debugPrint('[LocationService] serviceReady timeout — proceeding anyway'),
+      );
+      await readySub.cancel();
     } else {
-      debugPrint(
-          '[LocationService] Service already running — updating params');
+      debugPrint('[LocationService] Service already running — updating params');
     }
 
     _bgService.invoke('setParams', {'userId': userId, 'date': date});
@@ -83,13 +106,41 @@ void _onStart(ServiceInstance service) async {
 
   String? userId;
   String? date;
-  // Counts collected points since the last batchFlushed signal.
-  // HomeBloc owns all location storage and distance calculation —
-  // the bg service only drives the GPS sampling cadence.
   int pointsSinceLastSignal = 0;
-  Timer? samplingTimer;
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // Android: periodic timer (foreground service keeps the process alive).
+  // iOS:     persistent position stream (keeps the isolate alive in background).
+  Timer? samplingTimer;
+  StreamSubscription<Position>? positionSub;
+
+  // ── Shared: emit one GPS point + trigger batch signal ─────────────────────
+
+  String _ts() {
+    final t = DateTime.now();
+    return '${t.hour.toString().padLeft(2,'0')}:'
+           '${t.minute.toString().padLeft(2,'0')}:'
+           '${t.second.toString().padLeft(2,'0')}';
+  }
+
+  void emitPoint(double lat, double lng) {
+    if (userId == null || date == null) return;
+    final now = DateTime.now();
+    pointsSinceLastSignal++;
+    service.invoke('newPoint', {
+      'lat': lat,
+      'lng': lng,
+      'timestamp': now.toIso8601String(),
+    });
+    debugPrint('[LocationService ${_ts()}] newPoint #$pointsSinceLastSignal/${ AppConstants.locationBatchSize} → $lat, $lng');
+    if (pointsSinceLastSignal >= AppConstants.locationBatchSize) {
+      pointsSinceLastSignal = 0;
+      service.invoke(
+          'batchFlushed', {'batchSize': AppConstants.locationBatchSize});
+      debugPrint('[LocationService ${_ts()}] batchFlushed → triggering Firestore sync');
+    }
+  }
+
+  // ── Android: one-shot GPS collection ──────────────────────────────────────
 
   Future<void> collectLocation() async {
     if (userId == null || date == null) {
@@ -97,7 +148,6 @@ void _onStart(ServiceInstance service) async {
           '[LocationService] collectLocation skipped: params not set yet');
       return;
     }
-    debugPrint('[LocationService] Collecting GPS position...');
     try {
       Position? pos;
       try {
@@ -112,7 +162,6 @@ void _onStart(ServiceInstance service) async {
             '[LocationService] getCurrentPosition timed out, using last known');
         pos = await Geolocator.getLastKnownPosition();
       }
-
       if (pos == null) {
         debugPrint('[LocationService] No position available, skipping');
         return;
@@ -120,33 +169,52 @@ void _onStart(ServiceInstance service) async {
       debugPrint(
           '[LocationService] Position: ${pos.latitude}, ${pos.longitude} '
           '(accuracy: ${pos.accuracy.toStringAsFixed(1)}m)');
-
-      final now = DateTime.now();
-      pointsSinceLastSignal++;
-
-      // Notify UI so it can update the map and local storage immediately.
-      service.invoke('newPoint', {
-        'lat': pos.latitude,
-        'lng': pos.longitude,
-        'timestamp': now.toIso8601String(),
-      });
-
-      // Signal HomeBloc to OSRM-snap and commit every N points.
-      // HomeBloc is the sole owner of Firestore writes and distance calculation.
-      if (pointsSinceLastSignal >= AppConstants.locationBatchSize) {
-        pointsSinceLastSignal = 0;
-        service.invoke('batchFlushed', {
-          'batchSize': AppConstants.locationBatchSize,
-        });
-        debugPrint(
-            '[LocationService] batchFlushed signal sent → HomeBloc will snap & commit');
-      }
+      emitPoint(pos.latitude, pos.longitude);
     } catch (e) {
       debugPrint('[LocationService] collectLocation error: $e');
     }
   }
 
-  // ── Listeners ─────────────────────────────────────────────────────────────
+  // ── iOS: lazy position stream (started once on setParams) ─────────────────
+
+  void startPositionStream() {
+    if (positionSub != null) return; // idempotent
+
+    // iOS: a CLLocationManager stream keeps the isolate alive in background.
+    // A Dart timer would be suspended by iOS after ~30 s.
+    // pauseLocationUpdatesAutomatically: false  — prevents iOS stopping
+    //   updates when the device is stationary (e.g. user at a desk).
+    // showBackgroundLocationIndicator: true — shows the blue status-bar pill;
+    //   iOS requires this for persistent background location.
+    DateTime? lastPointTime;
+    final locationSettings = AppleSettings(
+      accuracy: LocationAccuracy.medium,
+      distanceFilter: 0,
+      pauseLocationUpdatesAutomatically: false,
+      showBackgroundLocationIndicator: true,
+      activityType: ActivityType.otherNavigation,
+    );
+
+    positionSub =
+        Geolocator.getPositionStream(locationSettings: locationSettings)
+            .listen(
+      (pos) {
+        // Time-gate: honour the same sampling interval as Android.
+        final now = DateTime.now();
+        if (lastPointTime != null &&
+            now.difference(lastPointTime!) <
+                Duration(seconds: AppConstants.locationSamplingSeconds)) {
+          return;
+        }
+        lastPointTime = now;
+        emitPoint(pos.latitude, pos.longitude);
+      },
+      onError: (e) => debugPrint('[LocationService] positionStream error: $e'),
+    );
+    debugPrint('[LocationService] iOS position stream started');
+  }
+
+  // ── Listeners ──────────────────────────────────────────────────────────────
   // Registered BEFORE Firebase.initializeApp() so that setParams sent by the
   // main isolate (after its 1200 ms startup delay) is never missed.
 
@@ -156,29 +224,55 @@ void _onStart(ServiceInstance service) async {
     date = data['date'] as String?;
     debugPrint(
         '[LocationService] setParams received → userId=$userId, date=$date');
-    collectLocation();
+    if (Platform.isAndroid) {
+      collectLocation(); // immediate first point; timer handles the rest
+    } else {
+      startPositionStream(); // lazy start; idempotent on re-sends
+    }
   });
 
   service.on('stopTracking').listen((_) async {
     debugPrint('[LocationService] Stopping');
     samplingTimer?.cancel();
-    // Signal HomeBloc to snap and commit any remaining points in currentBatch.
+    await positionSub?.cancel();
+    positionSub = null;
+
+    // Signal HomeBloc to snap and commit any remaining points.
     if (pointsSinceLastSignal > 0) {
       service.invoke('batchFlushed', {'batchSize': pointsSinceLastSignal});
       debugPrint(
-          '[LocationService] Final batchFlushed signal sent (${pointsSinceLastSignal} remaining points)');
+          '[LocationService] Final batchFlushed sent '
+          '(${pointsSinceLastSignal} remaining points)');
     }
+
+    // On Android, demote from foreground before stopping so the persistent
+    // tracking notification is dismissed immediately on punch out.
+    if (service is AndroidServiceInstance) {
+      await service.setAsBackgroundService();
+    }
+
     debugPrint('[LocationService] Stopped');
     service.stopSelf();
   });
 
-  // ── Firebase init ─────────────────────────────────────────────────────────
+  // ── Firebase init ──────────────────────────────────────────────────────────
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  debugPrint('[LocationService] Isolate started, Firebase ready');
 
-  // ── Periodic sampling ─────────────────────────────────────────────────────
-  samplingTimer = Timer.periodic(
-    Duration(seconds: AppConstants.locationSamplingSeconds),
-    (_) => collectLocation(),
-  );
+  // Signal the main isolate that listeners are registered and Firebase is ready.
+  // start() waits for this instead of a fixed delay.
+  service.invoke('serviceReady', {});
+  debugPrint('[LocationService] Isolate started, Firebase ready → serviceReady sent');
+
+  // ── Start platform-specific GPS collection ─────────────────────────────────
+
+  if (Platform.isAndroid) {
+    // Foreground service keeps the process alive indefinitely — timer is safe.
+    samplingTimer = Timer.periodic(
+      Duration(seconds: AppConstants.locationSamplingSeconds),
+      (_) => collectLocation(),
+    );
+    debugPrint('[LocationService] Android timer started '
+        '(interval: ${AppConstants.locationSamplingSeconds}s)');
+  }
+  // iOS: position stream is started lazily from the setParams listener above.
 }

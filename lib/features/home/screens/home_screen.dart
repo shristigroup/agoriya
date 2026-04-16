@@ -245,6 +245,9 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _handlePunchIn(HomeLoaded state) async {
     if (!await _ensureLocationPermission()) return;
     if (!await _ensureCameraPermission()) return;
+    // Request POST_NOTIFICATIONS so the foreground tracking notification
+    // shows on Android 13+. Not blocking — tracking works without it.
+    if (Platform.isAndroid) await Permission.notification.request();
 
     final file = await Navigator.of(context).push<File>(
       MaterialPageRoute(builder: (_) => const PunchInCameraScreen()),

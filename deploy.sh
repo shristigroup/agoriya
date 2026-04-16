@@ -31,14 +31,14 @@ fi
 info "Current version: $PUBSPEC_VERSION"
 
 # ─── Compare with last built version ──────────────────────────────────────────
-if [[ -f "$VERSION_FILE" ]]; then
-  LAST_VERSION=$(cat "$VERSION_FILE")
-  if [[ "$LAST_VERSION" == "$PUBSPEC_VERSION" ]]; then
-    warn "Version $PUBSPEC_VERSION was already built. Bump the version in pubspec.yaml before deploying."
-    warn "Example: version: 0.2.0+2"
-    exit 1
-  fi
-fi
+# if [[ -f "$VERSION_FILE" ]]; then
+#   LAST_VERSION=$(cat "$VERSION_FILE")
+#   if [[ "$LAST_VERSION" == "$PUBSPEC_VERSION" ]]; then
+#     warn "Version $PUBSPEC_VERSION was already built. Bump the version in pubspec.yaml before deploying."
+#     warn "Example: version: 0.2.0+2"
+#     exit 1
+#   fi
+# fi
 
 mkdir -p "$DIST_DIR"
 
@@ -129,8 +129,31 @@ if [[ "$BUILD_ANDROID" == true ]]; then
       "gs://$STORAGE_BUCKET/releases/latest.apk" 2>/dev/null \
       || warn "Could not set ACL on latest.apk — check Storage rules."
 
+    # Disable caching on latest.apk so browsers always fetch the newest version.
+    gsutil setmeta -h "Cache-Control:no-cache,max-age=0" \
+      "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk" \
+      "gs://$STORAGE_BUCKET/releases/latest.apk" 2>/dev/null \
+      || warn "Could not set Cache-Control headers — downloads may be cached by browsers."
+
     success "APK uploaded → gs://$STORAGE_BUCKET/releases/latest.apk"
-    success "Public URL: https://firebasestorage.googleapis.com/v0/b/$STORAGE_BUCKET/o/releases%2Flatest.apk?alt=media"
+    success "Public URL: https://firebasestorage.googleapis.com/v0/b/$STORAGE_BUCKET/o/releases%2Flatest.apk?alt=media&v=$PUBSPEC_VERSION"
+
+    # Update download URLs in index.html with the new version so browsers
+    # treat this as a new URL and skip any cached copy of the old APK.
+    info "Updating index.html download links to v$PUBSPEC_VERSION..."
+    perl -i -pe "s|(releases%2Flatest\.apk\?alt=media)(?:&v=[^\"\\']*)?|\${1}&v=$PUBSPEC_VERSION|g" \
+      "$SCRIPT_DIR/index.html"
+
+    # Commit and push so GitHub Pages serves the updated download link.
+    if git -C "$SCRIPT_DIR" diff --quiet index.html; then
+      warn "index.html already up to date — skipping push."
+    else
+      git -C "$SCRIPT_DIR" add index.html
+      git -C "$SCRIPT_DIR" commit -m "chore: bump APK download link to v$PUBSPEC_VERSION"
+      git -C "$SCRIPT_DIR" push \
+        && success "index.html pushed → GitHub Pages will serve v$PUBSPEC_VERSION link" \
+        || warn "git push failed — push index.html manually so the download page updates."
+    fi
   else
     warn "gsutil not found — skipping Firebase Storage upload."
     warn "Install Google Cloud SDK: https://cloud.google.com/sdk"

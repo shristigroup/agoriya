@@ -75,20 +75,29 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final finalDistance = DataManager.getFinalLocationsDistance();
     final batchDistance = DataManager.getCurrentBatchDistance();
 
-    LatLng? lastKnownLocation;
-    try {
-      final pos = await Geolocator.getLastKnownPosition();
-      if (pos != null) {
-        lastKnownLocation = LatLng(pos.latitude, pos.longitude);
-      }
-    } catch (_) {}
+    // Seed lastKnownLocation from the last tracked point — the background
+    // isolate owns all GPS; no Geolocator call needed in the main engine.
+    final LatLng? lastKnownLocation = finalLocations.isNotEmpty
+        ? finalLocations.last.position
+        : currentBatch.isNotEmpty
+            ? currentBatch.last.position
+            : null;
 
-    // Stop any lingering background service if the user is not punched in.
-    // This can happen when the service survives an app restart but setParams
-    // was never re-sent because no punch-in occurred this session.
-    if (attendance?.isPunchedIn != true) {
-      final running = await LocationTrackingService.isRunning;
-      if (running) LocationTrackingService.stop();
+    // Reconcile service state with attendance on every app start.
+    final serviceRunning = await LocationTrackingService.isRunning;
+    if (attendance?.isPunchedIn == true) {
+      // Punched in but service dead — happens after a force-close.
+      // Only restart if permission is already granted; if not, the user
+      // needs to go through the punch-in flow to grant it first.
+      if (!serviceRunning) {
+        final permission = await Geolocator.checkPermission();
+        final hasPermission = permission == LocationPermission.always ||
+            permission == LocationPermission.whileInUse;
+        if (hasPermission) await LocationTrackingService.start(userId, today);
+      }
+    } else {
+      // Not punched in but service still alive — orphan from a previous session.
+      if (serviceRunning) LocationTrackingService.stop();
     }
 
     emit(HomeLoaded(
@@ -172,22 +181,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         );
       }
 
-      // Determine last known position from the full merged path.
-      final allLocs = [
-        ...freshFinalLocations,
-        // currentBatch was already snapped into freshFinalLocations, so skip it.
-      ];
-      LatLng? lastLoc =
-          allLocs.isNotEmpty ? allLocs.last.position : null;
-      if (lastLoc == null) {
-        try {
-          final pos = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-                accuracy: LocationAccuracy.high),
-          );
-          lastLoc = LatLng(pos.latitude, pos.longitude);
-        } catch (_) {}
-      }
+      // Use the last tracked point as the punch-out location.
+      // The background isolate owns all GPS — no Geolocator call needed here.
+      final LatLng? lastLoc = freshFinalLocations.isNotEmpty
+          ? freshFinalLocations.last.position
+          : current.lastKnownLocation;
 
       final updatedAttendance = await DataManager.punchOut(
         userId: userId,
@@ -323,6 +321,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           _markLastPoint(snappedBatch, newFinalDistance, osrmDistance);
 
       // ── Step 4: persist to Firestore, read back, save to Hive.
+      debugPrint('[HomeBloc] Syncing ${committedBatch.length} snapped points to Firestore (total distance: ${newFinalDistance.toStringAsFixed(3)} km)');
       final freshFinalLocations = await DataManager.persistSnappedBatch(
         userId: userId,
         date: today,
@@ -333,6 +332,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           ...committedBatch,
         ],
       );
+      debugPrint('[HomeBloc] Firestore sync done — ${freshFinalLocations.length} total points on server');
 
       // ── Step 5: merge with the LATEST state — currentBatch may have new
       // points that accumulated while OSRM was in flight (step 1 cleared it,
