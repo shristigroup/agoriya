@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../data/models/attendance_model.dart';
+import '../../../data/models/tracking_model.dart';
 import '../../../data/models/monthly_summary_model.dart';
 import '../../../data/data_manager.dart';
 import '../widgets/daily_tile.dart';
@@ -78,11 +78,11 @@ class _DailyTab extends StatefulWidget {
 
 class _DailyTabState extends State<_DailyTab>
     with AutomaticKeepAliveClientMixin {
-  final List<AttendanceModel> _records = [];
+  final List<TrackingModel> _records = [];
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
-  String? _lastDate; // pagination cursor
+  String? _lastId; // pagination cursor (tracking doc ID)
   String? _error;
 
   @override
@@ -98,7 +98,7 @@ class _DailyTabState extends State<_DailyTab>
     if (refresh) {
       setState(() {
         _records.clear();
-        _lastDate = null;
+        _lastId = null;
         _hasMore = true;
         _loading = true;
         _error = null;
@@ -106,17 +106,17 @@ class _DailyTabState extends State<_DailyTab>
     }
 
     try {
-      final (records, lastDate) = await DataManager.getAttendanceHistory(
+      final (records, lastId) = await DataManager.getTrackingHistory(
         widget.userId,
         limit: 30,
-        startAfterDate: refresh ? null : _lastDate,
+        startAfterId: refresh ? null : _lastId,
       );
 
       if (mounted) {
         setState(() {
           _records.addAll(records);
-          _lastDate = lastDate;
-          _hasMore = lastDate != null;
+          _lastId = lastId;
+          _hasMore = lastId != null;
           _loading = false;
           _loadingMore = false;
         });
@@ -208,12 +208,12 @@ class _DailyTabState extends State<_DailyTab>
           }
           final record = _records[i];
           return DailyTile(
-            attendance: record,
+            tracking: record,
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => HistoryDayScreen(
                 userId: widget.userId,
                 userName: widget.userName,
-                attendance: record,
+                tracking: record,
               ),
             )),
           );

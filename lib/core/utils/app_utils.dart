@@ -22,7 +22,7 @@ class AppUtils {
 
   static String visitDocId(String clientName, String location, DateTime checkinTime) {
     final datePart = formatDate(checkinTime);
-    final timePart = DateFormat('HHmmss').format(checkinTime);
+    final timePart = DateFormat('HH:mm:ss').format(checkinTime);
     final safeName = clientName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '-');
     final safeLoc = location.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '-');
     return '$safeName-$safeLoc-$datePart-$timePart';

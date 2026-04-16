@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
-import '../../../data/models/attendance_model.dart';
+import '../../../data/models/tracking_model.dart';
 
 class PunchInSuccessScreen extends StatefulWidget {
-  final AttendanceModel attendance;
+  final TrackingModel attendance;
   const PunchInSuccessScreen({super.key, required this.attendance});
 
   @override
@@ -38,9 +38,7 @@ class _PunchInSuccessScreenState extends State<PunchInSuccessScreen>
 
   @override
   Widget build(BuildContext context) {
-    final punchInTime = widget.attendance.punchInTimestamp != null
-        ? AppUtils.formatTime(widget.attendance.punchInTimestamp!)
-        : '';
+    final punchInTime = AppUtils.formatTime(widget.attendance.startTime);
 
     return Scaffold(
       backgroundColor: AppTheme.primary,
@@ -132,7 +130,7 @@ class _PunchInSuccessScreenState extends State<PunchInSuccessScreen>
 // ─── Punch Out Summary Screen ───────────────────────────────────────────────
 
 class PunchOutSummaryScreen extends StatefulWidget {
-  final AttendanceModel attendance;
+  final TrackingModel attendance;
   final Duration totalTime;
 
   const PunchOutSummaryScreen({
@@ -228,7 +226,7 @@ class _PunchOutSummaryScreenState extends State<PunchOutSummaryScreen>
                     _statRow(
                       Icons.storefront_rounded,
                       'Customer visits',
-                      '${widget.attendance.customerVisitCount}',
+                      '${widget.attendance.visitCount}',
                     ),
                   ],
                 ),

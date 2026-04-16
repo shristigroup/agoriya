@@ -3,13 +3,19 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/app_utils.dart';
-import '../../../../data/models/attendance_model.dart';
+import '../../../../data/models/tracking_model.dart';
 import '../../../../data/models/location_model.dart';
 
 class TrackTab extends StatefulWidget {
-  final AttendanceModel? attendance;
+  final TrackingModel? attendance;
   final List<LocationPoint> locations;
   final LatLng? lastKnownLocation;
+
+  /// Wall-clock time of the last GPS ping from the background service.
+  /// Updated even when stationary (no new point stored).
+  /// null in read-only / history mode — falls back to locations.last.timestamp.
+  final DateTime? lastGpsUpdateTime;
+
   final bool isReadOnly;
   final bool isSnapping; // OSRM snap in progress — shows indicator
 
@@ -18,6 +24,7 @@ class TrackTab extends StatefulWidget {
     this.attendance,
     this.locations = const [],
     this.lastKnownLocation,
+    this.lastGpsUpdateTime,
     this.isReadOnly = false,
     this.isSnapping = false,
   });
@@ -37,9 +44,26 @@ class _TrackTabState extends State<TrackTab> {
   }
 
   LatLng get _mapCenter {
-    if (widget.locations.isNotEmpty) return widget.locations.last.position;
+    // Prefer lastKnownLocation — updated on every GPS event including
+    // stationary pings, so it's always the freshest position.
     if (widget.lastKnownLocation != null) return widget.lastKnownLocation!;
+    if (widget.locations.isNotEmpty) return widget.locations.last.position;
     return const LatLng(20.5937, 78.9629); // India centre
+  }
+
+  /// The position to show for the current-location marker.
+  LatLng? get _currentPosition =>
+      widget.lastKnownLocation ??
+      (widget.locations.isNotEmpty ? widget.locations.last.position : null);
+
+  /// The label shown inside the current-location marker.
+  /// Uses lastPoint.timestamp + durationSeconds so owner and manager both see
+  /// the same effective "last active" time. Falls back to lastGpsUpdateTime
+  /// when no stored points exist yet (e.g. acquiring first GPS fix).
+  DateTime? get _markerTime {
+    if (widget.locations.isEmpty) return widget.lastGpsUpdateTime;
+    final last = widget.locations.last;
+    return last.timestamp.add(Duration(seconds: last.durationSeconds ?? 0));
   }
 
   @override
@@ -75,28 +99,13 @@ class _TrackTabState extends State<TrackTab> {
                 ],
               ),
             // Markers
-            if (_showMarkers && hasData)
+            if (_showMarkers)
               MarkerLayer(
                 markers: [
-                  // Start
-                  Marker(
-                    point: widget.locations.first.position,
-                    width: 32,
-                    height: 32,
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: AppTheme.punchIn,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.play_arrow,
-                          color: Colors.white, size: 18),
-                    ),
-                  ),
-                  // Intermediate dots
-                  if (widget.locations.length > 2)
+                  // Intermediate route dots (all stored points except the last)
+                  if (hasData && widget.locations.length > 1)
                     ...widget.locations
-                        .skip(1)
-                        .take(widget.locations.length - 2)
+                        .take(widget.locations.length - 1)
                         .map(
                           (p) => Marker(
                             point: p.position,
@@ -112,10 +121,11 @@ class _TrackTabState extends State<TrackTab> {
                             ),
                           ),
                         ),
-                  // Current position with last-updated timestamp above it
-                  if (widget.locations.length > 1)
+                  // Current position — shown as soon as we have a GPS fix,
+                  // even before any points are stored (stationary case).
+                  if (_currentPosition != null && _markerTime != null)
                     Marker(
-                      point: widget.locations.last.position,
+                      point: _currentPosition!,
                       width: 90,
                       height: 62,
                       child: Column(
@@ -135,8 +145,7 @@ class _TrackTabState extends State<TrackTab> {
                               ],
                             ),
                             child: Text(
-                              AppUtils.formatTime(
-                                  widget.locations.last.timestamp),
+                              AppUtils.formatTime(_markerTime!),
                               style: AppTheme.sora(10,
                                   weight: FontWeight.w600,
                                   color: AppTheme.textSecondary),
@@ -248,13 +257,10 @@ class _TrackTabState extends State<TrackTab> {
                 ),
               ),
               const SizedBox(height: 8),
-              if (hasData)
+              if (_currentPosition != null)
                 _mapButton(
                   icon: Icons.my_location,
-                  onTap: () => _mapController.move(
-                    widget.locations.last.position,
-                    15.0,
-                  ),
+                  onTap: () => _mapController.move(_currentPosition!, 15.0),
                 ),
             ],
           ),

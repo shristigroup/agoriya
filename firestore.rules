@@ -20,12 +20,21 @@ service cloud.firestore {
       // update: document exists, so check uid in the existing document
       allow update: if isSignedIn() && resource.data.uid == request.auth.uid;
 
+      // ─── Legacy sub-collections (kept for backwards compatibility) ──────────
       match /Attendance/{date} {
         allow read: if isSignedIn();
         allow write: if isOwner(userId);
       }
 
       match /Locations/{date} {
+        allow read: if isSignedIn();
+        allow write: if isOwner(userId);
+      }
+
+      // ─── Tracking: one doc per punch-in session, ID = '{date}_{HHmmss}' ──
+      // Replaces the old Attendance + Locations sub-collections.
+      // Locations are embedded as an array on the Tracking doc itself.
+      match /Tracking/{trackingId} {
         allow read: if isSignedIn();
         allow write: if isOwner(userId);
       }

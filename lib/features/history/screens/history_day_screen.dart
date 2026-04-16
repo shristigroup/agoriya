@@ -5,7 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../data/data_manager.dart';
-import '../../../data/models/attendance_model.dart';
+import '../../../data/models/tracking_model.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/models/visit_model.dart';
 import '../../home/track/track_tab.dart';
@@ -14,13 +14,13 @@ import '../../home/visits/visit_detail_screen.dart';
 class HistoryDayScreen extends StatefulWidget {
   final String userId;
   final String? userName;
-  final AttendanceModel attendance;
+  final TrackingModel tracking;
 
   const HistoryDayScreen({
     super.key,
     required this.userId,
     this.userName,
-    required this.attendance,
+    required this.tracking,
   });
 
   @override
@@ -55,7 +55,7 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
   Future<void> _fetchVisits() async {
     try {
       final visits = await DataManager.getVisitsForDay(
-          widget.userId, widget.attendance.date);
+          widget.userId, widget.tracking.date);
       if (mounted) setState(() { _visits = visits; _visitsLoading = false; });
     } catch (_) {
       if (mounted) setState(() => _visitsLoading = false);
@@ -65,8 +65,8 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
   Future<void> _fetchRoute() async {
     setState(() => _routeState = _RouteState.loading);
     try {
-      final points = await DataManager.getLocations(
-          widget.userId, widget.attendance.date);
+      final points = await DataManager.getLocationsForTracking(
+          widget.userId, widget.tracking.id);
       if (mounted) {
         setState(() {
           _locations = points;
@@ -80,8 +80,8 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
 
   @override
   Widget build(BuildContext context) {
-    final att = widget.attendance;
-    final date = DateTime.parse(att.date);
+    final t = widget.tracking;
+    final date = DateTime.parse(t.date);
     final title = AppUtils.formatDateDisplay(date);
 
     return Scaffold(
@@ -92,8 +92,8 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
       ),
       body: Column(
         children: [
-          // ── Attendance header ─────────────────────────────────────────────
-          _buildHeader(att),
+          // ── Tracking header ───────────────────────────────────────────────
+          _buildHeader(t),
 
           // ── Tabs ─────────────────────────────────────────────────────────
           Container(
@@ -124,10 +124,10 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
     );
   }
 
-  Widget _buildHeader(AttendanceModel att) {
-    final punchIn = att.punchInTimestamp;
-    final punchOut = att.punchOutTimestamp;
-    final duration = att.attendanceDuration;
+  Widget _buildHeader(TrackingModel t) {
+    final punchIn = t.startTime;
+    final punchOut = t.stopTime;
+    final duration = t.attendanceDuration;
 
     return Container(
       color: AppTheme.primary,
@@ -137,7 +137,7 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
           _headerStat(
             Icons.login_rounded,
             'In',
-            punchIn != null ? AppUtils.formatTime(punchIn) : '--',
+            AppUtils.formatTime(punchIn),
           ),
           _headerDivider(),
           _headerStat(
@@ -155,7 +155,7 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
           _headerStat(
             Icons.route_rounded,
             'Distance',
-            AppUtils.formatDistance(att.distance),
+            AppUtils.formatDistance(t.distance),
           ),
         ],
       ),
@@ -193,20 +193,17 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
   // ── Track tab ─────────────────────────────────────────────────────────────
 
   Widget _buildTrackTab() {
-    // Route is loaded — hand off to TrackTab which handles markers/polyline.
     if (_routeState == _RouteState.loaded) {
       return TrackTab(
-        attendance: widget.attendance,
+        attendance: widget.tracking,
         locations: _locations,
         isReadOnly: true,
         isSnapping: false,
       );
     }
 
-    // Blurred map background + overlay.
     return Stack(
       children: [
-        // OSM tile map, blurred — gives visual hint that there's route data.
         ImageFiltered(
           imageFilter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
           child: FlutterMap(
@@ -226,10 +223,8 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
           ),
         ),
 
-        // Dark overlay for contrast.
         Container(color: Colors.black.withOpacity(0.35)),
 
-        // Centre content.
         Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -252,7 +247,6 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
                   label: const Text('Retry'),
                 ),
               ] else ...[
-                // Idle — show the load button.
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -291,7 +285,7 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Tap to load the GPS route for this day',
+                  'Tap to load the GPS route for this session',
                   style: AppTheme.sora(12, color: Colors.white70),
                 ),
               ],

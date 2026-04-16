@@ -37,11 +37,18 @@ async function getDirectManager(userId) {
   return mgrDoc.exists ? { id: managerId, ...mgrDoc.data() } : null;
 }
 
-// ─── 1. Attendance trigger: punch-in / punch-out notifications ───────────────
-exports.onAttendanceWrite = onDocumentWritten(
-  { document: "Users/{userId}/Attendance/{date}", region: "asia-south1" },
+// ─── Helper: format duration ms → "Xh Ym" ────────────────────────────────────
+function formatDuration(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// ─── 1. Tracking trigger: punch-in / punch-out / resume notifications ─────────
+exports.onTrackingWrite = onDocumentWritten(
+  { document: "Users/{userId}/Tracking/{trackingId}", region: "asia-south1" },
   async (event) => {
-    const { userId, date } = event.params;
+    const { userId } = event.params;
     const before = event.data.before.exists ? event.data.before.data() : null;
     const after = event.data.after.exists ? event.data.after.data() : null;
 
@@ -56,34 +63,72 @@ exports.onAttendanceWrite = onDocumentWritten(
     if (!manager) return;
     const managerToken = manager.fcmToken;
 
-    const hadPunchOut = before && before.punchOutTimestamp;
-    const hasPunchOut = after.punchOutTimestamp;
+    const hadStopTime = before && before.stopTime;
+    const hasStopTime = after.stopTime;
 
-    if (!hadPunchOut && hasPunchOut) {
-      const punchOutTime = after.punchOutTimestamp.toDate();
-      const punchInTime = after.punchInTimestamp
-        ? after.punchInTimestamp.toDate()
-        : null;
+    // ── New doc created = punch-in ─────────────────────────────────────────
+    if (!before) {
+      await sendNotification(
+        managerToken,
+        `${userName} punched in`,
+        "Started work",
+        {
+          type: "punch_in",
+          targetUserId: userId,
+          targetUserName: userName,
+        }
+      );
+      return;
+    }
 
-      let durationText = "";
-      if (punchInTime) {
-        const diffMs = punchOutTime - punchInTime;
-        const h = Math.floor(diffMs / 3600000);
-        const m = Math.floor((diffMs % 3600000) / 60000);
-        durationText = h > 0 ? `${h}h ${m}m` : `${m}m`;
-      }
+    // ── stopTime removed = resume session ─────────────────────────────────
+    if (hadStopTime && !hasStopTime) {
+      await sendNotification(
+        managerToken,
+        `${userName} resumed session`,
+        "Session resumed",
+        {
+          type: "resume",
+          targetUserId: userId,
+          targetUserName: userName,
+        }
+      );
+      return;
+    }
+
+    // ── stopTime newly set = punch-out ────────────────────────────────────
+    if (!hadStopTime && hasStopTime) {
+      const punchInTime = after.startTime ? after.startTime.toDate() : null;
+      const durationText = punchInTime
+        ? formatDuration(after.stopTime.toDate() - punchInTime) : "";
 
       await sendNotification(
         managerToken,
         `${userName} punched out`,
-        durationText
-          ? `Total time: ${durationText}`
-          : "Has ended their work day.",
+        durationText ? `Total time: ${durationText}` : "Has ended their work day.",
         {
           type: "punch_out",
           targetUserId: userId,
           targetUserName: userName,
         }
+      );
+      return;
+    }
+
+    // ── last location's durationSeconds crossed 30 min threshold ─────────
+    const prevLocations = (before && before.locations) || [];
+    const curLocations = after.locations || [];
+    const prevDuration = prevLocations.length > 0
+        ? (prevLocations[prevLocations.length - 1].durationSeconds || 0) : 0;
+    const curDuration = curLocations.length > 0
+        ? (curLocations[curLocations.length - 1].durationSeconds || 0) : 0;
+    const threshold = 1800; // 30 minutes
+    if (prevDuration < threshold && curDuration >= threshold) {
+      await sendNotification(
+        managerToken,
+        `${userName} is stationary`,
+        "Has been at the same location for 30 minutes.",
+        { type: "stationary", targetUserId: userId, targetUserName: userName }
       );
     }
   }
@@ -175,12 +220,12 @@ exports.onCommentWrite = onDocumentCreated(
 );
 
 // ─── 4. FCM token updater (no-op — token is written client-side) ─────────────
-exports.updateFcmToken = onDocumentWritten(
-  { document: "Users/{userId}", region: "asia-south1" },
-  async (event) => {
-    // Token updates are handled client-side; this function is intentionally empty.
-  }
-);
+// exports.updateFcmToken = onDocumentWritten(
+//   { document: "Users/{userId}", region: "asia-south1" },
+//   async (event) => {
+//     // Token updates are handled client-side; this function is intentionally empty.
+//   }
+// );
 
 // ─── 5. Reports hierarchy updater ────────────────────────────────────────────
 exports.updateReportsHierarchy = onDocumentWritten(
@@ -206,6 +251,7 @@ exports.updateReportsHierarchy = onDocumentWritten(
     }
   }
 );
+
 
 // Remove userId from a manager's reports JSON recursively (including skip levels)
 async function removeFromManagerTree(managerId, userId) {

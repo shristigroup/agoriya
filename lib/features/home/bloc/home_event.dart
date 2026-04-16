@@ -18,14 +18,14 @@ class NewLocationPointEvent extends HomeEvent {
   final double lat;
   final double lng;
   final DateTime timestamp;
-  NewLocationPointEvent(
-      {required this.lat, required this.lng, required this.timestamp});
+  final bool processBatch;
+  NewLocationPointEvent({
+    required this.lat,
+    required this.lng,
+    required this.timestamp,
+    this.processBatch = false,
+  });
 }
-
-/// Triggered by the background service's batchFlushed signal.
-/// Sorts + filters currentBatch, OSRM-snaps it, writes snapped points to
-/// Firestore, reads back the fresh doc, and updates finalLocations + distances.
-class ProcessCurrentBatchEvent extends HomeEvent {}
 
 class CreateVisitEvent extends HomeEvent {
   final String clientName;
@@ -58,3 +58,10 @@ class AddCommentEvent extends HomeEvent {
 /// restarts location tracking. The Firestore write triggers the Cloud Function
 /// to notify the manager.
 class ResumeSessionEvent extends HomeEvent {}
+
+/// Fired when the app returns to the foreground (AppLifecycleState.resumed).
+/// If a session is active and currentBatch is non-empty, snaps the raw batch
+/// to roads for display and writes the snapped result to Hive — so the map
+/// shows a clean route immediately without waiting for the next batchFlushed.
+/// Does NOT write to Firestore; that still happens on batchFlushed.
+class AppResumedEvent extends HomeEvent {}

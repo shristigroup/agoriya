@@ -15,12 +15,19 @@ class LocationPoint {
   /// Equals the OSRM distance for just this batch (not the running total).
   final double? batchDistanceKm;
 
+  /// Seconds the user was stationary at this location during the current batch
+  /// window. null / 0 means the user was moving when this point was recorded.
+  /// Updated in-memory as long as the user stays within 50 m; written to
+  /// Firestore at batch-flush time.
+  final int? durationSeconds;
+
   const LocationPoint({
     required this.position,
     required this.timestamp,
     this.isSnapped = false,
     this.cumulativeDistanceKm,
     this.batchDistanceKm,
+    this.durationSeconds,
   });
 
   factory LocationPoint.fromFirestore(Map<String, dynamic> map) {
@@ -32,6 +39,7 @@ class LocationPoint {
       cumulativeDistanceKm:
           (map['cumulativeDistanceKm'] as num?)?.toDouble(),
       batchDistanceKm: (map['batchDistanceKm'] as num?)?.toDouble(),
+      durationSeconds: (map['durationSeconds'] as num?)?.toInt(),
     );
   }
 
@@ -43,6 +51,7 @@ class LocationPoint {
     };
     if (cumulativeDistanceKm != null) m['cumulativeDistanceKm'] = cumulativeDistanceKm;
     if (batchDistanceKm != null) m['batchDistanceKm'] = batchDistanceKm;
+    if (durationSeconds != null && durationSeconds! > 0) m['durationSeconds'] = durationSeconds;
     return m;
   }
 
@@ -54,6 +63,7 @@ class LocationPoint {
         cumulativeDistanceKm:
             (json['cumulativeDistanceKm'] as num?)?.toDouble(),
         batchDistanceKm: (json['batchDistanceKm'] as num?)?.toDouble(),
+        durationSeconds: (json['durationSeconds'] as num?)?.toInt(),
       );
 
   Map<String, dynamic> toJson() {
@@ -65,6 +75,7 @@ class LocationPoint {
     };
     if (cumulativeDistanceKm != null) m['cumulativeDistanceKm'] = cumulativeDistanceKm;
     if (batchDistanceKm != null) m['batchDistanceKm'] = batchDistanceKm;
+    if (durationSeconds != null && durationSeconds! > 0) m['durationSeconds'] = durationSeconds;
     return m;
   }
 
@@ -74,6 +85,7 @@ class LocationPoint {
     bool? isSnapped,
     double? cumulativeDistanceKm,
     double? batchDistanceKm,
+    int? durationSeconds,
   }) =>
       LocationPoint(
         position: position ?? this.position,
@@ -81,6 +93,7 @@ class LocationPoint {
         isSnapped: isSnapped ?? this.isSnapped,
         cumulativeDistanceKm: cumulativeDistanceKm ?? this.cumulativeDistanceKm,
         batchDistanceKm: batchDistanceKm ?? this.batchDistanceKm,
+        durationSeconds: durationSeconds ?? this.durationSeconds,
       );
 }
 

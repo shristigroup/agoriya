@@ -126,18 +126,19 @@ void _onStart(ServiceInstance service) async {
     if (userId == null || date == null) return;
     final now = DateTime.now();
     pointsSinceLastSignal++;
+    final bool flush = pointsSinceLastSignal >= AppConstants.locationBatchSize;
+    if (flush) pointsSinceLastSignal = 0;
     service.invoke('newPoint', {
       'lat': lat,
       'lng': lng,
       'timestamp': now.toIso8601String(),
+      'processBatch': flush,
     });
-    debugPrint('[LocationService ${_ts()}] newPoint #$pointsSinceLastSignal/${ AppConstants.locationBatchSize} → $lat, $lng');
-    if (pointsSinceLastSignal >= AppConstants.locationBatchSize) {
-      pointsSinceLastSignal = 0;
-      service.invoke(
-          'batchFlushed', {'batchSize': AppConstants.locationBatchSize});
-      debugPrint('[LocationService ${_ts()}] batchFlushed → triggering Firestore sync');
-    }
+    debugPrint('[LocationService ${_ts()}] newPoint'
+        ' #${flush ? AppConstants.locationBatchSize : pointsSinceLastSignal}'
+        '/${AppConstants.locationBatchSize}'
+        '${flush ? ' → flush' : ''}'
+        ' → $lat, $lng');
   }
 
   // ── Android: one-shot GPS collection ──────────────────────────────────────
@@ -237,18 +238,20 @@ void _onStart(ServiceInstance service) async {
     await positionSub?.cancel();
     positionSub = null;
 
-    // Signal HomeBloc to snap and commit any remaining points.
+    // Flush remaining points via a final newPoint with processBatch=true.
     if (pointsSinceLastSignal > 0) {
-      service.invoke('batchFlushed', {'batchSize': pointsSinceLastSignal});
-      debugPrint(
-          '[LocationService] Final batchFlushed sent '
-          '(${pointsSinceLastSignal} remaining points)');
-    }
-
-    // On Android, demote from foreground before stopping so the persistent
-    // tracking notification is dismissed immediately on punch out.
-    if (service is AndroidServiceInstance) {
-      await service.setAsBackgroundService();
+      try {
+        final pos = await Geolocator.getLastKnownPosition();
+        if (pos != null) {
+          service.invoke('newPoint', {
+            'lat': pos.latitude,
+            'lng': pos.longitude,
+            'timestamp': DateTime.now().toIso8601String(),
+            'processBatch': true,
+          });
+          debugPrint('[LocationService] Final newPoint+flush sent');
+        }
+      } catch (_) {}
     }
 
     debugPrint('[LocationService] Stopped');

@@ -3,7 +3,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import '../../core/constants/app_constants.dart';
 import '../models/user_model.dart';
-import '../models/attendance_model.dart';
+import '../models/tracking_model.dart';
 import '../models/visit_model.dart';
 import '../models/location_model.dart';
 import '../models/monthly_summary_model.dart';
@@ -13,7 +13,8 @@ class FirestoreRepository {
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
   // ─── Users ───────────────────────────────────────────────────────────────
-  CollectionReference get _users => _db.collection(AppConstants.usersCollection);
+  CollectionReference get _users =>
+      _db.collection(AppConstants.usersCollection);
 
   Future<List<UserModel>> getAllUsers() async {
     final snap = await _users.get();
@@ -21,12 +22,16 @@ class FirestoreRepository {
   }
 
   Future<List<UserModel>> getUsersByManagerId(String managerId) async {
-    final snap = await _users.where('managerId', isEqualTo: managerId).get();
+    final snap =
+        await _users.where('managerId', isEqualTo: managerId).get();
     return snap.docs.map((d) => UserModel.fromFirestore(d)).toList();
   }
 
   Future<UserModel?> getUserByPhone(String phone) async {
-    final snap = await _users.where('phoneNumber', isEqualTo: phone).limit(1).get();
+    final snap = await _users
+        .where('phoneNumber', isEqualTo: phone)
+        .limit(1)
+        .get();
     if (snap.docs.isEmpty) return null;
     return UserModel.fromFirestore(snap.docs.first);
   }
@@ -41,117 +46,153 @@ class FirestoreRepository {
     await _users.doc(user.id).set(user.toFirestore(), SetOptions(merge: true));
   }
 
-  // ─── Attendance ──────────────────────────────────────────────────────────
-  CollectionReference _attendanceCol(String userId) =>
-      _users.doc(userId).collection(AppConstants.attendanceCollection);
+  // ─── Tracking ─────────────────────────────────────────────────────────────
+  CollectionReference _trackingCol(String userId) =>
+      _users.doc(userId).collection(AppConstants.trackingCollection);
 
-  DocumentReference _attendanceDoc(String userId, String date) =>
-      _attendanceCol(userId).doc(date);
+  DocumentReference _trackingDoc(String userId, String trackingId) =>
+      _trackingCol(userId).doc(trackingId);
 
-  Future<AttendanceModel?> getAttendance(String userId, String date) async {
-    final doc = await _attendanceDoc(userId, date).get();
+  /// Returns the most recent open (no stopTime) Tracking doc, or null.
+  Future<TrackingModel?> getActiveTracking(String userId) async {
+    final snap = await _trackingCol(userId)
+        .where('stopTime', isNull: true)
+        .orderBy('startTime', descending: true)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return TrackingModel.fromFirestore(snap.docs.first);
+  }
+
+  /// Returns the latest Tracking doc regardless of active state.
+  Future<TrackingModel?> getLatestTracking(String userId) async {
+    final snap = await _trackingCol(userId)
+        .orderBy('startTime', descending: true)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return TrackingModel.fromFirestore(snap.docs.first);
+  }
+
+  Future<TrackingModel?> getTrackingById(
+      String userId, String trackingId) async {
+    final doc = await _trackingDoc(userId, trackingId).get();
     if (!doc.exists) return null;
-    return AttendanceModel.fromFirestore(doc);
+    return TrackingModel.fromFirestore(doc);
   }
 
-  /// Always overwrites the document (no merge) so a "Fresh Punch In" clears
-  /// any previous punchOut fields from the same day.
-  Future<void> punchIn(String userId, String date, DateTime time, String imageUrl) async {
-    await _attendanceDoc(userId, date).set({
-      'punchInTimestamp': Timestamp.fromDate(time),
-      'punchInImage': imageUrl,
-      'distance': 0.0,
-      'customerVisitCount': 0,
+  /// Creates a new Tracking doc. Fetches the most recent doc (no composite
+  /// index needed — single-field orderBy) and closes it if still open, ensuring
+  /// there is never more than one active session.
+  Future<void> createTracking(String userId, TrackingModel tracking) async {
+    final latest = await getLatestTracking(userId);
+    if (latest != null && latest.isActive && latest.id != tracking.id) {
+      await _trackingDoc(userId, latest.id).update({
+        'stopTime': Timestamp.fromDate(DateTime.now()),
+      });
+    }
+    await _trackingDoc(userId, tracking.id).set(tracking.toFirestore());
+  }
+
+  /// Sets stopTime on the Tracking doc (punch-out).
+  Future<void> closeTracking(
+      String userId, String trackingId, DateTime stopTime) async {
+    await _trackingDoc(userId, trackingId).update({
+      'stopTime': Timestamp.fromDate(stopTime),
     });
   }
 
-  Future<void> punchOut(String userId, String date, DateTime time, GeoPoint location) async {
-    await _attendanceDoc(userId, date).update({
-      'punchOutTimestamp': Timestamp.fromDate(time),
-      'punchOutLocation': location,
+  /// Clears stopTime (resume session).
+  Future<void> resumeTracking(String userId, String trackingId) async {
+    await _trackingDoc(userId, trackingId).update({
+      'stopTime': FieldValue.delete(),
     });
   }
 
-  /// Clears punchOut fields — triggers Cloud Function to notify the manager.
-  Future<void> resumeSession(String userId, String date) async {
-    await _attendanceDoc(userId, date).update({
-      'punchOutTimestamp': FieldValue.delete(),
-      'punchOutLocation': FieldValue.delete(),
+  /// Overwrites the full locations array and distance on the Tracking doc.
+  /// Used for both movement batches and stationary-only flushes (where
+  /// allLocations == finalLocations with an updated last-point durationSeconds).
+  Future<void> writeLocations(
+    String userId,
+    String trackingId,
+    List<LocationPoint> allLocations,
+    double distanceKm,
+  ) async {
+    await _trackingDoc(userId, trackingId).update({
+      'locations': allLocations.map((p) => p.toFirestore()).toList(),
+      'distance': distanceKm,
+      'lastUpdatedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  Future<void> updateDistance(String userId, String date, double distanceKm) async {
-    await _attendanceDoc(userId, date).update({'distance': distanceKm});
+  /// Increments visitCount on the active Tracking doc.
+  Future<void> incrementTrackingVisitCount(
+      String userId, String trackingId) async {
+    await _trackingDoc(userId, trackingId)
+        .update({'visitCount': FieldValue.increment(1)});
   }
 
-  Future<void> incrementVisitCount(String userId, String date) async {
-    await _attendanceDoc(userId, date).update({
-      'customerVisitCount': FieldValue.increment(1),
-    });
-  }
-
-  // ─── Attendance History (paginated, newest-first) ─────────────────────────
-  /// Returns up to [limit] attendance records ordered by punch-in time descending.
-  /// Pass [startAfterCursor] (an opaque ISO timestamp string) to get the next page.
-  /// Returns a tuple of (records, cursor) — cursor is null when there are no more pages.
-  Future<(List<AttendanceModel>, String?)> getAttendanceHistory(
+  /// Paginated history — newest first, up to [limit] docs.
+  Future<(List<TrackingModel>, String?)> getTrackingHistory(
     String userId, {
     int limit = 30,
-    String? startAfterDate,
+    String? startAfterId,
   }) async {
-    Query query = _attendanceCol(userId)
-        .orderBy('punchInTimestamp', descending: true)
+    Query query = _trackingCol(userId)
+        .orderBy('startTime', descending: true)
         .limit(limit);
 
-    if (startAfterDate != null) {
-      final dt = DateTime.parse(startAfterDate);
-      query = query.startAfter([Timestamp.fromDate(dt)]);
+    if (startAfterId != null) {
+      final cursor = await _trackingDoc(userId, startAfterId).get();
+      if (cursor.exists) query = query.startAfterDocument(cursor);
     }
 
     final snap = await query.get();
-    final models = snap.docs.map((d) => AttendanceModel.fromFirestore(d)).toList();
-    String? cursor;
-    if (snap.docs.length == limit) {
-      final data = snap.docs.last.data() as Map<String, dynamic>;
-      final ts = data['punchInTimestamp'] as Timestamp?;
-      cursor = ts?.toDate().toIso8601String();
-    }
+    final models =
+        snap.docs.map((d) => TrackingModel.fromFirestore(d)).toList();
+    final cursor =
+        snap.docs.length == limit ? snap.docs.last.id : null;
     return (models, cursor);
   }
 
-  /// All attendance docs for a given month ('YYYY-MM'). Used to compute
-  /// monthly summaries. Doc IDs are 'YYYY-MM-DD' so lexicographic range works.
-  Future<List<AttendanceModel>> getAttendanceForMonth(
-      String userId, String monthKey) async {
-    final snap = await _attendanceCol(userId)
-        .orderBy(FieldPath.documentId)
-        .startAt(['$monthKey-01'])
-        .endAt(['$monthKey-31'])
+  /// All Tracking docs for a specific date (YYYY-MM-DD), newest first.
+  Future<List<TrackingModel>> getTrackingForDate(
+      String userId, String date) async {
+    final start = DateTime.parse(date);
+    final end = start.add(const Duration(days: 1));
+    final snap = await _trackingCol(userId)
+        .where('startTime',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('startTime', isLessThan: Timestamp.fromDate(end))
+        .orderBy('startTime', descending: true)
         .get();
-    return snap.docs.map((d) => AttendanceModel.fromFirestore(d)).toList();
+    return snap.docs.map((d) => TrackingModel.fromFirestore(d)).toList();
   }
 
-  // ─── Locations ───────────────────────────────────────────────────────────
-  DocumentReference _locationsDoc(String userId, String date) =>
-      _users.doc(userId).collection(AppConstants.locationsCollection).doc(date);
-
-  Future<DayLocations?> getDayLocations(String userId, String date) async {
-    final doc = await _locationsDoc(userId, date).get();
-    if (!doc.exists) return null;
-    return DayLocations.fromFirestore(doc);
+  /// All Tracking docs whose startTime falls within the given month.
+  Future<List<TrackingModel>> getTrackingForMonth(
+      String userId, String monthKey) async {
+    final start = DateTime.parse('$monthKey-01');
+    final end = DateTime(start.year, start.month + 1, 1);
+    final snap = await _trackingCol(userId)
+        .where('startTime',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('startTime', isLessThan: Timestamp.fromDate(end))
+        .orderBy('startTime', descending: true)
+        .get();
+    return snap.docs.map((d) => TrackingModel.fromFirestore(d)).toList();
   }
 
-  /// Appends [snapped] points to the locations doc via arrayUnion.
-  /// Only ever called with OSRM-snapped points — raw GPS is never written to Firestore.
-  Future<void> appendSnappedBatch(
-    String userId,
-    String date,
-    List<LocationPoint> snapped,
-  ) async {
-    await _locationsDoc(userId, date).set({
-      'locations':
-          FieldValue.arrayUnion(snapped.map((p) => p.toFirestore()).toList()),
-    }, SetOptions(merge: true));
+  /// Returns locations embedded in a Tracking doc.
+  Future<List<LocationPoint>> getTrackingLocations(
+      String userId, String trackingId) async {
+    final doc = await _trackingDoc(userId, trackingId).get();
+    if (!doc.exists) return [];
+    final data = doc.data() as Map<String, dynamic>;
+    final raw = List<Map<String, dynamic>>.from(data['locations'] ?? []);
+    final points = raw.map((e) => LocationPoint.fromFirestore(e)).toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return points;
   }
 
   // ─── Visits ──────────────────────────────────────────────────────────────
@@ -176,8 +217,6 @@ class FirestoreRepository {
     return snap.docs.map((d) => VisitModel.fromFirestore(d)).toList();
   }
 
-  /// Visits within [start, end) — used for per-day and per-month history.
-  /// Requires no composite index (range + orderBy on the same field).
   Future<List<VisitModel>> getVisitsByDateRange(
       String userId, DateTime start, DateTime end) async {
     final snap = await _visitsCol(userId)
@@ -193,14 +232,15 @@ class FirestoreRepository {
   CollectionReference _commentsCol(String userId, String visitId) =>
       _visitDoc(userId, visitId).collection(AppConstants.commentsCollection);
 
-  Future<void> addComment(String userId, String visitId, VisitComment comment) async {
+  Future<void> addComment(
+      String userId, String visitId, VisitComment comment) async {
     await _commentsCol(userId, visitId).add(comment.toFirestore());
   }
 
-  Future<List<VisitComment>> getComments(String userId, String visitId) async {
-    final snap = await _commentsCol(userId, visitId)
-        .orderBy('timestamp')
-        .get();
+  Future<List<VisitComment>> getComments(
+      String userId, String visitId) async {
+    final snap =
+        await _commentsCol(userId, visitId).orderBy('timestamp').get();
     return snap.docs.map((d) => VisitComment.fromFirestore(d)).toList();
   }
 
@@ -217,11 +257,14 @@ class FirestoreRepository {
 
   Future<void> saveMonthlySummary(
       String userId, MonthlySummaryModel summary) async {
-    await _monthlyCol(userId).doc(summary.monthKey).set(summary.toFirestore());
+    await _monthlyCol(userId)
+        .doc(summary.monthKey)
+        .set(summary.toFirestore());
   }
 
   // ─── Storage ─────────────────────────────────────────────────────────────
-  Future<String> uploadPunchInImage(String userId, String date, File file) async {
+  Future<String> uploadPunchInImage(
+      String userId, String date, File file) async {
     final ext = file.path.split('.').last;
     final path = AppConstants.punchInImagePath(userId, date, ext);
     final ref = _storage.ref().child(path);
@@ -229,7 +272,8 @@ class FirestoreRepository {
     return await ref.getDownloadURL();
   }
 
-  Future<String> uploadBillCopy(String userId, String visitId, File file) async {
+  Future<String> uploadBillCopy(
+      String userId, String visitId, File file) async {
     final ext = file.path.split('.').last;
     final path = AppConstants.billCopyPath(userId, visitId, ext);
     final ref = _storage.ref().child(path);

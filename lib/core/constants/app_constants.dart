@@ -11,7 +11,8 @@ class AppConstants {
   static const String currentUserKey = 'current_user';
   static const String reportsCacheKey = 'reports_cache';
 
-  // Today's tracking state — two arrays + two distance values
+  // Today's tracking state — two arrays + two distance values + active session ID
+  static const String currentTrackingIdKey = 'current_tracking_id';
   static const String finalLocationsKey = 'final_locations';
   static const String currentBatchKey = 'current_batch';
   static const String finalLocationsDistanceKey = 'final_locations_distance';
@@ -19,7 +20,7 @@ class AppConstants {
 
   // Location tracking
   static const int locationSamplingSeconds = 60; // sample every 1 min
-  static const int locationBatchSize = 15;        // signal HomeBloc every 15 points (~15 min)
+  static const int locationBatchSize = 15;         // signal HomeBloc every 3 points (~3 min) — testing
 
   // OSRM
   static const String osrmBaseUrl = 'https://router.project-osrm.org';
@@ -28,11 +29,14 @@ class AppConstants {
 
   // Firestore collections
   static const String usersCollection = 'Users';
-  static const String attendanceCollection = 'Attendance';
-  static const String locationsCollection = 'Locations';
+  static const String trackingCollection = 'Tracking';
   static const String visitsCollection = 'Visits';
   static const String commentsCollection = 'Comments';
   static const String monthlyCollection = 'Monthly';
+
+  // Stationary detection thresholds
+  static const int stationaryThresholdMeters = 50;
+  static const int stationaryNotificationSeconds = 1800; // 30 min
 
   // Cache key prefix for monthly summaries (used in settingsBox)
   static const String monthlyCachePrefix = 'monthly_';
