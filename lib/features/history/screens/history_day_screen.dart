@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
@@ -38,6 +39,10 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
   // Locations (fetched on demand)
   List<LocationPoint> _locations = [];
   _RouteState _routeState = _RouteState.idle;
+
+  // Punch-in image (fetched on demand)
+  _ImageState _imageState = _ImageState.idle;
+  String? _punchInImageUrl;
 
   @override
   void initState() {
@@ -190,17 +195,109 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
         width: 1, height: 36, color: Colors.white.withOpacity(0.2));
   }
 
+  Future<void> _fetchPunchInImage() async {
+    final path = widget.tracking.punchInImage;
+    if (path == null) return;
+    setState(() => _imageState = _ImageState.loading);
+    try {
+      final url = await FirebaseStorage.instance.ref(path).getDownloadURL();
+      if (mounted) setState(() { _punchInImageUrl = url; _imageState = _ImageState.loaded; });
+    } catch (_) {
+      if (mounted) setState(() => _imageState = _ImageState.error);
+    }
+  }
+
   // ── Track tab ─────────────────────────────────────────────────────────────
 
   Widget _buildTrackTab() {
+    final hasPunchInImage = widget.tracking.punchInImage != null;
+    Widget mapSection;
     if (_routeState == _RouteState.loaded) {
-      return TrackTab(
+      mapSection = TrackTab(
         attendance: widget.tracking,
         locations: _locations,
         isReadOnly: true,
         isSnapping: false,
       );
+    } else {
+      mapSection = _buildRouteLoadSection();
     }
+    if (!hasPunchInImage) return mapSection;
+    return Column(
+      children: [
+        _buildPunchInImageSection(),
+        Expanded(child: mapSection),
+      ],
+    );
+  }
+
+  Widget _buildPunchInImageSection() {
+    return Container(
+      width: double.infinity,
+      color: AppTheme.surface,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _imageState == _ImageState.idle ? _fetchPunchInImage : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: _buildPunchInImageContent(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPunchInImageContent() {
+    switch (_imageState) {
+      case _ImageState.idle:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.image_outlined, size: 20, color: AppTheme.primary),
+            const SizedBox(width: 8),
+            Text('Load punch in image',
+                style: AppTheme.sora(13, color: AppTheme.primary,
+                    weight: FontWeight.w600)),
+          ],
+        );
+      case _ImageState.loading:
+        return const SizedBox(
+          height: 20,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary)),
+              SizedBox(width: 12),
+              Text('Loading...'),
+            ],
+          ),
+        );
+      case _ImageState.error:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 20, color: Colors.red),
+            const SizedBox(width: 8),
+            Text('Could not load image',
+                style: AppTheme.sora(13, color: Colors.red)),
+          ],
+        );
+      case _ImageState.loaded:
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.network(
+            _punchInImageUrl!,
+            width: double.infinity,
+            height: 200,
+            fit: BoxFit.cover,
+          ),
+        );
+    }
+  }
+
+  Widget _buildRouteLoadSection() {
 
     return Stack(
       children: [
@@ -332,6 +429,7 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
 }
 
 enum _RouteState { idle, loading, loaded, error }
+enum _ImageState { idle, loading, loaded, error }
 
 // ─── Read-only visit card for history ────────────────────────────────────────
 
