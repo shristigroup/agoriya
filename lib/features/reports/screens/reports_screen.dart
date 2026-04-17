@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../data/local/local_storage_service.dart';
-import '../../../data/models/attendance_model.dart';
+import '../../../data/models/tracking_model.dart';
 import '../../../data/data_manager.dart';
 import '../../../data/repositories/firestore_repository.dart';
 import '../../history/screens/history_screen.dart';
@@ -69,18 +69,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
-  /// Fetches today's attendance for each entry and updates the list.
+  /// Fetches today's tracking session for each entry and updates the list.
   Future<void> _populateAttendance(List<_ReportEntry> entries) async {
     final today = AppUtils.todayKey();
-    final withAtt = await Future.wait(
+    final withTracking = await Future.wait(
       entries.map((e) async {
-        AttendanceModel? att;
-        try { att = await DataManager.getAttendance(e.userId, today); } catch (_) {}
-        return _ReportEntry(userId: e.userId, name: e.name, attendance: att);
+        TrackingModel? t;
+        try { t = await DataManager.getTrackingForToday(e.userId, today); } catch (_) {}
+        return _ReportEntry(userId: e.userId, name: e.name, attendance: t);
       }),
     );
-    withAtt.sort((a, b) => a.name.compareTo(b.name));
-    if (mounted) setState(() { _reports = withAtt; _loading = false; });
+    withTracking.sort((a, b) => a.name.compareTo(b.name));
+    if (mounted) setState(() { _reports = withTracking; _loading = false; });
   }
 
   /// Pull-to-refresh re-runs the Firestore fetch.
@@ -182,6 +182,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
 class _ReportEntry {
   final String userId;
   final String name;
-  final AttendanceModel? attendance;
+  final TrackingModel? attendance;
   _ReportEntry({required this.userId, required this.name, this.attendance});
 }

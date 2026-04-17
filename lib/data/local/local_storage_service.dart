@@ -2,14 +2,14 @@ import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../core/constants/app_constants.dart';
 import '../models/user_model.dart';
-import '../models/attendance_model.dart';
+import '../models/tracking_model.dart';
 import '../models/visit_model.dart';
 import '../models/location_model.dart';
 import '../models/monthly_summary_model.dart';
 
 class LocalStorageService {
   static late Box _userBox;
-  static late Box _attendanceBox;
+  static late Box _trackingBox; // was _attendanceBox
   static late Box _visitsBox;
   static late Box _locationsBox;
   static late Box _reportsBox;
@@ -18,7 +18,7 @@ class LocalStorageService {
   static Future<void> init() async {
     await Hive.initFlutter();
     _userBox = await Hive.openBox(AppConstants.userBox);
-    _attendanceBox = await Hive.openBox(AppConstants.attendanceBox);
+    _trackingBox = await Hive.openBox(AppConstants.attendanceBox); // same box, new purpose
     _visitsBox = await Hive.openBox(AppConstants.visitsBox);
     _locationsBox = await Hive.openBox(AppConstants.locationsBox);
     _reportsBox = await Hive.openBox(AppConstants.reportsBox);
@@ -40,35 +40,46 @@ class LocalStorageService {
     await _userBox.delete(AppConstants.currentUserKey);
   }
 
-  // ─── Attendance ──────────────────────────────────────────────────────────
-  static Future<void> saveAttendance(AttendanceModel attendance) async {
-    await _attendanceBox.put(attendance.date, jsonEncode(attendance.toJson()));
+  // ─── Tracking (own user) ──────────────────────────────────────────────────
+
+  /// Saves a TrackingModel keyed by its doc ID ('{date}_{HHmmss}').
+  static Future<void> saveTracking(TrackingModel tracking) async {
+    await _trackingBox.put(tracking.id, jsonEncode(tracking.toJson()));
   }
 
-  static AttendanceModel? getAttendance(String date) {
-    final raw = _attendanceBox.get(date);
+  static TrackingModel? getTracking(String trackingId) {
+    final raw = _trackingBox.get(trackingId);
     if (raw == null) return null;
-    return AttendanceModel.fromJson(jsonDecode(raw));
+    return TrackingModel.fromJson(jsonDecode(raw));
   }
 
-  static List<AttendanceModel> getAllAttendance() {
-    return _attendanceBox.values
-        .map((raw) => AttendanceModel.fromJson(jsonDecode(raw)))
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
+  /// Stores the doc ID of the currently active session so HomeBloc can look it
+  /// up without a Firestore round-trip on app restart.
+  static Future<void> saveActiveTrackingId(String? trackingId) async {
+    if (trackingId == null) {
+      await _settingsBox.delete(AppConstants.currentTrackingIdKey);
+    } else {
+      await _settingsBox.put(AppConstants.currentTrackingIdKey, trackingId);
+    }
   }
 
-  /// For manager/report views: namespaced by userId so they don't collide with own attendance.
-  static Future<void> saveAttendanceForUser(
-      String userId, AttendanceModel att) async {
-    await _attendanceBox.put(
-        '${userId}_att_${att.date}', jsonEncode(att.toJson()));
+  static String? getActiveTrackingId() =>
+      _settingsBox.get(AppConstants.currentTrackingIdKey) as String?;
+
+  /// For manager/report views: each userId+date stores a JSON array of sessions.
+  static Future<void> saveTrackingsForUser(
+      String userId, String date, List<TrackingModel> trackings) async {
+    final key = '${userId}_trks_$date';
+    await _reportsBox.put(
+        key, jsonEncode(trackings.map((t) => t.toJson()).toList()));
   }
 
-  static AttendanceModel? getAttendanceForUser(String userId, String date) {
-    final raw = _attendanceBox.get('${userId}_att_$date');
+  static List<TrackingModel>? getTrackingsForUser(String userId, String date) {
+    final raw = _reportsBox.get('${userId}_trks_$date');
     if (raw == null) return null;
-    return AttendanceModel.fromJson(jsonDecode(raw));
+    return (jsonDecode(raw) as List<dynamic>)
+        .map((e) => TrackingModel.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   // ─── Visits ──────────────────────────────────────────────────────────────
@@ -184,26 +195,28 @@ class LocalStorageService {
           ?.toDouble() ??
       0.0;
 
-  /// Clears all four tracking-state keys. Called on punchIn to start fresh.
+  /// Clears all tracking-state keys. Called on fresh punch-in to start clean.
   static Future<void> clearTodayTrackingState() async {
     await _locationsBox.delete(AppConstants.finalLocationsKey);
     await _locationsBox.delete(AppConstants.currentBatchKey);
     await _settingsBox.delete(AppConstants.finalLocationsDistanceKey);
     await _settingsBox.delete(AppConstants.currentBatchDistanceKey);
+    await _settingsBox.delete(AppConstants.currentTrackingIdKey);
   }
 
   // ─── Persisted locations for any user+date ────────────────────────────────
-  // Used for past days and manager views (keyed by userId+date).
+  // Used for past days and manager views (keyed by userId+trackingId).
 
-  static Future<void> saveLocations(
-      String userId, String date, List<LocationPoint> points) async {
+  static Future<void> saveLocationsForTracking(
+      String userId, String trackingId, List<LocationPoint> points) async {
     await _locationsBox.put(
-        '${userId}_locs_$date',
+        '${userId}_locs_$trackingId',
         jsonEncode(points.map((p) => p.toJson()).toList()));
   }
 
-  static List<LocationPoint> getLocations(String userId, String date) {
-    final raw = _locationsBox.get('${userId}_locs_$date');
+  static List<LocationPoint> getLocationsForTracking(
+      String userId, String trackingId) {
+    final raw = _locationsBox.get('${userId}_locs_$trackingId');
     if (raw == null) return [];
     return (jsonDecode(raw) as List<dynamic>)
         .map((e) => LocationPoint.fromJson(Map<String, dynamic>.from(e)))
@@ -220,27 +233,6 @@ class LocalStorageService {
     final raw = _reportsBox.get(reportUserId);
     if (raw == null) return null;
     return Map<String, dynamic>.from(jsonDecode(raw));
-  }
-
-  static Future<void> mergeReportLocations(
-      String reportUserId, String date, List<LocationPoint> points) async {
-    final existing = getReportData(reportUserId) ?? {};
-    final locations =
-        Map<String, dynamic>.from(existing['locations'] ?? {});
-    locations[date] = points.map((p) => p.toJson()).toList();
-    existing['locations'] = locations;
-    await saveReportData(reportUserId, existing);
-  }
-
-  static List<LocationPoint> getReportLocations(
-      String reportUserId, String date) {
-    final data = getReportData(reportUserId);
-    if (data == null) return [];
-    final locations = data['locations'] as Map<String, dynamic>?;
-    if (locations == null || !locations.containsKey(date)) return [];
-    return (locations[date] as List<dynamic>)
-        .map((e) => LocationPoint.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
   }
 
   // ─── Monthly Summary Cache ────────────────────────────────────────────────
@@ -278,7 +270,7 @@ class LocalStorageService {
 
   static Future<void> clearAll() async {
     await _userBox.clear();
-    await _attendanceBox.clear();
+    await _trackingBox.clear();
     await _visitsBox.clear();
     await _locationsBox.clear();
     await _reportsBox.clear();

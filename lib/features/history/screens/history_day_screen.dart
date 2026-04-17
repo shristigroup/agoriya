@@ -1,11 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../data/data_manager.dart';
-import '../../../data/models/attendance_model.dart';
+import '../../../data/models/tracking_model.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/models/visit_model.dart';
 import '../../home/track/track_tab.dart';
@@ -14,13 +15,13 @@ import '../../home/visits/visit_detail_screen.dart';
 class HistoryDayScreen extends StatefulWidget {
   final String userId;
   final String? userName;
-  final AttendanceModel attendance;
+  final TrackingModel tracking;
 
   const HistoryDayScreen({
     super.key,
     required this.userId,
     this.userName,
-    required this.attendance,
+    required this.tracking,
   });
 
   @override
@@ -39,6 +40,10 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
   List<LocationPoint> _locations = [];
   _RouteState _routeState = _RouteState.idle;
 
+  // Punch-in image (fetched on demand)
+  _ImageState _imageState = _ImageState.idle;
+  String? _punchInImageUrl;
+
   @override
   void initState() {
     super.initState();
@@ -55,7 +60,7 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
   Future<void> _fetchVisits() async {
     try {
       final visits = await DataManager.getVisitsForDay(
-          widget.userId, widget.attendance.date);
+          widget.userId, widget.tracking.date);
       if (mounted) setState(() { _visits = visits; _visitsLoading = false; });
     } catch (_) {
       if (mounted) setState(() => _visitsLoading = false);
@@ -65,8 +70,8 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
   Future<void> _fetchRoute() async {
     setState(() => _routeState = _RouteState.loading);
     try {
-      final points = await DataManager.getLocations(
-          widget.userId, widget.attendance.date);
+      final points = await DataManager.getLocationsForTracking(
+          widget.userId, widget.tracking.id);
       if (mounted) {
         setState(() {
           _locations = points;
@@ -80,8 +85,8 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
 
   @override
   Widget build(BuildContext context) {
-    final att = widget.attendance;
-    final date = DateTime.parse(att.date);
+    final t = widget.tracking;
+    final date = DateTime.parse(t.date);
     final title = AppUtils.formatDateDisplay(date);
 
     return Scaffold(
@@ -92,8 +97,8 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
       ),
       body: Column(
         children: [
-          // ── Attendance header ─────────────────────────────────────────────
-          _buildHeader(att),
+          // ── Tracking header ───────────────────────────────────────────────
+          _buildHeader(t),
 
           // ── Tabs ─────────────────────────────────────────────────────────
           Container(
@@ -124,10 +129,10 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
     );
   }
 
-  Widget _buildHeader(AttendanceModel att) {
-    final punchIn = att.punchInTimestamp;
-    final punchOut = att.punchOutTimestamp;
-    final duration = att.attendanceDuration;
+  Widget _buildHeader(TrackingModel t) {
+    final punchIn = t.startTime;
+    final punchOut = t.stopTime;
+    final duration = t.attendanceDuration;
 
     return Container(
       color: AppTheme.primary,
@@ -137,7 +142,7 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
           _headerStat(
             Icons.login_rounded,
             'In',
-            punchIn != null ? AppUtils.formatTime(punchIn) : '--',
+            AppUtils.formatTime(punchIn),
           ),
           _headerDivider(),
           _headerStat(
@@ -155,7 +160,7 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
           _headerStat(
             Icons.route_rounded,
             'Distance',
-            AppUtils.formatDistance(att.distance),
+            AppUtils.formatDistance(t.distance),
           ),
         ],
       ),
@@ -190,23 +195,112 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
         width: 1, height: 36, color: Colors.white.withOpacity(0.2));
   }
 
+  Future<void> _fetchPunchInImage() async {
+    final path = widget.tracking.punchInImage;
+    if (path == null) return;
+    setState(() => _imageState = _ImageState.loading);
+    try {
+      final url = await FirebaseStorage.instance.ref(path).getDownloadURL();
+      if (mounted) setState(() { _punchInImageUrl = url; _imageState = _ImageState.loaded; });
+    } catch (_) {
+      if (mounted) setState(() => _imageState = _ImageState.error);
+    }
+  }
+
   // ── Track tab ─────────────────────────────────────────────────────────────
 
   Widget _buildTrackTab() {
-    // Route is loaded — hand off to TrackTab which handles markers/polyline.
+    final hasPunchInImage = widget.tracking.punchInImage != null;
+    Widget mapSection;
     if (_routeState == _RouteState.loaded) {
-      return TrackTab(
-        attendance: widget.attendance,
+      mapSection = TrackTab(
+        attendance: widget.tracking,
         locations: _locations,
         isReadOnly: true,
         isSnapping: false,
       );
+    } else {
+      mapSection = _buildRouteLoadSection();
     }
+    if (!hasPunchInImage) return mapSection;
+    return Column(
+      children: [
+        _buildPunchInImageSection(),
+        Expanded(child: mapSection),
+      ],
+    );
+  }
 
-    // Blurred map background + overlay.
+  Widget _buildPunchInImageSection() {
+    return Container(
+      width: double.infinity,
+      color: AppTheme.surface,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _imageState == _ImageState.idle ? _fetchPunchInImage : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: _buildPunchInImageContent(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPunchInImageContent() {
+    switch (_imageState) {
+      case _ImageState.idle:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.image_outlined, size: 20, color: AppTheme.primary),
+            const SizedBox(width: 8),
+            Text('Load punch in image',
+                style: AppTheme.sora(13, color: AppTheme.primary,
+                    weight: FontWeight.w600)),
+          ],
+        );
+      case _ImageState.loading:
+        return const SizedBox(
+          height: 20,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary)),
+              SizedBox(width: 12),
+              Text('Loading...'),
+            ],
+          ),
+        );
+      case _ImageState.error:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 20, color: Colors.red),
+            const SizedBox(width: 8),
+            Text('Could not load image',
+                style: AppTheme.sora(13, color: Colors.red)),
+          ],
+        );
+      case _ImageState.loaded:
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.network(
+            _punchInImageUrl!,
+            width: double.infinity,
+            height: 200,
+            fit: BoxFit.cover,
+          ),
+        );
+    }
+  }
+
+  Widget _buildRouteLoadSection() {
+
     return Stack(
       children: [
-        // OSM tile map, blurred — gives visual hint that there's route data.
         ImageFiltered(
           imageFilter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
           child: FlutterMap(
@@ -226,10 +320,8 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
           ),
         ),
 
-        // Dark overlay for contrast.
         Container(color: Colors.black.withOpacity(0.35)),
 
-        // Centre content.
         Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -252,7 +344,6 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
                   label: const Text('Retry'),
                 ),
               ] else ...[
-                // Idle — show the load button.
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -291,7 +382,7 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Tap to load the GPS route for this day',
+                  'Tap to load the GPS route for this session',
                   style: AppTheme.sora(12, color: Colors.white70),
                 ),
               ],
@@ -338,6 +429,7 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
 }
 
 enum _RouteState { idle, loading, loaded, error }
+enum _ImageState { idle, loading, loaded, error }
 
 // ─── Read-only visit card for history ────────────────────────────────────────
 

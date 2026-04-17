@@ -1,10 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/app_utils.dart';
 import 'local/local_storage_service.dart';
-import 'models/attendance_model.dart';
+import 'models/tracking_model.dart';
 import 'models/location_model.dart';
 import 'models/monthly_summary_model.dart';
 import 'models/user_model.dart';
@@ -42,9 +40,8 @@ class DataManager {
   // ─── Seeding ───────────────────────────────────────────────────────────────
 
   /// Called on every app start from HomeBloc._onInit.
-  /// Compares the cached app version against the current build.
-  /// On mismatch (reinstall / update / new device), today's attendance,
-  /// visits, and locations are fetched from Firestore and written into Hive.
+  /// On version mismatch (reinstall / update / new device), seeds today's
+  /// tracking session, visits, and locations from Firestore into Hive.
   static Future<void> seedTodayDataAsAppHasReinstalled(
       String userId, String date) async {
     final info = await PackageInfo.fromPlatform();
@@ -54,13 +51,24 @@ class DataManager {
 
     if (cachedVersion == currentVersion) return;
 
+    // Fetch the most recent tracking session (single-field orderBy — no index needed).
     try {
-      final attendance = await _repo.getAttendance(userId, date);
-      if (attendance != null) {
-        await LocalStorageService.saveAttendance(attendance);
+      final latest = await _repo.getLatestTracking(userId);
+      if (latest != null && latest.date == date) {
+        await LocalStorageService.saveTracking(latest);
+        if (latest.isActive) {
+          await LocalStorageService.saveActiveTrackingId(latest.id);
+        }
+        // Seed locations for this session.
+        final points = await _repo.getTrackingLocations(userId, latest.id);
+        if (points.isNotEmpty) {
+          await LocalStorageService.saveFinalLocations(points);
+          await LocalStorageService.saveFinalLocationsDistance(latest.distance);
+        }
       }
     } catch (_) {}
 
+    // Seed today's visits.
     try {
       final start = DateTime.parse(date);
       final visits = await _repo.getVisitsByDateRange(
@@ -70,39 +78,31 @@ class DataManager {
       }
     } catch (_) {}
 
-    try {
-      final dayLocs = await _repo.getDayLocations(userId, date);
-      final points = dayLocs?.points ?? [];
-      if (points.isNotEmpty) {
-        // Firestore only ever contains snapped points, so seed into finalLocations.
-        await LocalStorageService.saveFinalLocations(points);
-      }
-    } catch (_) {}
-
     await LocalStorageService.setSetting(
         AppConstants.cacheVersionKey, currentVersion);
   }
 
-  // ─── Attendance ────────────────────────────────────────────────────────────
+  // ─── Active Tracking (own user today) ─────────────────────────────────────
 
-  static Future<AttendanceModel?> getAttendance(
+  static TrackingModel? getActiveTracking() {
+    final id = LocalStorageService.getActiveTrackingId();
+    if (id == null) return null;
+    return LocalStorageService.getTracking(id);
+  }
+
+  // ─── Tracking (read) ──────────────────────────────────────────────────────
+
+  /// Returns the current tracking session for the owner, or the most recent
+  /// session for today for a manager's report view (from Firestore).
+  static Future<TrackingModel?> getTrackingForToday(
       String userId, String date) async {
     if (isOwner(userId)) {
-      return LocalStorageService.getAttendance(date);
+      return getActiveTracking();
     }
 
-    // Past day: Hive is sealed after first fetch — no Firestore call needed.
-    if (_isPastDay(date)) {
-      final cached = LocalStorageService.getAttendanceForUser(userId, date);
-      if (cached != null) return cached;
-    }
-
-    // Today (or past-day cache miss): always fetch fresh from Firestore.
-    final remote = await _repo.getAttendance(userId, date);
-    if (remote != null) {
-      await LocalStorageService.saveAttendanceForUser(userId, remote);
-    }
-    return remote;
+    // Manager view: always fetch fresh from Firestore for today.
+    final sessions = await _repo.getTrackingForDate(userId, date);
+    return sessions.isNotEmpty ? sessions.first : null;
   }
 
   // ─── Visits ────────────────────────────────────────────────────────────────
@@ -140,28 +140,34 @@ class DataManager {
 
   // ─── Locations ─────────────────────────────────────────────────────────────
 
-  static Future<List<LocationPoint>> getLocations(
-      String userId, String date) async {
-    // Own user today: merge finalLocations (Firestore truth) + currentBatch
-    // (unsynced live points). Both arrays are maintained in order so no sort needed.
-    if (isOwner(userId) && date == AppUtils.todayKey()) {
+  /// Returns locations for a specific tracking session.
+  /// Own user today: finalLocations + currentBatch (live, not yet in Firestore).
+  static Future<List<LocationPoint>> getLocationsForTracking(
+      String userId, String trackingId) async {
+    final tracking = LocalStorageService.getTracking(trackingId);
+    final date = tracking?.date ?? TrackingModel.dateFromId(trackingId);
+    final isToday = date == AppUtils.todayKey();
+
+    if (isOwner(userId) && isToday) {
       return [
         ...LocalStorageService.getFinalLocations(),
         ...LocalStorageService.getCurrentBatch(),
       ];
     }
 
-    // Past day: Hive is sealed after first fetch — no Firestore call needed.
+    // Past session only: Hive hit seals the data — no Firestore call needed.
+    // For today's active session skip Hive so the manager always sees fresh data.
     if (_isPastDay(date)) {
-      final cached = LocalStorageService.getLocations(userId, date);
+      final cached =
+          LocalStorageService.getLocationsForTracking(userId, trackingId);
       if (cached.isNotEmpty) return cached;
     }
 
-    // Today (or past-day cache miss): always fetch fresh from Firestore.
-    final dayLocs = await _repo.getDayLocations(userId, date);
-    final points = dayLocs?.points ?? [];
+    // Cache miss: fetch from Firestore.
+    final points = await _repo.getTrackingLocations(userId, trackingId);
     if (points.isNotEmpty) {
-      await LocalStorageService.saveLocations(userId, date, points);
+      await LocalStorageService.saveLocationsForTracking(
+          userId, trackingId, points);
     }
     return points;
   }
@@ -181,17 +187,16 @@ class DataManager {
       LocalStorageService.getCurrentBatchDistance();
 
   /// Returns the display distance: OSRM total + live haversine for currentBatch.
-  static double getDisplayDistance(
-      String userId, AttendanceModel? attendance) {
+  static double getDisplayDistance(String userId, TrackingModel? tracking) {
     if (isOwner(userId)) {
       return LocalStorageService.getFinalLocationsDistance() +
           LocalStorageService.getCurrentBatchDistance();
     }
-    return attendance?.distance ?? 0.0;
+    return tracking?.distance ?? 0.0;
   }
 
   /// Persists a new point into currentBatch + updates currentBatchDistance.
-  static Future<void> appendToCurrentBatch(
+  static Future<void> saveCurrentBatch(
     List<LocationPoint> updatedBatch,
     double newBatchDistance,
   ) async {
@@ -199,96 +204,83 @@ class DataManager {
     await LocalStorageService.saveCurrentBatchDistance(newBatchDistance);
   }
 
-  /// After OSRM snap: writes fresh Firestore read + updated distances to Hive.
-  /// Returns the fresh finalLocations (already sorted by DayLocations.fromFirestore).
-  static Future<List<LocationPoint>> persistSnappedBatch({
+  static Future<void> saveFinalLocations(List<LocationPoint> points) =>
+      LocalStorageService.saveFinalLocations(points);
+
+  /// Writes the complete locations array to Firestore and saves to Hive.
+  /// allLocations = finalLocations + snappedBatch, or just finalLocations on
+  /// a stationary-only flush (empty batch, updated last-point durationSeconds).
+  static Future<void> persistLocations({
     required String userId,
-    required String date,
-    required List<LocationPoint> snapped,
-    required double newFinalDistance,
-    required List<LocationPoint> fallbackFinalLocations,
+    required String trackingId,
+    required List<LocationPoint> allLocations,
+    required double distanceKm,
   }) async {
-    await _repo.appendSnappedBatch(userId, date, snapped);
-    await _repo.updateDistance(userId, date, newFinalDistance);
-    // Read back the full doc so finalLocations exactly mirrors Firestore.
-    final freshDayLocs = await _repo.getDayLocations(userId, date);
-    final freshFinal = freshDayLocs?.points ?? fallbackFinalLocations;
-    await LocalStorageService.saveFinalLocations(freshFinal);
-    await LocalStorageService.saveFinalLocationsDistance(newFinalDistance);
-    return freshFinal;
+    await _repo.writeLocations(userId, trackingId, allLocations, distanceKm);
+    await LocalStorageService.saveFinalLocations(allLocations);
+    await LocalStorageService.saveFinalLocationsDistance(distanceKm);
   }
 
   // ─── Punch In ──────────────────────────────────────────────────────────────
 
-  static Future<AttendanceModel> punchIn(
+  static Future<TrackingModel> punchIn(
     String userId,
     String date,
     DateTime timestamp,
     String imageUrl,
   ) async {
-    final attendance = AttendanceModel(
+    final trackingId = TrackingModel.buildId(date, timestamp);
+    final tracking = TrackingModel(
+      id: trackingId,
       date: date,
-      punchInTimestamp: timestamp,
+      startTime: timestamp,
       punchInImage: imageUrl,
     );
-    await _repo.punchIn(userId, date, timestamp, imageUrl);
-    await LocalStorageService.saveAttendance(attendance);
+    await _repo.createTracking(userId, tracking);
+    await LocalStorageService.saveTracking(tracking);
+    await LocalStorageService.saveActiveTrackingId(trackingId);
     await LocalStorageService.clearTodayTrackingState();
-    return attendance;
+    // Re-save the active tracking ID (clearTodayTrackingState clears it).
+    await LocalStorageService.saveActiveTrackingId(trackingId);
+    return tracking;
   }
 
   // ─── Punch Out ─────────────────────────────────────────────────────────────
 
-  /// Writes punch-out to Firestore and persists updated attendance + final
-  /// locations to Hive. Snapping and distance calculation are done by HomeBloc
-  /// before this is called — this method only persists the results.
-  static Future<AttendanceModel> punchOut({
+  static Future<TrackingModel> punchOut({
     required String userId,
-    required String date,
-    required AttendanceModel currentAttendance,
+    required TrackingModel currentTracking,
     required DateTime timestamp,
-    required LatLng? lastLocation,
-    required List<LocationPoint> finalLocations,
-    required double finalDistance,
   }) async {
-    final geoPoint = lastLocation != null
-        ? GeoPoint(lastLocation.latitude, lastLocation.longitude)
-        : const GeoPoint(0, 0);
-    await _repo.punchOut(userId, date, timestamp, geoPoint);
-    final updated = currentAttendance.copyWith(
-      punchOutTimestamp: timestamp,
-      punchOutLocation: lastLocation,
-      distance: finalDistance,
-    );
-    await LocalStorageService.saveAttendance(updated);
-    // Persist the final locations under the namespaced past-day key so
-    // history screens can read them without a Firestore round-trip.
-    await LocalStorageService.saveLocations(userId, date, finalLocations);
+    await _repo.closeTracking(userId, currentTracking.id, timestamp);
+    final updated = currentTracking.copyWith(stopTime: timestamp);
+    // Keep the tracking ID in Hive so HomeBloc can see isPunchedOut = true
+    // on the next init and offer the "Resume Session" option. The ID is
+    // cleared only when the user starts a fresh punch-in.
+    await LocalStorageService.saveTracking(updated);
     return updated;
   }
 
   // ─── Resume Session ────────────────────────────────────────────────────────
 
-  static Future<AttendanceModel> resumeSession(
+  static Future<TrackingModel> resumeSession(
     String userId,
-    String date,
-    AttendanceModel currentAttendance,
+    TrackingModel currentTracking,
   ) async {
-    await _repo.resumeSession(userId, date);
-    final resumed = AttendanceModel(
-      date: currentAttendance.date,
-      punchInTimestamp: currentAttendance.punchInTimestamp,
-      punchOutTimestamp: null,
-      punchInImage: currentAttendance.punchInImage,
-      distance: currentAttendance.distance,
-      punchOutLocation: null,
-      customerVisitCount: currentAttendance.customerVisitCount,
-    );
-    await LocalStorageService.saveAttendance(resumed);
+    // Get latest tracking from Firestore to confirm it is still closed.
+    // If it is already open (e.g. from another device), skip the write.
+    final latest = await _repo.getLatestTracking(userId);
+    final target = latest?.id == currentTracking.id ? latest! : currentTracking;
+    if (target.isStopped) {
+      await _repo.resumeTracking(userId, target.id);
+    }
+    final resumed = target.copyWith(clearStopTime: true);
+    await LocalStorageService.saveTracking(resumed);
+    await LocalStorageService.saveActiveTrackingId(target.id);
     return resumed;
   }
 
-  // ─── Monthly Summary ───────────────────────────────────────────────────────
+  // ─── Monthly Summary ───────────────────────────────────────────────────
 
   static MonthlySummaryModel? getCachedMonthlySummary(
           String userId, String monthKey) =>
@@ -333,22 +325,21 @@ class DataManager {
 
   static Future<MonthlySummaryModel?> computeMonthlySummary(
       String userId, String monthKey) async {
-    final attendance = await _repo.getAttendanceForMonth(userId, monthKey);
-    if (attendance.isEmpty) return null;
+    final trackings = await _repo.getTrackingForMonth(userId, monthKey);
+    if (trackings.isEmpty) return null;
 
     final monthStart = DateTime.parse('$monthKey-01');
-    final monthEnd =
-        DateTime(monthStart.year, monthStart.month + 1, 1);
+    final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 1);
     final visits =
         await _repo.getVisitsByDateRange(userId, monthStart, monthEnd);
 
     int punchCount = 0;
     int totalMinutes = 0;
     double totalDistance = 0;
-    for (final att in attendance) {
-      if (att.isPunchedIn) punchCount++;
-      totalMinutes += att.attendanceDuration.inMinutes;
-      totalDistance += att.distance;
+    for (final t in trackings) {
+      if (t.isActive) punchCount++;
+      totalMinutes += t.attendanceDuration.inMinutes;
+      totalDistance += t.distance;
     }
 
     final totalExpense =
@@ -368,20 +359,19 @@ class DataManager {
 
   // ─── Visits (write path) ──────────────────────────────────────────────────
 
-  static Future<AttendanceModel?> createVisit(
+  static Future<TrackingModel?> createVisit(
     String userId,
     VisitModel visit,
-    String date,
-    AttendanceModel? currentAttendance,
+    TrackingModel? currentTracking,
   ) async {
     await _repo.createVisit(userId, visit);
     await LocalStorageService.saveVisit(visit);
-    await _repo.incrementVisitCount(userId, date);
-    if (currentAttendance == null) return null;
-    final updated = currentAttendance.copyWith(
-      customerVisitCount: currentAttendance.customerVisitCount + 1,
+    if (currentTracking == null) return null;
+    await _repo.incrementTrackingVisitCount(userId, currentTracking.id);
+    final updated = currentTracking.copyWith(
+      visitCount: currentTracking.visitCount + 1,
     );
-    await LocalStorageService.saveAttendance(updated);
+    await LocalStorageService.saveTracking(updated);
     return updated;
   }
 
@@ -453,13 +443,12 @@ class DataManager {
     }
   }
 
-  // ─── Attendance History (paginated) ────────────────────────────────────────
+  // ─── Tracking History (paginated) ────────────────────────────────────────
 
-  static Future<(List<AttendanceModel>, String?)> getAttendanceHistory(
+  static Future<(List<TrackingModel>, String?)> getTrackingHistory(
     String userId, {
     int limit = 30,
-    String? startAfterDate,
+    String? startAfterId,
   }) =>
-      _repo.getAttendanceHistory(userId,
-          limit: limit, startAfterDate: startAfterDate);
+      _repo.getTrackingHistory(userId, limit: limit, startAfterId: startAfterId);
 }

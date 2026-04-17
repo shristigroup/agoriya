@@ -10,6 +10,7 @@ import 'home_state.dart';
 import '../../../data/data_manager.dart';
 import '../../../data/models/visit_model.dart';
 import '../../../data/models/location_model.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../services/location_tracking_service.dart';
 import '../../../services/osrm_service.dart';
@@ -21,15 +22,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   bool _punchingOut = false;
 
   StreamSubscription? _newPointSub;
-  StreamSubscription? _batchFlushedSub;
 
   HomeBloc({required this.userId}) : super(HomeInitial()) {
     on<HomeInitEvent>(_onInit);
     on<PunchInEvent>(_onPunchIn);
     on<PunchOutEvent>(_onPunchOut);
     on<ResumeSessionEvent>(_onResumeSession);
+    on<AppResumedEvent>(_onAppResumed);
     on<NewLocationPointEvent>(_onNewLocationPoint);
-    on<ProcessCurrentBatchEvent>(_onProcessCurrentBatch);
     on<CreateVisitEvent>(_onCreateVisit);
     on<UpdateVisitEvent>(_onUpdateVisit);
     on<CheckOutVisitEvent>(_onCheckOutVisit);
@@ -43,18 +43,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         lat: (data['lat'] as num).toDouble(),
         lng: (data['lng'] as num).toDouble(),
         timestamp: DateTime.parse(data['timestamp'] as String),
+        processBatch: (data['processBatch'] as bool?) ?? false,
       ));
-    });
-
-    _batchFlushedSub = bgService.on('batchFlushed').listen((_) {
-      add(ProcessCurrentBatchEvent());
     });
   }
 
   @override
   Future<void> close() {
     _newPointSub?.cancel();
-    _batchFlushedSub?.cancel();
     return super.close();
   }
 
@@ -67,7 +63,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
     await DataManager.seedTodayDataAsAppHasReinstalled(userId, today);
 
-    final attendance = await DataManager.getAttendance(userId, today);
+    final tracking = DataManager.getActiveTracking();
     final visits = await DataManager.getVisitsForDay(userId, today);
 
     final finalLocations = DataManager.getFinalLocations();
@@ -75,20 +71,16 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final finalDistance = DataManager.getFinalLocationsDistance();
     final batchDistance = DataManager.getCurrentBatchDistance();
 
-    // Seed lastKnownLocation from the last tracked point — the background
-    // isolate owns all GPS; no Geolocator call needed in the main engine.
+    // Seed lastKnownLocation from the last tracked point.
     final LatLng? lastKnownLocation = finalLocations.isNotEmpty
         ? finalLocations.last.position
         : currentBatch.isNotEmpty
             ? currentBatch.last.position
             : null;
 
-    // Reconcile service state with attendance on every app start.
+    // Reconcile service state with tracking on every app start.
     final serviceRunning = await LocationTrackingService.isRunning;
-    if (attendance?.isPunchedIn == true) {
-      // Punched in but service dead — happens after a force-close.
-      // Only restart if permission is already granted; if not, the user
-      // needs to go through the punch-in flow to grant it first.
+    if (tracking?.isPunchedIn == true) {
       if (!serviceRunning) {
         final permission = await Geolocator.checkPermission();
         final hasPermission = permission == LocationPermission.always ||
@@ -96,12 +88,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         if (hasPermission) await LocationTrackingService.start(userId, today);
       }
     } else {
-      // Not punched in but service still alive — orphan from a previous session.
       if (serviceRunning) LocationTrackingService.stop();
     }
 
     emit(HomeLoaded(
-      attendance: attendance,
+      tracking: tracking,
       finalLocations: finalLocations,
       currentBatch: currentBatch,
       visits: visits,
@@ -110,8 +101,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       currentBatchDistance: batchDistance,
     ));
 
-    // If the app was killed while a batch was accumulating, process it now.
-    if (currentBatch.isNotEmpty) add(ProcessCurrentBatchEvent());
   }
 
   // ── Punch In ──────────────────────────────────────────────────────────────
@@ -120,10 +109,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       PunchInEvent event, Emitter<HomeState> emit) async {
     try {
       final today = AppUtils.todayKey();
-      final attendance = await DataManager.punchIn(
+      final tracking = await DataManager.punchIn(
           userId, today, DateTime.now(), event.imageUrl);
       await LocationTrackingService.start(userId, today);
-      emit(PunchInSuccess(attendance));
+      emit(PunchInSuccess(tracking));
     } catch (e) {
       emit(HomeError(e.toString()));
     }
@@ -141,65 +130,59 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       _punchingOut = false;
       return;
     }
+    if (current.tracking == null) {
+      _punchingOut = false;
+      return;
+    }
 
     emit(current.copyWith(isPunchingOut: true));
 
     try {
-      final today = AppUtils.todayKey();
       final now = DateTime.now();
 
       LocationTrackingService.stop();
       await Future.delayed(const Duration(seconds: 1));
 
-      // Snap the final currentBatch inline (same logic as _onProcessCurrentBatch
-      // but without the state-clear step — we're about to shut down anyway).
+      // Snap the final currentBatch inline.
       final snapResult = await _snapBatch(
         batch: List<LocationPoint>.from(current.currentBatch),
         finalLocations: current.finalLocations,
       );
 
-      List<LocationPoint> freshFinalLocations = current.finalLocations;
-      double newFinalDistance = current.finalLocationsDistance;
-
+      double osrmDistance = 0.0;
+      List<LocationPoint> snappedBatch = [];
       if (snapResult != null) {
-        final (markedBatch, osrmDistance) = snapResult;
-        newFinalDistance = current.finalLocationsDistance + osrmDistance;
+        (snappedBatch, osrmDistance) = snapResult;
+      }
 
-        // Mark last point with cumulative + batch distances.
-        final committedBatch =
-            _markLastPoint(markedBatch, newFinalDistance, osrmDistance);
+      final newFinalDistance = current.finalLocationsDistance + osrmDistance;
+      var allLocations = [...current.finalLocations, ...snappedBatch];
 
-        freshFinalLocations = await DataManager.persistSnappedBatch(
+      if (allLocations.isNotEmpty) {
+        allLocations = [
+          ...allLocations.take(allLocations.length - 1),
+          allLocations.last.copyWith(
+            cumulativeDistanceKm: newFinalDistance,
+            batchDistanceKm: osrmDistance,
+          ),
+        ];
+        await DataManager.persistLocations(
           userId: userId,
-          date: today,
-          snapped: committedBatch,
-          newFinalDistance: newFinalDistance,
-          fallbackFinalLocations: [
-            ...current.finalLocations,
-            ...committedBatch,
-          ],
+          trackingId: current.tracking!.id,
+          allLocations: allLocations,
+          distanceKm: newFinalDistance,
         );
       }
 
-      // Use the last tracked point as the punch-out location.
-      // The background isolate owns all GPS — no Geolocator call needed here.
-      final LatLng? lastLoc = freshFinalLocations.isNotEmpty
-          ? freshFinalLocations.last.position
-          : current.lastKnownLocation;
-
-      final updatedAttendance = await DataManager.punchOut(
+      final updatedTracking = await DataManager.punchOut(
         userId: userId,
-        date: today,
-        currentAttendance: current.attendance!,
+        currentTracking: current.tracking!,
         timestamp: now,
-        lastLocation: lastLoc,
-        finalLocations: freshFinalLocations,
-        finalDistance: newFinalDistance,
       );
 
       emit(PunchOutSuccess(
-        attendance: updatedAttendance,
-        totalTime: updatedAttendance.attendanceDuration,
+        tracking: updatedTracking,
+        totalTime: updatedTracking.attendanceDuration,
       ));
     } catch (e) {
       debugPrint('[HomeBloc] punchOut error: $e');
@@ -218,17 +201,65 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       ResumeSessionEvent event, Emitter<HomeState> emit) async {
     if (state is! HomeLoaded) return;
     final current = state as HomeLoaded;
-    if (current.attendance?.isPunchedOut != true) return;
+    if (current.tracking?.isPunchedOut != true) return;
 
     try {
       final today = AppUtils.todayKey();
       final resumed =
-          await DataManager.resumeSession(userId, today, current.attendance!);
+          await DataManager.resumeSession(userId, current.tracking!);
       await LocationTrackingService.start(userId, today);
-      emit(current.copyWith(attendance: resumed));
+      emit(current.copyWith(tracking: resumed));
     } catch (e) {
       debugPrint('[HomeBloc] resumeSession error: $e');
       emit(HomeError(e.toString()));
+    }
+  }
+
+  // ── App Resumed (foreground) ──────────────────────────────────────────────
+
+  Future<void> _onAppResumed(
+      AppResumedEvent event, Emitter<HomeState> emit) async {
+    if (state is! HomeLoaded) return;
+    final current = state as HomeLoaded;
+    if (current.tracking?.isPunchedIn != true) return;
+    if (current.currentBatch.isEmpty) return;
+    if (_snapping) return;
+
+    _snapping = true;
+    emit(current.copyWith(isSnapping: true));
+
+    try {
+      final snapResult = await _snapBatch(
+        batch: List<LocationPoint>.from(current.currentBatch),
+        finalLocations: current.finalLocations,
+      );
+
+      if (snapResult == null) {
+        if (state is HomeLoaded) {
+          emit((state as HomeLoaded).copyWith(isSnapping: false));
+        }
+        return;
+      }
+
+      final (snappedBatch, _) = snapResult;
+
+      // Persist snapped batch to Hive so a subsequent relaunch also shows a
+      // clean path. Distance estimate is unchanged — accurate value comes from
+      // OSRM when ProcessCurrentBatchEvent fires on batchFlushed.
+      await DataManager.saveCurrentBatch(
+          snappedBatch, current.currentBatchDistance);
+
+      if (state is HomeLoaded) {
+        emit((state as HomeLoaded).copyWith(
+          currentBatch: snappedBatch,
+          isSnapping: false,
+        ));
+      }
+    } catch (e) {
+      debugPrint('[HomeBloc] appResumed snap error: $e');
+      if (state is HomeLoaded) {
+        emit((state as HomeLoaded).copyWith(isSnapping: false));
+      }
     }
   }
 
@@ -238,113 +269,162 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       NewLocationPointEvent event, Emitter<HomeState> emit) async {
     if (state is! HomeLoaded) return;
     final current = state as HomeLoaded;
+    if (current.tracking?.isPunchedIn != true) return;
 
+    final newPosition = LatLng(event.lat, event.lng);
+
+    // Last stored point — used for distance check and duration calculation.
+    final lastPoint = current.currentBatch.isNotEmpty
+        ? current.currentBatch.last
+        : current.finalLocations.isNotEmpty
+            ? current.finalLocations.last
+            : null;
+
+    final distanceMeters = lastPoint != null
+        ? _haversineMeters(lastPoint.position, newPosition)
+        : 0.0;
+
+    // ── Stationary: within threshold → update durationSeconds on last point ──
+    if (lastPoint != null &&
+        distanceMeters < AppConstants.stationaryThresholdMeters.toDouble()) {
+      final durationSeconds =
+          event.timestamp.difference(lastPoint.timestamp).inSeconds;
+
+      var updatedBatch = current.currentBatch;
+      var updatedFinal = current.finalLocations;
+
+      if (current.currentBatch.isNotEmpty) {
+        final pts = List<LocationPoint>.from(current.currentBatch);
+        pts[pts.length - 1] =
+            pts.last.copyWith(durationSeconds: durationSeconds);
+        updatedBatch = pts;
+        await DataManager.saveCurrentBatch(
+            updatedBatch, current.currentBatchDistance);
+        debugPrint('[HomeBloc] duration update | source=currentBatch'
+            ' | ts=${pts.last.timestamp.toIso8601String()}'
+            ' | lat=${pts.last.position.latitude}'
+            ' | lng=${pts.last.position.longitude}'
+            ' | durationSeconds=$durationSeconds');
+      } else {
+        final pts = List<LocationPoint>.from(current.finalLocations);
+        pts[pts.length - 1] =
+            pts.last.copyWith(durationSeconds: durationSeconds);
+        updatedFinal = pts;
+        await DataManager.saveFinalLocations(updatedFinal);
+        debugPrint('[HomeBloc] duration update | source=finalLocations'
+            ' | ts=${pts.last.timestamp.toIso8601String()}'
+            ' | lat=${pts.last.position.latitude}'
+            ' | lng=${pts.last.position.longitude}'
+            ' | durationSeconds=$durationSeconds');
+      }
+
+      emit(current.copyWith(
+        currentBatch: updatedBatch,
+        finalLocations: updatedFinal,
+        lastKnownLocation: newPosition,
+        lastGpsUpdateTime: event.timestamp,
+      ));
+
+      if (event.processBatch) await _processBatch(emit);
+      return;
+    }
+
+    // ── Movement: add new point to batch ─────────────────────────────────────
+    final deltaKm = distanceMeters / 1000.0;
     final newPoint = LocationPoint(
-      position: LatLng(event.lat, event.lng),
+      position: newPosition,
       timestamp: event.timestamp,
       isSnapped: false,
     );
-
-    // Haversine delta anchored to the last point in either array.
-    double delta = 0;
-    if (current.currentBatch.isNotEmpty) {
-      delta =
-          _haversine(current.currentBatch.last.position, newPoint.position);
-    } else if (current.finalLocations.isNotEmpty) {
-      delta =
-          _haversine(current.finalLocations.last.position, newPoint.position);
-    }
-
     final updatedBatch = [...current.currentBatch, newPoint];
-    final newBatchDistance = current.currentBatchDistance + delta;
+    final newBatchDistance = current.currentBatchDistance + deltaKm;
 
-    await DataManager.appendToCurrentBatch(updatedBatch, newBatchDistance);
+    await DataManager.saveCurrentBatch(updatedBatch, newBatchDistance);
 
     emit(current.copyWith(
       currentBatch: updatedBatch,
+      lastKnownLocation: newPosition,
+      lastGpsUpdateTime: event.timestamp,
       currentBatchDistance: newBatchDistance,
     ));
+
+    if (event.processBatch) await _processBatch(emit);
   }
 
   // ── Process Current Batch ─────────────────────────────────────────────────
 
-  Future<void> _onProcessCurrentBatch(
-      ProcessCurrentBatchEvent event, Emitter<HomeState> emit) async {
+  Future<void> _processBatch(Emitter<HomeState> emit) async {
     if (state is! HomeLoaded) return;
-    if (_snapping) return;
 
     final current = state as HomeLoaded;
+    if (current.tracking == null) return;
+
     final batchToProcess = List<LocationPoint>.from(current.currentBatch);
-    if (batchToProcess.isEmpty) return;
+    if (batchToProcess.isEmpty && current.finalLocations.isEmpty) return;
 
-    _snapping = true;
-
-    // ── Step 1: clear currentBatch in state FIRST (synchronous emit), then
-    // persist to Hive. New NewLocationPointEvents arriving after the emit will
-    // see an empty currentBatch and start accumulating a fresh batch, ensuring
-    // nothing is double-processed or lost during the OSRM await below.
+    // ── Step 1: clear currentBatch in state and Hive.
     emit(current.copyWith(
       currentBatch: [],
       currentBatchDistance: 0.0,
       isSnapping: true,
     ));
-    await DataManager.appendToCurrentBatch([], 0.0);
+    await DataManager.saveCurrentBatch([], 0.0);
 
     try {
-      final today = AppUtils.todayKey();
+      // ── Step 2: snap batch if non-empty; osrmDistance stays 0 if stationary.
+      double osrmDistance = 0.0;
+      List<LocationPoint> snappedBatch = [];
 
-      // ── Step 2: sort, filter, OSRM snap.
-      final snapResult = await _snapBatch(
-        batch: batchToProcess,
-        finalLocations: current.finalLocations,
-      );
+      if (batchToProcess.isNotEmpty) {
+        final snapResult = await _snapBatch(
+          batch: batchToProcess,
+          finalLocations: current.finalLocations,
+        );
+        if (snapResult != null) {
+          (snappedBatch, osrmDistance) = snapResult;
+        }
+      }
 
-      if (snapResult == null) {
-        // Nothing valid to commit (all points were older than last synced).
+      // ── Step 3: compute cumulative distance and build full locations array.
+      final latestState = state is HomeLoaded ? state as HomeLoaded : current;
+      final newFinalDistance = latestState.finalLocationsDistance + osrmDistance;
+      var allLocations = [...latestState.finalLocations, ...snappedBatch];
+
+      if (allLocations.isEmpty) {
         if (state is HomeLoaded) {
           emit((state as HomeLoaded).copyWith(isSnapping: false));
         }
         return;
       }
 
-      final (snappedBatch, osrmDistance) = snapResult;
+      // ── Step 4: stamp last point with cumulative + batch distances.
+      allLocations = [
+        ...allLocations.take(allLocations.length - 1),
+        allLocations.last.copyWith(
+          cumulativeDistanceKm: newFinalDistance,
+          batchDistanceKm: osrmDistance,
+        ),
+      ];
 
-      // ── Step 3: compute new cumulative distance and mark last point.
-      // Use the LATEST state's finalLocationsDistance — new points may have
-      // arrived during the OSRM await but they only affect currentBatch, not
-      // finalLocationsDistance, so this value is still correct.
-      final latestState =
-          state is HomeLoaded ? state as HomeLoaded : current;
-      final newFinalDistance =
-          latestState.finalLocationsDistance + osrmDistance;
-      final committedBatch =
-          _markLastPoint(snappedBatch, newFinalDistance, osrmDistance);
-
-      // ── Step 4: persist to Firestore, read back, save to Hive.
-      debugPrint('[HomeBloc] Syncing ${committedBatch.length} snapped points to Firestore (total distance: ${newFinalDistance.toStringAsFixed(3)} km)');
-      final freshFinalLocations = await DataManager.persistSnappedBatch(
+      // ── Step 5: write to Firestore.
+      debugPrint(
+          '[HomeBloc] Syncing ${allLocations.length} total points to Firestore '
+          '(+${snappedBatch.length} new, distance: ${newFinalDistance.toStringAsFixed(3)} km)'
+          ' | last.ts=${allLocations.last.timestamp.toIso8601String()}'
+          ' | last.durationSeconds=${allLocations.last.durationSeconds}');
+      await DataManager.persistLocations(
         userId: userId,
-        date: today,
-        snapped: committedBatch,
-        newFinalDistance: newFinalDistance,
-        fallbackFinalLocations: [
-          ...latestState.finalLocations,
-          ...committedBatch,
-        ],
+        trackingId: current.tracking!.id,
+        allLocations: allLocations,
+        distanceKm: newFinalDistance,
       );
-      debugPrint('[HomeBloc] Firestore sync done — ${freshFinalLocations.length} total points on server');
 
-      // ── Step 5: merge with the LATEST state — currentBatch may have new
-      // points that accumulated while OSRM was in flight (step 1 cleared it,
-      // so these are genuinely new). We must NOT discard them.
+      // ── Step 6: update state.
       if (state is! HomeLoaded) return;
-      final finalState = state as HomeLoaded;
-      emit(finalState.copyWith(
+      emit((state as HomeLoaded).copyWith(
         isSnapping: false,
-        finalLocations: freshFinalLocations,
+        finalLocations: allLocations,
         finalLocationsDistance: newFinalDistance,
-        // currentBatch and currentBatchDistance are taken from finalState
-        // (already up-to-date from NewLocationPointEvent handlers).
       ));
     } catch (e) {
       debugPrint('[HomeBloc] processCurrentBatch error: $e');
@@ -374,13 +454,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         checkinTimestamp: now,
       );
 
-      final updatedAttendance =
-          await DataManager.createVisit(userId, visit, today, current.attendance);
+      final updatedTracking =
+          await DataManager.createVisit(userId, visit, current.tracking);
       final allVisits = await DataManager.getVisitsForDay(userId, today);
 
       emit(VisitCreated(visit));
       emit(current.copyWith(
-        attendance: updatedAttendance ?? current.attendance,
+        tracking: updatedTracking ?? current.tracking,
         visits: allVisits,
       ));
     } catch (e) {
@@ -421,21 +501,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  /// Sorts [batch] by timestamp, filters out points at or before the last
-  /// synced timestamp, OSRM-snaps the remainder, and returns
-  /// (snappedPoints, osrmDistance) — or null if nothing valid remains.
   Future<(List<LocationPoint>, double)?> _snapBatch({
     required List<LocationPoint> batch,
     required List<LocationPoint> finalLocations,
   }) async {
     if (batch.isEmpty) return null;
 
-    // Sort chronologically — OSRM match requires ordered input.
     final sorted = List<LocationPoint>.from(batch)
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-    // Drop points that predate the last committed point to prevent
-    // out-of-order entries in the Firestore array.
     final lastSyncedTs =
         finalLocations.isNotEmpty ? finalLocations.last.timestamp : null;
     final valid = lastSyncedTs != null
@@ -446,7 +520,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
     if (valid.isEmpty) return null;
 
-    // OSRM snap — falls back to original positions on network error.
     final tracepoints = await OsrmService.snapTracepoints(
       valid.map((p) => p.position).toList(),
     );
@@ -458,42 +531,26 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         position: pos,
         timestamp: valid[i].timestamp,
         isSnapped: true,
+        durationSeconds: valid[i].durationSeconds,
       ));
     }
 
-    // Haversine distance from anchor (last committed point) through snapped.
     double distance = 0.0;
-    final anchor =
+    final prevPoint =
         finalLocations.isNotEmpty ? finalLocations.last : null;
-    final distInput = [if (anchor != null) anchor, ...snapped];
+    final distInput = [if (prevPoint != null) prevPoint, ...snapped];
     for (int i = 0; i < distInput.length - 1; i++) {
-      distance += _haversine(distInput[i].position, distInput[i + 1].position);
+      distance +=
+          _haversineMeters(distInput[i].position, distInput[i + 1].position) /
+              1000.0;
     }
 
     return (snapped, distance);
   }
 
-  /// Returns a copy of [batch] with [cumulativeDistanceKm] and [batchDistanceKm]
-  /// set on the last point. Both fields are written to Firestore for debugging:
-  /// cumulativeDistanceKm = running total for the whole day,
-  /// batchDistanceKm      = OSRM distance for just this batch.
-  List<LocationPoint> _markLastPoint(
-    List<LocationPoint> batch,
-    double cumulativeDistanceKm,
-    double batchDistanceKm,
-  ) {
-    if (batch.isEmpty) return batch;
-    return [
-      ...batch.take(batch.length - 1),
-      batch.last.copyWith(
-        cumulativeDistanceKm: cumulativeDistanceKm,
-        batchDistanceKm: batchDistanceKm,
-      ),
-    ];
-  }
-
-  double _haversine(LatLng a, LatLng b) {
-    const r = 6371.0;
+  /// Returns distance in metres between two LatLng points.
+  double _haversineMeters(LatLng a, LatLng b) {
+    const r = 6371000.0; // Earth radius in metres
     final dLat = _rad(b.latitude - a.latitude);
     final dLng = _rad(b.longitude - a.longitude);
     final h = math.pow(math.sin(dLat / 2), 2) +

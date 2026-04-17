@@ -8,7 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../data/local/local_storage_service.dart';
-import '../../../data/models/attendance_model.dart';
+import '../../../data/models/tracking_model.dart';
 import '../../../data/models/visit_model.dart';
 import '../../../data/repositories/firestore_repository.dart';
 import '../bloc/home_bloc.dart';
@@ -41,7 +41,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   int _currentTab = 0;
   bool _loadingDialogOpen = false;
@@ -55,12 +55,20 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       setState(() => _currentTab = _tabController.index);
     });
     if (!_isReadOnly) {
       _checkNotificationPermission();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_isReadOnly && mounted) {
+      context.read<HomeBloc>().add(AppResumedEvent());
     }
   }
 
@@ -102,6 +110,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
   }
@@ -267,16 +276,14 @@ class _HomeScreenState extends State<HomeScreen>
 
       context.read<HomeBloc>().add(PunchInEvent(imageUrl));
 
-      // Build a minimal attendance for the animation screen
-      final att = state.attendance?.copyWith(
-            punchInTimestamp: now,
-            punchInImage: imageUrl,
-          ) ??
-          AttendanceModel(
-            date: today,
-            punchInTimestamp: now,
-            punchInImage: imageUrl,
-          );
+      // Build a minimal tracking for the animation screen while the real
+      // punch-in is processed by HomeBloc in the background.
+      final att = TrackingModel(
+        id: TrackingModel.buildId(today, now),
+        date: today,
+        startTime: now,
+        punchInImage: imageUrl,
+      );
 
       if (mounted) {
         await Navigator.of(context).push(
@@ -360,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen>
   /// "Fresh Punch In" (start a brand-new session, overwriting today's data).
   Future<void> _showPunchInOptions(
       BuildContext context, HomeLoaded state) async {
-    final punchOutTime = state.attendance?.punchOutTimestamp;
+    final punchOutTime = state.tracking?.stopTime;
 
     await showModalBottomSheet(
       context: context,
@@ -477,12 +484,12 @@ class _HomeScreenState extends State<HomeScreen>
         if (state is PunchInSuccess) {
           context.read<HomeBloc>().add(HomeInitEvent(_targetUserId));
         } else if (state is PunchOutSuccess) {
-          final attendance = state.attendance;
+          final tracking = state.tracking;
           final totalTime = state.totalTime;
           Navigator.of(context).push(
             PageRouteBuilder(
               pageBuilder: (_, __, ___) => PunchOutSummaryScreen(
-                attendance: attendance,
+                attendance: tracking,
                 totalTime: totalTime,
               ),
               transitionDuration: const Duration(milliseconds: 400),
@@ -506,7 +513,7 @@ class _HomeScreenState extends State<HomeScreen>
         final isPunchedIn = loaded?.isPunchedIn ?? false;
         final isPunchedOut = loaded?.isPunchedOut ?? false;
         final isPunchingOut = loaded?.isPunchingOut ?? false;
-        final attendance = loaded?.attendance;
+        final tracking = loaded?.tracking;
 
         return Stack(
           children: [
@@ -580,7 +587,7 @@ class _HomeScreenState extends State<HomeScreen>
               Container(
                 color: AppTheme.primary,
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: _buildStatsRow(loaded, attendance),
+                child: _buildStatsRow(loaded, tracking),
               ),
               // ── Tab bar ───────────────────────────────────────────────────
               Container(
@@ -609,9 +616,10 @@ class _HomeScreenState extends State<HomeScreen>
                         controller: _tabController,
                         children: [
                           TrackTab(
-                            attendance: attendance,
+                            attendance: tracking,
                             locations: loaded?.allLocations ?? [],
                             lastKnownLocation: loaded?.lastKnownLocation,
+                            lastGpsUpdateTime: loaded?.lastGpsUpdateTime,
                             isReadOnly: _isReadOnly,
                             isSnapping: loaded?.isSnapping ?? false,
                           ),
@@ -631,7 +639,7 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           floatingActionButton: _isReadOnly
               ? null
-              : _buildFAB(context, loaded, isPunchedIn, isPunchedOut),
+              : _buildFAB(context, loaded, isPunchedIn, isPunchedOut, isPunchingOut),
           floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
         ),
             // Full-screen punch-out overlay
@@ -659,7 +667,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildStatsRow(HomeLoaded? loaded, attendance) {
+  Widget _buildStatsRow(HomeLoaded? loaded, TrackingModel? tracking) {
     final isPunchedIn = loaded?.isPunchedIn ?? false;
     final isTrackTab = _currentTab == 0;
 
@@ -670,10 +678,10 @@ class _HomeScreenState extends State<HomeScreen>
             isTrackTab
                 ? (isPunchedIn
                     ? AppUtils.formatDuration(
-                        loaded!.attendance!.attendanceDuration)
+                        loaded!.tracking!.attendanceDuration)
                     : '-')
                 : (isPunchedIn
-                    ? '${loaded!.attendance?.customerVisitCount ?? 0}'
+                    ? '${loaded!.tracking?.visitCount ?? 0}'
                     : '-'),
             isTrackTab ? Icons.access_time_rounded : Icons.storefront_rounded,
           ),
@@ -735,6 +743,7 @@ class _HomeScreenState extends State<HomeScreen>
     HomeLoaded? loaded,
     bool isPunchedIn,
     bool isPunchedOut,
+    bool isPunchingOut,
   ) {
     // Day is done — show Punch In FAB that opens the options sheet.
     // User can resume today's accidental punch-out or start a fresh session.

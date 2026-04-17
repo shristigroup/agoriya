@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
-import '../../../data/models/attendance_model.dart';
+import '../../../data/models/tracking_model.dart';
 
 class DailyTile extends StatelessWidget {
-  final AttendanceModel attendance;
+  final TrackingModel tracking;
   final VoidCallback onTap;
 
-  const DailyTile({super.key, required this.attendance, required this.onTap});
+  const DailyTile({super.key, required this.tracking, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final dt = DateTime.parse(attendance.date);
+    final dt = DateTime.parse(tracking.date);
     final now = DateTime.now();
     final isToday = AppUtils.isSameDay(dt, now);
     final isYesterday =
@@ -24,9 +24,9 @@ class DailyTile extends StatelessWidget {
             : _weekday(dt.weekday);
     final dateLabel = AppUtils.formatDateDisplay(dt);
 
-    final punchIn = attendance.punchInTimestamp;
-    final punchOut = attendance.punchOutTimestamp;
-    final duration = attendance.attendanceDuration;
+    final punchIn = tracking.startTime;
+    final punchOut = tracking.stopTime;
+    final duration = tracking.attendanceDuration;
 
     final statusColor =
         punchOut != null ? AppTheme.textSecondary : AppTheme.punchIn;
@@ -99,9 +99,7 @@ class DailyTile extends StatelessWidget {
                       Row(
                         children: [
                           _pill(Icons.login_rounded, AppTheme.punchIn,
-                              punchIn != null
-                                  ? AppUtils.formatTime(punchIn)
-                                  : '--'),
+                              AppUtils.formatTime(punchIn)),
                           const SizedBox(width: 6),
                           if (punchOut != null) ...[
                             const Icon(Icons.arrow_forward,
@@ -120,10 +118,10 @@ class DailyTile extends StatelessWidget {
                       Row(
                         children: [
                           _statLabel(Icons.route_rounded,
-                              AppUtils.formatDistance(attendance.distance)),
+                              AppUtils.formatDistance(tracking.distance)),
                           const SizedBox(width: 14),
                           _statLabel(Icons.storefront_rounded,
-                              '${attendance.customerVisitCount} visits'),
+                              '${tracking.visitCount} visits'),
                         ],
                       ),
                     ],
