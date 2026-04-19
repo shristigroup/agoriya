@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import '../../core/constants/app_constants.dart';
@@ -32,12 +33,33 @@ class FirestoreRepository {
   }
 
   Future<UserModel?> getUserByPhone(String phone) async {
-    final snap = await _users
-        .where('phoneNumber', isEqualTo: phone)
-        .limit(1)
-        .get();
-    if (snap.docs.isEmpty) return null;
-    return UserModel.fromFirestore(snap.docs.first);
+    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (idToken == null) return null;
+    final uri = Uri.parse(
+      'https://asia-south1-agoriya-app.cloudfunctions.net/getUserByPhone',
+    );
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+      body: jsonEncode({'phoneNumber': phone}),
+    );
+    if (response.statusCode != 200) return null;
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    if (body['user'] == null) return null;
+    final data = body['user'] as Map<String, dynamic>;
+    return UserModel(
+      id: data['id'] as String,
+      uid: data['uid'] as String? ?? '',
+      firstName: data['firstName'] as String? ?? '',
+      lastName: data['lastName'] as String? ?? '',
+      phoneNumber: data['phoneNumber'] as String? ?? '',
+      managerId: data['managerId'] as String?,
+      reports: Map<String, dynamic>.from(data['reports'] ?? {}),
+      code: data['code'] as String?,
+    );
   }
 
   Future<UserModel?> getUserById(String userId) async {

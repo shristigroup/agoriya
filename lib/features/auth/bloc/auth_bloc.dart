@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import 'auth_event.dart';
 import 'auth_state.dart';
 import '../../../data/repositories/firestore_repository.dart';
@@ -105,6 +107,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
     emit(AuthLoading());
     try {
+      // CF-based lookup — Admin SDK bypasses Firestore rules, returns authoritative doc ID.
       final existing = await _repo.getUserByPhone(_pendingPhoneNumber!);
 
       final docId = existing?.id ??
@@ -113,6 +116,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             event.lastName,
             _pendingPhoneNumber!,
           );
+
+      // Set userId custom claim before any Firestore reads/writes that rely on it.
+      await _setUserClaim(docId);
+      await _auth.currentUser!.getIdToken(true); // force token refresh
 
       // Determine which org code to attach to this user.
       // Priority: existing code in DB > code entered during login > generate new one.
@@ -170,6 +177,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthAuthenticated(user));
     } catch (e) {
       emit(AuthError(e.toString()));
+    }
+  }
+
+  Future<void> _setUserClaim(String docId) async {
+    final idToken = await _auth.currentUser!.getIdToken();
+    final uri = Uri.parse(
+      'https://asia-south1-agoriya-app.cloudfunctions.net/setUserClaim',
+    );
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+      body: jsonEncode({'userId': docId}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to set user claim: ${response.body}');
     }
   }
 

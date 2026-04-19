@@ -8,29 +8,30 @@ service cloud.firestore {
     }
 
     // Checks if the requester is the user themselves or one of their managers.
-    // managers[] is a CF-maintained array of Firebase Auth UIDs up the chain.
+    // managers[] is a CF-maintained array of User doc IDs up the chain.
     function canAccessUser(userId) {
       let user = get(/databases/$(database)/documents/Users/$(userId));
       return isSignedIn() && (
-        request.auth.uid == user.data.uid ||
-        request.auth.uid in user.data.get('managers', [])
+        request.auth.token.userId == userId ||
+        request.auth.token.userId in user.data.get('managers', [])
       );
     }
 
     // ─── Codes — public read (needed before login), owner-only write ─────────
     match /Codes/{code} {
       allow read: if true;
-      allow write: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.token.userId;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.token.userId;
     }
 
     // ─── Users ───────────────────────────────────────────────────────────────
     match /Users/{userId} {
-      // Create: doc doesn't exist yet — only the user themselves may create
+      // Create: custom claim not set yet at first creation — verify via auth.uid
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
       // Read / update / delete: self or any manager in the chain
       allow read, update, delete: if isSignedIn() && (
-        request.auth.uid == resource.data.uid ||
-        request.auth.uid in resource.data.get('managers', [])
+        request.auth.token.userId == userId ||
+        request.auth.token.userId in resource.data.get('managers', [])
       );
 
       match /Tracking/{trackingId} {
@@ -42,8 +43,8 @@ service cloud.firestore {
 
         match /Comments/{commentId} {
           allow read: if canAccessUser(userId);
-          allow create: if isSignedIn() &&
-            request.resource.data.userId is string &&
+          allow create: if canAccessUser(userId) &&
+            request.resource.data.userId == request.auth.token.userId &&
             request.resource.data.text is string &&
             request.resource.data.timestamp is timestamp;
         }

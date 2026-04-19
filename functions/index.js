@@ -352,8 +352,8 @@ exports.updateManagersArray = onDocumentWritten(
     // Only run when managerId actually changes
     if (prevManagerId === newManagerId) return;
 
-    // Walk the manager chain upward, collecting Firebase Auth UIDs
-    const managerUids = [];
+    // Walk the manager chain upward, collecting User doc IDs
+    const managerIds = [];
     let currentManagerDocId = newManagerId;
     const visited = new Set();
 
@@ -361,20 +361,73 @@ exports.updateManagersArray = onDocumentWritten(
       visited.add(currentManagerDocId);
       const mgrDoc = await db.collection("Users").doc(currentManagerDocId).get();
       if (!mgrDoc.exists) break;
-      const mgrData = mgrDoc.data();
-      if (mgrData.uid) managerUids.push(mgrData.uid);
-      currentManagerDocId = mgrData.managerId || null;
+      managerIds.push(currentManagerDocId);
+      currentManagerDocId = mgrDoc.data().managerId || null;
     }
 
-    await db.collection("Users").doc(userId).update({ managers: managerUids });
-    console.log(`[updateManagersArray] ${userId} managers set to`, managerUids);
+    await db.collection("Users").doc(userId).update({ managers: managerIds });
+    console.log(`[updateManagersArray] ${userId} managers set to`, managerIds);
   }
 );
 
-// ─── 7. getOrgMembers — unauthenticated HTTP endpoint ────────────────────────
+// ─── 7. setUserClaim — sets userId custom claim on the caller's auth token ────
+// Called post-submit during login, before any Firestore writes, so that
+// request.auth.token.userId is available in security rules.
+const { onRequest } = require("firebase-functions/v2/https");
+
+exports.setUserClaim = onRequest(
+  { region: "asia-south1", cors: true },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) { res.status(401).json({ error: "Unauthenticated" }); return; }
+
+    const { userId } = req.body;
+    if (!userId || typeof userId !== "string") {
+      res.status(400).json({ error: "Invalid userId" });
+      return;
+    }
+
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    await admin.auth().setCustomUserClaims(decoded.uid, { userId });
+    res.status(200).json({ success: true });
+  }
+);
+
+// ─── 8. getUserByPhone — authenticated HTTP endpoint ─────────────────────────
+// Used during login to look up a user doc by phone number server-side,
+// bypassing Firestore client rules cleanly via Admin SDK.
+exports.getUserByPhone = onRequest(
+  { region: "asia-south1", cors: true },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) { res.status(401).json({ error: "Unauthenticated" }); return; }
+
+    await admin.auth().verifyIdToken(idToken);
+
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) { res.status(400).json({ error: "phoneNumber required" }); return; }
+
+    const snap = await db.collection("Users")
+      .where("phoneNumber", "==", phoneNumber)
+      .limit(1)
+      .get();
+
+    if (snap.empty) { res.status(200).json({ user: null }); return; }
+
+    const doc = snap.docs[0];
+    res.status(200).json({ user: { id: doc.id, ...doc.data() } });
+  }
+);
+
+// ─── 9. getOrgMembers — unauthenticated HTTP endpoint ────────────────────────
 // Called from the login screen before the user is authenticated.
 // Returns all users sharing the given org code (id + name only).
-const { onRequest } = require("firebase-functions/v2/https");
 
 exports.getOrgMembers = onRequest(
   { region: "asia-south1", cors: true },
