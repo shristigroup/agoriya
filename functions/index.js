@@ -333,3 +333,78 @@ async function addToSkipManagerTree(skipManagerId, directManagerId, userId, user
     await addToSkipManagerTree(nextSkipId, directManagerId, userId, userName, userReports);
   }
 }
+
+// ─── 6. Managers array: keep CF-maintained list of manager UIDs on each user ──
+// This array is used by Firestore rules to grant managers read/write access
+// to their reports' documents without a separate query.
+exports.updateManagersArray = onDocumentWritten(
+  { document: "Users/{userId}", region: "asia-south1" },
+  async (event) => {
+    const { userId } = event.params;
+    const before = event.data.before.exists ? event.data.before.data() : null;
+    const after = event.data.after.exists ? event.data.after.data() : null;
+
+    if (!after) return;
+
+    const prevManagerId = before ? before.managerId : null;
+    const newManagerId = after.managerId || null;
+
+    // Only run when managerId actually changes
+    if (prevManagerId === newManagerId) return;
+
+    // Walk the manager chain upward, collecting Firebase Auth UIDs
+    const managerUids = [];
+    let currentManagerDocId = newManagerId;
+    const visited = new Set();
+
+    while (currentManagerDocId && !visited.has(currentManagerDocId)) {
+      visited.add(currentManagerDocId);
+      const mgrDoc = await db.collection("Users").doc(currentManagerDocId).get();
+      if (!mgrDoc.exists) break;
+      const mgrData = mgrDoc.data();
+      if (mgrData.uid) managerUids.push(mgrData.uid);
+      currentManagerDocId = mgrData.managerId || null;
+    }
+
+    await db.collection("Users").doc(userId).update({ managers: managerUids });
+    console.log(`[updateManagersArray] ${userId} managers set to`, managerUids);
+  }
+);
+
+// ─── 7. getOrgMembers — unauthenticated HTTP endpoint ────────────────────────
+// Called from the login screen before the user is authenticated.
+// Returns all users sharing the given org code (id + name only).
+const { onRequest } = require("firebase-functions/v2/https");
+
+exports.getOrgMembers = onRequest(
+  { region: "asia-south1", cors: true },
+  async (req, res) => {
+    const code = (req.query.code || "").trim().toUpperCase();
+    if (!code || code.length !== 6) {
+      res.status(400).json({ error: "Invalid code" });
+      return;
+    }
+
+    const codeDoc = await db.collection("Codes").doc(code).get();
+    if (!codeDoc.exists) {
+      res.status(404).json({ error: "Code not found" });
+      return;
+    }
+
+    const snap = await db.collection("Users")
+      .where("code", "==", code)
+      .get();
+
+    const members = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        uid: data.uid || "",
+        firstName: data.firstName || "",
+        lastName: data.lastName || "",
+      };
+    });
+
+    res.status(200).json({ members });
+  }
+);

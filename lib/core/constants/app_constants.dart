@@ -33,6 +33,7 @@ class AppConstants {
   static const String visitsCollection = 'Visits';
   static const String commentsCollection = 'Comments';
   static const String monthlyCollection = 'Monthly';
+  static const String codesCollection = 'Codes';
 
   // Stationary detection thresholds
   static const int stationaryThresholdMeters = 50;

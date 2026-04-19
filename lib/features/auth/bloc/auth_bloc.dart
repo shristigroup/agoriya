@@ -114,6 +114,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             _pendingPhoneNumber!,
           );
 
+      // Determine which org code to attach to this user.
+      // Priority: existing code in DB > code entered during login > generate new one.
+      String? resolvedCode = existing?.code;
+      if (resolvedCode == null || resolvedCode.isEmpty) {
+        if (event.orgCode != null && event.orgCode!.isNotEmpty) {
+          resolvedCode = event.orgCode;
+        } else {
+          // No code entered — create a new org with this user as owner.
+          resolvedCode = await _repo.createOrgCode(docId);
+        }
+      }
+
       final user = UserModel(
         id: docId,
         uid: _pendingUid!,
@@ -126,23 +138,33 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         phoneNumber: _pendingPhoneNumber!,
         managerId: event.managerId ?? existing?.managerId,
         reports: existing?.reports ?? {},
+        code: resolvedCode,
       );
 
       await _repo.createOrUpdateUser(user);
       await LocalStorageService.saveUser(user);
       DataManager.init(user.id);
 
-      // Keep the manager's `reports` map in Firestore up to date so the
-      // hierarchy JSON stays consistent (used for legacy reads).
-      if (event.managerId != null) {
+      // Keep the manager's `reports` map in Firestore up to date.
+      final effectiveManagerId = event.managerId ?? existing?.managerId;
+      if (effectiveManagerId != null) {
         try {
-          final manager = await _repo.getUserById(event.managerId!);
+          final manager = await _repo.getUserById(effectiveManagerId);
           if (manager != null && !manager.reports.containsKey(docId)) {
             await _repo.createOrUpdateUser(manager.copyWith(
               reports: {...manager.reports, docId: {'name': user.fullName, 'reports': {}}},
             ));
           }
-        } catch (_) {} // Never fail registration because of manager update
+        } catch (_) {}
+      }
+
+      // If joining an org via code (not generating a new one), increment count.
+      if (event.orgCode != null &&
+          event.orgCode!.isNotEmpty &&
+          (existing?.code == null || existing!.code!.isEmpty)) {
+        try {
+          await _repo.incrementOrgUserCount(event.orgCode!);
+        } catch (_) {}
       }
 
       emit(AuthAuthenticated(user));

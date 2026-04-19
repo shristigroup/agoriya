@@ -1,8 +1,12 @@
+import 'dart:convert';
+import 'dart:math';
+import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import '../../core/constants/app_constants.dart';
 import '../models/user_model.dart';
+import '../models/org_code_model.dart';
 import '../models/tracking_model.dart';
 import '../models/visit_model.dart';
 import '../models/location_model.dart';
@@ -283,5 +287,109 @@ class FirestoreRepository {
 
   Future<void> saveFcmToken(String userId, String token) async {
     await _users.doc(userId).update({'fcmToken': token});
+  }
+  // ─── Org Codes ───────────────────────────────────────────────────────────
+  CollectionReference get _codes =>
+      _db.collection(AppConstants.codesCollection);
+
+  Future<OrgCodeModel?> getOrgCode(String code) async {
+    final doc = await _codes.doc(code).get();
+    if (!doc.exists) return null;
+    return OrgCodeModel.fromFirestore(doc);
+  }
+
+  /// Generates a unique 6-char alphanumeric code and creates the Codes doc.
+  Future<String> createOrgCode(String ownerId) async {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/1/I ambiguity
+    final rand = Random.secure();
+    for (int attempts = 0; attempts < 10; attempts++) {
+      final code = List.generate(6, (_) => chars[rand.nextInt(chars.length)]).join();
+      final doc = await _codes.doc(code).get();
+      if (!doc.exists) {
+        await _codes.doc(code).set({
+          'userId': ownerId,
+          'totalUserCount': 5,
+          'currentUserCount': 1,
+        });
+        return code;
+      }
+    }
+    throw Exception('Could not generate unique org code');
+  }
+
+  Future<void> incrementOrgUserCount(String code) async {
+    await _codes.doc(code).update({'currentUserCount': FieldValue.increment(1)});
+  }
+
+  Future<void> decrementOrgUserCount(String code) async {
+    await _codes.doc(code).update({'currentUserCount': FieldValue.increment(-1)});
+  }
+
+  /// All users who share this org code.
+  /// Calls the unauthenticated Cloud Function — needed before login when
+  /// Firestore rules would otherwise block the query.
+  Future<List<UserModel>> getOrgMembers(String code) async {
+    final uri = Uri.parse(
+      'https://asia-south1-agoriya-app.cloudfunctions.net/getOrgMembers?code=$code',
+    );
+    final response = await http.get(uri);
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load org members');
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final members = (body['members'] as List).map((m) {
+      return UserModel(
+        id: m['id'] as String,
+        uid: m['uid'] as String? ?? '',
+        firstName: m['firstName'] as String? ?? '',
+        lastName: m['lastName'] as String? ?? '',
+        phoneNumber: '',
+      );
+    }).toList();
+    return members;
+  }
+
+  /// Removes [userId] from the org:
+  ///  - clears their managerId and code
+  ///  - removes them from their manager's reports map
+  ///  - decrements currentUserCount in Codes
+  Future<void> removeUserFromOrg(String userId) async {
+    final user = await getUserById(userId);
+    if (user == null) return;
+    if (user.reports.isNotEmpty) {
+      throw Exception('cannot_remove_has_reports');
+    }
+    final batch = _db.batch();
+
+    batch.update(_users.doc(userId), {'managerId': null, 'code': null});
+
+    if (user.managerId != null) {
+      final manager = await getUserById(user.managerId!);
+      if (manager != null) {
+        final updatedReports = _removeFromReportsMap(manager.reports, userId);
+        batch.update(_users.doc(manager.id), {'reports': updatedReports});
+      }
+    }
+
+    if (user.code != null && user.code!.isNotEmpty) {
+      batch.update(_codes.doc(user.code!), {
+        'currentUserCount': FieldValue.increment(-1),
+      });
+    }
+
+    await batch.commit();
+  }
+
+  /// Recursively removes [userId] from any level of the reports map.
+  Map<String, dynamic> _removeFromReportsMap(
+      Map<String, dynamic> reports, String userId) {
+    if (reports.containsKey(userId)) {
+      return Map.from(reports)..remove(userId);
+    }
+    return reports.map((k, v) {
+      final entry = Map<String, dynamic>.from(v as Map);
+      final sub = Map<String, dynamic>.from(entry['reports'] as Map? ?? {});
+      return MapEntry(k, {...entry, 'reports': _removeFromReportsMap(sub, userId)});
+    });
   }
 }
