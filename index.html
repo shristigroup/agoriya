@@ -54,24 +54,55 @@
 
     /* ── Hero ── */
     .hero {
-      background: linear-gradient(160deg, var(--red) 0%, var(--red-dark) 100%);
-      padding: 56px 24px 64px;
-      text-align: center;
+      padding: 56px 40px 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 48px;
+      max-width: 900px;
+      margin: 0 auto;
     }
-    .hero h1 {
+    .hero-logo {
+      flex-shrink: 0;
+      width: 300px;
+    }
+    .hero-logo img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 20px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    }
+    .hero-content { text-align: left; }
+    .hero-content h1 {
       color: white;
-      font-size: clamp(26px, 6vw, 38px);
+      font-size: clamp(26px, 4vw, 38px);
       font-weight: 800;
       line-height: 1.15;
       letter-spacing: -0.5px;
       margin-bottom: 14px;
     }
-    .hero p {
+    .hero-content p {
       color: rgba(255,255,255,0.72);
       font-size: 16px;
       line-height: 1.6;
-      max-width: 420px;
-      margin: 0 auto 36px;
+      max-width: 380px;
+    }
+    /* wrap hero into a full-bleed container */
+    .hero-wrap {
+      background: linear-gradient(160deg, var(--red) 0%, var(--red-dark) 100%);
+      padding: 56px 24px 64px;
+    }
+    @media (max-width: 600px) {
+      .hero {
+        flex-direction: column;
+        gap: 28px;
+        padding: 40px 0 48px;
+        text-align: center;
+      }
+      .hero-logo { width: 140px; }
+      .hero-content { text-align: center; }
+      .hero-content p { max-width: 100%; }
     }
 
     /* ── Download card ── */
@@ -184,9 +215,16 @@
   </header>
 
   <!-- ── Hero ── -->
-  <div class="hero">
-    <h1>Your field team,<br/>always connected.</h1>
-    <p>Track attendance, customer visits, and location in real time — built for the ground level.</p>
+  <div class="hero-wrap">
+    <div class="hero">
+      <div class="hero-logo">
+        <img src="assets/logo/tf-logo-with-name.png" alt="TrackFolks" />
+      </div>
+      <div class="hero-content">
+        <h1>Your field team,<br/>always connected.</h1>
+        <p>Track attendance, customer visits, and location in real time — built for the ground level.</p>
+      </div>
+    </div>
   </div>
 
   <!-- ── Download card ── -->
