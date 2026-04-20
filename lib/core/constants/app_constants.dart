@@ -33,6 +33,7 @@ class AppConstants {
   static const String visitsCollection = 'Visits';
   static const String commentsCollection = 'Comments';
   static const String monthlyCollection = 'Monthly';
+  static const String codesCollection = 'Codes';
 
   // Stationary detection thresholds
   static const int stationaryThresholdMeters = 50;
@@ -52,6 +53,6 @@ class AppConstants {
   static const String cacheVersionKey = 'cache_version';
 
   // Background service
-  static const String bgServiceChannel = 'agoriya_location_channel';
+  static const String bgServiceChannel = 'trackfolks_location_channel';
   static const int bgNotificationId = 1001;
 }

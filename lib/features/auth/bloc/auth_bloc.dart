@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import 'auth_event.dart';
 import 'auth_state.dart';
 import '../../../data/repositories/firestore_repository.dart';
@@ -105,6 +107,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
     emit(AuthLoading());
     try {
+      // CF-based lookup — Admin SDK bypasses Firestore rules, returns authoritative doc ID.
       final existing = await _repo.getUserByPhone(_pendingPhoneNumber!);
 
       final docId = existing?.id ??
@@ -113,6 +116,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             event.lastName,
             _pendingPhoneNumber!,
           );
+
+      // Set userId custom claim before any Firestore reads/writes that rely on it.
+      await _setUserClaim(docId);
+      await _auth.currentUser!.getIdToken(true); // force token refresh
+
+      // Use submitted code if provided; otherwise create a new org.
+      final String resolvedCode;
+      if (event.orgCode != null && event.orgCode!.isNotEmpty) {
+        resolvedCode = event.orgCode!;
+      } else {
+        resolvedCode = await _repo.createOrgCode(docId);
+      }
 
       final user = UserModel(
         id: docId,
@@ -126,28 +141,47 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         phoneNumber: _pendingPhoneNumber!,
         managerId: event.managerId ?? existing?.managerId,
         reports: existing?.reports ?? {},
+        code: resolvedCode,
       );
 
       await _repo.createOrUpdateUser(user);
       await LocalStorageService.saveUser(user);
       DataManager.init(user.id);
 
-      // Keep the manager's `reports` map in Firestore up to date so the
-      // hierarchy JSON stays consistent (used for legacy reads).
-      if (event.managerId != null) {
+      // Keep the manager's `reports` map in Firestore up to date.
+      final effectiveManagerId = event.managerId ?? existing?.managerId;
+      if (effectiveManagerId != null) {
         try {
-          final manager = await _repo.getUserById(event.managerId!);
+          final manager = await _repo.getUserById(effectiveManagerId);
           if (manager != null && !manager.reports.containsKey(docId)) {
             await _repo.createOrUpdateUser(manager.copyWith(
               reports: {...manager.reports, docId: {'name': user.fullName, 'reports': {}}},
             ));
           }
-        } catch (_) {} // Never fail registration because of manager update
+        } catch (_) {}
       }
 
       emit(AuthAuthenticated(user));
     } catch (e) {
       emit(AuthError(e.toString()));
+    }
+  }
+
+  Future<void> _setUserClaim(String docId) async {
+    final idToken = await _auth.currentUser!.getIdToken();
+    final uri = Uri.parse(
+      'https://asia-south1-agoriya-app.cloudfunctions.net/setUserClaim',
+    );
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+      body: jsonEncode({'userId': docId}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to set user claim: ${response.body}');
     }
   }
 

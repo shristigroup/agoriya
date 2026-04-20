@@ -333,3 +333,160 @@ async function addToSkipManagerTree(skipManagerId, directManagerId, userId, user
     await addToSkipManagerTree(nextSkipId, directManagerId, userId, userName, userReports);
   }
 }
+
+// ─── 6. Org code seat count — stateless resync on any User write ─────────────
+// Fires whenever a User doc changes. If the code field changed, counts all
+// users sharing each affected code and writes currentUserCount directly.
+// No increment/decrement needed — the count is always derived from source.
+exports.syncOrgCodeCount = onDocumentWritten(
+  { document: "Users/{userId}", region: "asia-south1" },
+  async (event) => {
+    const before = event.data.before.exists ? event.data.before.data() : null;
+    const after = event.data.after.exists ? event.data.after.data() : null;
+
+    const prevCode = before ? (before.code || null) : null;
+    const newCode = after ? (after.code || null) : null;
+
+    if (prevCode === newCode) return;
+
+    const codesToSync = new Set();
+    if (prevCode) codesToSync.add(prevCode);
+    if (newCode) codesToSync.add(newCode);
+
+    await Promise.all([...codesToSync].map(async (code) => {
+      const codeDoc = await db.collection("Codes").doc(code).get();
+      if (!codeDoc.exists) return;
+      const snap = await db.collection("Users").where("code", "==", code).get();
+      await db.collection("Codes").doc(code).update({ currentUserCount: snap.size });
+      console.log(`[syncOrgCodeCount] ${code} → ${snap.size} members`);
+    }));
+  }
+);
+
+// ─── 7. Managers array: keep CF-maintained list of manager UIDs on each user ──
+// This array is used by Firestore rules to grant managers read/write access
+// to their reports' documents without a separate query.
+exports.updateManagersArray = onDocumentWritten(
+  { document: "Users/{userId}", region: "asia-south1" },
+  async (event) => {
+    const { userId } = event.params;
+    const before = event.data.before.exists ? event.data.before.data() : null;
+    const after = event.data.after.exists ? event.data.after.data() : null;
+
+    if (!after) return;
+
+    const prevManagerId = before ? before.managerId : null;
+    const newManagerId = after.managerId || null;
+
+    // Only run when managerId actually changes
+    if (prevManagerId === newManagerId) return;
+
+    // Walk the manager chain upward, collecting User doc IDs
+    const managerIds = [];
+    let currentManagerDocId = newManagerId;
+    const visited = new Set();
+
+    while (currentManagerDocId && !visited.has(currentManagerDocId)) {
+      visited.add(currentManagerDocId);
+      const mgrDoc = await db.collection("Users").doc(currentManagerDocId).get();
+      if (!mgrDoc.exists) break;
+      managerIds.push(currentManagerDocId);
+      currentManagerDocId = mgrDoc.data().managerId || null;
+    }
+
+    await db.collection("Users").doc(userId).update({ managers: managerIds });
+    console.log(`[updateManagersArray] ${userId} managers set to`, managerIds);
+  }
+);
+
+// ─── 8. setUserClaim — sets userId custom claim on the caller's auth token ────
+// Called post-submit during login, before any Firestore writes, so that
+// request.auth.token.userId is available in security rules.
+const { onRequest } = require("firebase-functions/v2/https");
+
+exports.setUserClaim = onRequest(
+  { region: "asia-south1", cors: true },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) { res.status(401).json({ error: "Unauthenticated" }); return; }
+
+    const { userId } = req.body;
+    if (!userId || typeof userId !== "string") {
+      res.status(400).json({ error: "Invalid userId" });
+      return;
+    }
+
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    await admin.auth().setCustomUserClaims(decoded.uid, { userId });
+    res.status(200).json({ success: true });
+  }
+);
+
+// ─── 8. getUserByPhone — authenticated HTTP endpoint ─────────────────────────
+// Used during login to look up a user doc by phone number server-side,
+// bypassing Firestore client rules cleanly via Admin SDK.
+exports.getUserByPhone = onRequest(
+  { region: "asia-south1", cors: true },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) { res.status(401).json({ error: "Unauthenticated" }); return; }
+
+    await admin.auth().verifyIdToken(idToken);
+
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) { res.status(400).json({ error: "phoneNumber required" }); return; }
+
+    const snap = await db.collection("Users")
+      .where("phoneNumber", "==", phoneNumber)
+      .limit(1)
+      .get();
+
+    if (snap.empty) { res.status(200).json({ user: null }); return; }
+
+    const doc = snap.docs[0];
+    res.status(200).json({ user: { id: doc.id, ...doc.data() } });
+  }
+);
+
+// ─── 9. getOrgMembers — unauthenticated HTTP endpoint ────────────────────────
+// Called from the login screen before the user is authenticated.
+// Returns all users sharing the given org code (id + name only).
+
+exports.getOrgMembers = onRequest(
+  { region: "asia-south1", cors: true },
+  async (req, res) => {
+    const code = (req.query.code || "").trim().toUpperCase();
+    if (!code || code.length !== 6) {
+      res.status(400).json({ error: "Invalid code" });
+      return;
+    }
+
+    const codeDoc = await db.collection("Codes").doc(code).get();
+    if (!codeDoc.exists) {
+      res.status(404).json({ error: "Code not found" });
+      return;
+    }
+
+    const snap = await db.collection("Users")
+      .where("code", "==", code)
+      .get();
+
+    const members = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        uid: data.uid || "",
+        firstName: data.firstName || "",
+        lastName: data.lastName || "",
+      };
+    });
+
+    res.status(200).json({ members });
+  }
+);

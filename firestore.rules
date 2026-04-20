@@ -7,54 +7,50 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() &&
-        get(/databases/$(database)/documents/Users/$(userId)).data.uid == request.auth.uid;
+    // Checks if the requester is the user themselves or one of their managers.
+    // managers[] is a CF-maintained array of User doc IDs up the chain.
+    function canAccessUser(userId) {
+      let user = get(/databases/$(database)/documents/Users/$(userId));
+      return isSignedIn() && (
+        request.auth.token.userId == userId ||
+        request.auth.token.userId in user.data.get('managers', [])
+      );
     }
 
-    // ─── Users collection ────────────────────────────────────────────────────
+    // ─── Codes — public read, owner-only create; update/delete via CF only ──
+    match /Codes/{code} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.token.userId;
+    }
+
+    // ─── Users ───────────────────────────────────────────────────────────────
     match /Users/{userId} {
-      allow read: if isSignedIn();
-      // create: document doesn't exist yet, so check uid in the incoming data
+      // Create: custom claim not set yet at first creation — verify via auth.uid
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
-      // update: document exists, so check uid in the existing document
-      allow update: if isSignedIn() && resource.data.uid == request.auth.uid;
+      // Read / update / delete: self or any manager in the chain
+      allow read, update, delete: if isSignedIn() && (
+        request.auth.token.userId == userId ||
+        request.auth.token.userId in resource.data.get('managers', [])
+      );
 
-      // ─── Legacy sub-collections (kept for backwards compatibility) ──────────
-      match /Attendance/{date} {
-        allow read: if isSignedIn();
-        allow write: if isOwner(userId);
-      }
-
-      match /Locations/{date} {
-        allow read: if isSignedIn();
-        allow write: if isOwner(userId);
-      }
-
-      // ─── Tracking: one doc per punch-in session, ID = '{date}_{HHmmss}' ──
-      // Replaces the old Attendance + Locations sub-collections.
-      // Locations are embedded as an array on the Tracking doc itself.
       match /Tracking/{trackingId} {
-        allow read: if isSignedIn();
-        allow write: if isOwner(userId);
+        allow read, write: if canAccessUser(userId);
       }
 
       match /Visits/{visitId} {
-        allow read: if isSignedIn();
-        allow write: if isOwner(userId);
+        allow read, write: if canAccessUser(userId);
 
         match /Comments/{commentId} {
-          allow read: if isSignedIn();
-          allow create: if isSignedIn() &&
-            request.resource.data.userId is string &&
+          allow read: if canAccessUser(userId);
+          allow create: if canAccessUser(userId) &&
+            request.resource.data.userId == request.auth.token.userId &&
             request.resource.data.text is string &&
             request.resource.data.timestamp is timestamp;
         }
       }
 
       match /Monthly/{yearMonth} {
-        allow read: if isSignedIn();
-        allow write: if isSignedIn();
+        allow read, write: if canAccessUser(userId);
       }
     }
   }

@@ -1,88 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>$(DEVELOPMENT_LANGUAGE)</string>
-    <key>CFBundleExecutable</key>
-    <string>$(EXECUTABLE_NAME)</string>
-    <key>CFBundleIdentifier</key>
-    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>Agoriya</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>$(FLUTTER_BUILD_NAME)</string>
-    <key>CFBundleSignature</key>
-    <string>????</string>
-    <key>CFBundleVersion</key>
-    <string>$(FLUTTER_BUILD_NUMBER)</string>
-    <key>LSRequiresIPhoneOS</key>
-    <true/>
-    <key>UILaunchStoryboardName</key>
-    <string>LaunchScreen</string>
-    <key>UIMainStoryboardFile</key>
-    <string>Main</string>
-    <key>UISupportedInterfaceOrientations</key>
-    <array>
-        <string>UIInterfaceOrientationPortrait</string>
-    </array>
-<key>UIViewControllerBasedStatusBarAppearance</key>
-    <false/>
-
-    <!-- Location permissions -->
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Agoriya needs your location to track your field visits and calculate travel distance.</string>
-    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>Agoriya needs your location in the background to continue tracking while you are punched in.</string>
-    <key>NSLocationAlwaysUsageDescription</key>
-    <string>Agoriya tracks your location while you are punched in to calculate your travel distance.</string>
-
-    <!-- Camera permissions -->
-    <key>NSCameraUsageDescription</key>
-    <string>Agoriya uses the front camera to take a selfie when you punch in.</string>
-
-    <!-- Microphone — required by iOS AVFoundation even for photo-only camera use -->
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Agoriya uses the camera to take a punch-in selfie. iOS requires microphone access when initialising the camera.</string>
-
-    <!-- Photo library permissions -->
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Agoriya needs access to your photo library to attach bill copies to expense claims.</string>
-    <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>Agoriya may save captured images to your photo library.</string>
-
-    <!-- Background modes -->
-    <key>UIBackgroundModes</key>
-    <array>
-        <string>location</string>
-        <string>fetch</string>
-        <string>remote-notification</string>
-    </array>
-
-    <!-- Firebase reCAPTCHA fallback URL scheme (used when APNs silent push is unavailable) -->
-    <!-- Replace the value below with the REVERSED_CLIENT_ID from your GoogleService-Info.plist -->
-    <key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleTypeRole</key>
-            <string>Editor</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>com.googleusercontent.apps.688027395428-trv5qd81iv9m92ienmq8lgffd505fekv</string>
-            </array>
-        </dict>
-    </array>
-
-    <!-- Firebase Messaging -->
-    <key>FirebaseAppDelegateProxyEnabled</key>
-    <true/>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-</dict>
+	<dict>
+		<key>CFBundleDevelopmentRegion</key>
+		<string>$(DEVELOPMENT_LANGUAGE)</string>
+		<key>CFBundleExecutable</key>
+		<string>$(EXECUTABLE_NAME)</string>
+		<key>CFBundleIdentifier</key>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+		<key>CFBundleInfoDictionaryVersion</key>
+		<string>6.0</string>
+		<key>CFBundleName</key>
+		<string>TrackFolks</string>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleShortVersionString</key>
+		<string>$(FLUTTER_BUILD_NAME)</string>
+		<key>CFBundleSignature</key>
+		<string>????</string>
+		<key>CFBundleVersion</key>
+		<string>$(FLUTTER_BUILD_NUMBER)</string>
+		<key>LSRequiresIPhoneOS</key>
+		<true/>
+		<key>UILaunchStoryboardName</key>
+		<string>LaunchScreen</string>
+		<key>UIMainStoryboardFile</key>
+		<string>Main</string>
+		<key>UISupportedInterfaceOrientations</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+		</array>
+		<key>UIViewControllerBasedStatusBarAppearance</key>
+		<false/>
+		<!-- Location permissions -->
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>TrackFolks needs your location to track your field visits and calculate travel distance.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>TrackFolks needs your location in the background to continue tracking while you are punched in.</string>
+		<key>NSLocationAlwaysUsageDescription</key>
+		<string>TrackFolks tracks your location while you are punched in to calculate your travel distance.</string>
+		<!-- Camera permissions -->
+		<key>NSCameraUsageDescription</key>
+		<string>TrackFolks uses the front camera to take a selfie when you punch in.</string>
+		<!-- Microphone — required by iOS AVFoundation even for photo-only camera use -->
+		<key>NSMicrophoneUsageDescription</key>
+		<string>TrackFolks uses the camera to take a punch-in selfie. iOS requires microphone access when initialising the camera.</string>
+		<!-- Photo library permissions -->
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>TrackFolks needs access to your photo library to attach bill copies to expense claims.</string>
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>TrackFolks may save captured images to your photo library.</string>
+		<!-- Background modes -->
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>location</string>
+			<string>fetch</string>
+			<string>remote-notification</string>
+		</array>
+		<!-- Firebase reCAPTCHA fallback URL scheme (used when APNs silent push is unavailable) -->
+		<!-- Replace the value below with the REVERSED_CLIENT_ID from your GoogleService-Info.plist -->
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.688027395428-trv5qd81iv9m92ienmq8lgffd505fekv</string>
+				</array>
+			</dict>
+		</array>
+		<!-- Firebase Messaging -->
+		<key>FirebaseAppDelegateProxyEnabled</key>
+		<true/>
+		<key>CADisableMinimumFrameDurationOnPhone</key>
+		<true/>
+		<key>UIApplicationSupportsIndirectInputEvents</key>
+		<true/>
+		<key>UIStatusBarHidden</key>
+		<false/>
+	</dict>
 </plist>

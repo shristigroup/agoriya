@@ -8,6 +8,7 @@ class UserModel {
   final String phoneNumber;
   final String? managerId;
   final Map<String, dynamic> reports; // hierarchical JSON
+  final String? code; // org code this user belongs to
 
   const UserModel({
     required this.id,
@@ -17,6 +18,7 @@ class UserModel {
     required this.phoneNumber,
     this.managerId,
     this.reports = const {},
+    this.code,
   });
 
   String get fullName => '$firstName $lastName';
@@ -32,6 +34,7 @@ class UserModel {
       phoneNumber: data['phoneNumber'] ?? '',
       managerId: data['managerId'],
       reports: Map<String, dynamic>.from(data['reports'] ?? {}),
+      code: data['code'] as String?,
     );
   }
 
@@ -42,6 +45,7 @@ class UserModel {
         'phoneNumber': phoneNumber,
         'managerId': managerId,
         'reports': reports,
+        'code': code,
       };
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -52,6 +56,7 @@ class UserModel {
         phoneNumber: json['phoneNumber'] ?? '',
         managerId: json['managerId'],
         reports: Map<String, dynamic>.from(json['reports'] ?? {}),
+        code: json['code'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -62,6 +67,7 @@ class UserModel {
         'phoneNumber': phoneNumber,
         'managerId': managerId,
         'reports': reports,
+        'code': code,
       };
 
   UserModel copyWith({
@@ -72,6 +78,9 @@ class UserModel {
     String? phoneNumber,
     String? managerId,
     Map<String, dynamic>? reports,
+    String? code,
+    bool clearManagerId = false,
+    bool clearCode = false,
   }) =>
       UserModel(
         id: id ?? this.id,
@@ -79,7 +88,8 @@ class UserModel {
         firstName: firstName ?? this.firstName,
         lastName: lastName ?? this.lastName,
         phoneNumber: phoneNumber ?? this.phoneNumber,
-        managerId: managerId ?? this.managerId,
+        managerId: clearManagerId ? null : (managerId ?? this.managerId),
         reports: reports ?? this.reports,
+        code: clearCode ? null : (code ?? this.code),
       );
 }

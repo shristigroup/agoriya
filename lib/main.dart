@@ -36,7 +36,7 @@ void main() async {
   // Wire notification deep-link navigation
   NotificationService.onNotificationTap = _handleNotificationTap;
 
-  runApp(const AgoriyaApp());
+  runApp(const TrackFolksApp());
 }
 
 void _handleNotificationTap(Map<String, dynamic> data) {
@@ -122,8 +122,8 @@ void _navigateToUserHome(NavigatorState nav, String targetUserId) {
   ));
 }
 
-class AgoriyaApp extends StatelessWidget {
-  const AgoriyaApp({super.key});
+class TrackFolksApp extends StatelessWidget {
+  const TrackFolksApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -134,7 +134,7 @@ class AgoriyaApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Agoriya',
+        title: 'TrackFolks',
         theme: AppTheme.light,
         debugShowCheckedModeBanner: false,
         navigatorKey: navigatorKey,
@@ -192,7 +192,7 @@ class _SplashScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Agoriya',
+              'TrackFolks',
               style: TextStyle(
                 fontFamily: 'Sora',
                 fontSize: 44,

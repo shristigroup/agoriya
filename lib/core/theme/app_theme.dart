@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static const Color primary = Color(0xFF1A6B3C);
-  static const Color primaryLight = Color(0xFF2E9959);
-  static const Color primaryDark = Color(0xFF0D4726);
+  static const Color primary = Color(0xFF8B1A1A);
+  static const Color primaryLight = Color(0xFFB71C1C);
+  static const Color primaryDark = Color(0xFF5C0F0F);
   static const Color accent = Color(0xFFF5A623);
   static const Color accentLight = Color(0xFFFFC85A);
-  static const Color surface = Color(0xFFF7F9F8);
+  static const Color surface = Color(0xFFF9F7F7);
   static const Color cardBg = Color(0xFFFFFFFF);
-  static const Color textPrimary = Color(0xFF0F1F16);
-  static const Color textSecondary = Color(0xFF5A7265);
-  static const Color textHint = Color(0xFF9DB5A5);
-  static const Color divider = Color(0xFFE0EBE5);
+  static const Color textPrimary = Color(0xFF1A0A0A);
+  static const Color textSecondary = Color(0xFF6B5050);
+  static const Color textHint = Color(0xFFB09090);
+  static const Color divider = Color(0xFFEDE0E0);
   static const Color error = Color(0xFFD93025);
-  static const Color punchIn = Color(0xFF1A6B3C);
+  static const Color punchIn = Color(0xFF2E7D32);
   static const Color punchOut = Color(0xFFD93025);
   static const Color checkIn = Color(0xFF1565C0);
   static const Color checkOut = Color(0xFF6A1B9A);
@@ -53,6 +53,7 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
         seedColor: primary,
+        brightness: Brightness.light,
         primary: primary,
         secondary: accent,
         surface: surface,
