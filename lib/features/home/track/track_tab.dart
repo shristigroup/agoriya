@@ -85,7 +85,7 @@ class _TrackTabState extends State<TrackTab> {
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.trackfolks.app',
+              userAgentPackageName: 'com.agoriya.app',
             ),
             // Polyline — drawn directly from stored points (snapped where available)
             if (points.length >= 2)
