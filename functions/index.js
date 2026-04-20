@@ -334,7 +334,36 @@ async function addToSkipManagerTree(skipManagerId, directManagerId, userId, user
   }
 }
 
-// ─── 6. Managers array: keep CF-maintained list of manager UIDs on each user ──
+// ─── 6. Org code seat count — stateless resync on any User write ─────────────
+// Fires whenever a User doc changes. If the code field changed, counts all
+// users sharing each affected code and writes currentUserCount directly.
+// No increment/decrement needed — the count is always derived from source.
+exports.syncOrgCodeCount = onDocumentWritten(
+  { document: "Users/{userId}", region: "asia-south1" },
+  async (event) => {
+    const before = event.data.before.exists ? event.data.before.data() : null;
+    const after = event.data.after.exists ? event.data.after.data() : null;
+
+    const prevCode = before ? (before.code || null) : null;
+    const newCode = after ? (after.code || null) : null;
+
+    if (prevCode === newCode) return;
+
+    const codesToSync = new Set();
+    if (prevCode) codesToSync.add(prevCode);
+    if (newCode) codesToSync.add(newCode);
+
+    await Promise.all([...codesToSync].map(async (code) => {
+      const codeDoc = await db.collection("Codes").doc(code).get();
+      if (!codeDoc.exists) return;
+      const snap = await db.collection("Users").where("code", "==", code).get();
+      await db.collection("Codes").doc(code).update({ currentUserCount: snap.size });
+      console.log(`[syncOrgCodeCount] ${code} → ${snap.size} members`);
+    }));
+  }
+);
+
+// ─── 7. Managers array: keep CF-maintained list of manager UIDs on each user ──
 // This array is used by Firestore rules to grant managers read/write access
 // to their reports' documents without a separate query.
 exports.updateManagersArray = onDocumentWritten(
@@ -370,7 +399,7 @@ exports.updateManagersArray = onDocumentWritten(
   }
 );
 
-// ─── 7. setUserClaim — sets userId custom claim on the caller's auth token ────
+// ─── 8. setUserClaim — sets userId custom claim on the caller's auth token ────
 // Called post-submit during login, before any Firestore writes, so that
 // request.auth.token.userId is available in security rules.
 const { onRequest } = require("firebase-functions/v2/https");

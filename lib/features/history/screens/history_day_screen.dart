@@ -314,7 +314,7 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
               TileLayer(
                 urlTemplate:
                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.agoriya.app',
+                userAgentPackageName: 'com.trackfolks.app',
               ),
             ],
           ),

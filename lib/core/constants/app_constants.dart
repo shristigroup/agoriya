@@ -53,6 +53,6 @@ class AppConstants {
   static const String cacheVersionKey = 'cache_version';
 
   // Background service
-  static const String bgServiceChannel = 'agoriya_location_channel';
+  static const String bgServiceChannel = 'trackfolks_location_channel';
   static const int bgNotificationId = 1001;
 }

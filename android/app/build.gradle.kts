@@ -24,7 +24,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.agoriya.app"
+        applicationId = "com.trackfolks.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

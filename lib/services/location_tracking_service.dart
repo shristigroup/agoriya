@@ -17,7 +17,7 @@ class LocationTrackingService {
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       AppConstants.bgServiceChannel,
       'Location Tracking',
-      description: 'Agoriya tracks your location while punched in.',
+      description: 'TrackFolks tracks your location while punched in.',
       importance: Importance.low,
     );
 
@@ -33,7 +33,7 @@ class LocationTrackingService {
         autoStart: false,
         isForegroundMode: true,
         notificationChannelId: AppConstants.bgServiceChannel,
-        initialNotificationTitle: 'Agoriya',
+        initialNotificationTitle: 'TrackFolks',
         initialNotificationContent: 'Tracking location...',
         foregroundServiceNotificationId: AppConstants.bgNotificationId,
         foregroundServiceTypes: [AndroidForegroundType.location],

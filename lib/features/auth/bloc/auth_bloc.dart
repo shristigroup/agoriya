@@ -121,16 +121,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       await _setUserClaim(docId);
       await _auth.currentUser!.getIdToken(true); // force token refresh
 
-      // Determine which org code to attach to this user.
-      // Priority: existing code in DB > code entered during login > generate new one.
-      String? resolvedCode = existing?.code;
-      if (resolvedCode == null || resolvedCode.isEmpty) {
-        if (event.orgCode != null && event.orgCode!.isNotEmpty) {
-          resolvedCode = event.orgCode;
-        } else {
-          // No code entered — create a new org with this user as owner.
-          resolvedCode = await _repo.createOrgCode(docId);
-        }
+      // Use submitted code if provided; otherwise create a new org.
+      final String resolvedCode;
+      if (event.orgCode != null && event.orgCode!.isNotEmpty) {
+        resolvedCode = event.orgCode!;
+      } else {
+        resolvedCode = await _repo.createOrgCode(docId);
       }
 
       final user = UserModel(
@@ -162,15 +158,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
               reports: {...manager.reports, docId: {'name': user.fullName, 'reports': {}}},
             ));
           }
-        } catch (_) {}
-      }
-
-      // If joining an org via code (not generating a new one), increment count.
-      if (event.orgCode != null &&
-          event.orgCode!.isNotEmpty &&
-          (existing?.code == null || existing!.code!.isEmpty)) {
-        try {
-          await _repo.incrementOrgUserCount(event.orgCode!);
         } catch (_) {}
       }
 

@@ -15,9 +15,9 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
-    'agoriya_notifications',
-    'Agoriya Notifications',
-    description: 'Notifications for Agoriya activities',
+    'trackfolks_notifications',
+    'TrackFolks Notifications',
+    description: 'Notifications for TrackFolks activities',
     importance: Importance.high,
   );
 

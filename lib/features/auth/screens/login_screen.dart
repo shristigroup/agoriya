@@ -31,15 +31,13 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _otpSent = false;
   bool _otpConfirmed = false;
 
-  // Org code section — shown only when user has no existing code in DB
-  bool _showCodeSection = false;
   _CodeState _codeState = _CodeState.idle;
   String? _codeError;
   OrgCodeModel? _orgCodeDoc;
-  List<UserModel> _orgMembers = []; // owner + all org members for manager pick
+  List<UserModel> _orgMembers = [];
 
   String? _selectedManagerId;
-  bool _existingUserHasCode = false; // suppress code section for returning users
+  String? _selfId; // current user's doc ID — excluded from manager dropdown
   String _appVersion = '';
 
   @override
@@ -68,20 +66,19 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _firstNameController.text = existing.firstName;
           _lastNameController.text = existing.lastName;
-          _selectedManagerId = existing.managerId;
-          _existingUserHasCode =
-              existing.code != null && existing.code!.isNotEmpty;
-          _showCodeSection = !_existingUserHasCode;
+          _selfId = existing.id;
         });
-      } else if (mounted) {
-        setState(() => _showCodeSection = true);
+        if (existing.code != null && existing.code!.isNotEmpty) {
+          _codeController.text = existing.code!;
+          await _getPeople(preSelectManagerId: existing.managerId);
+        }
       }
     } catch (_) {
-      if (mounted) setState(() => _showCodeSection = true);
+      // proceed without prefill
     }
   }
 
-  Future<void> _getPeople() async {
+  Future<void> _getPeople({String? preSelectManagerId}) async {
     final code = _codeController.text.trim().toUpperCase();
     if (code.length != 6) {
       setState(() { _codeError = 'Enter a 6-character code'; _codeState = _CodeState.idle; });
@@ -105,7 +102,10 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _orgCodeDoc = orgCode;
           _orgMembers = members;
-          _selectedManagerId = null;
+          _selectedManagerId = preSelectManagerId != null &&
+                  members.any((m) => m.id == preSelectManagerId)
+              ? preSelectManagerId
+              : null;
           _codeState = _CodeState.loaded;
         });
       }
@@ -127,31 +127,29 @@ class _LoginScreenState extends State<LoginScreen> {
   void _submit(BuildContext context) {
     if (!(_profileFormKey.currentState?.validate() ?? false)) return;
 
-    // If the user fetched an org but hasn't selected a manager, block submit.
-    if (_codeState == _CodeState.loaded && _selectedManagerId == null) {
+    final codeText = _codeController.text.trim().toUpperCase();
+
+    // Code entered but not yet verified — user must click Get People first.
+    if (codeText.isNotEmpty && _codeState != _CodeState.loaded) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Please select a manager from the organisation'),
+        content: Text('Click "Get People" to verify the organisation code'),
         backgroundColor: AppTheme.error,
       ));
       return;
     }
 
-    final enteredCode = _codeState == _CodeState.loaded
-        ? _codeController.text.trim().toUpperCase()
-        : null;
-
     context.read<AuthBloc>().add(CompleteProfileEvent(
       firstName: _firstNameController.text.trim(),
       lastName: _lastNameController.text.trim(),
       managerId: _selectedManagerId,
-      orgCode: enteredCode,
+      orgCode: _codeState == _CodeState.loaded ? codeText : null,
     ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.primary,
+      backgroundColor: const Color(0xFF141414),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is OtpSent) {
@@ -176,23 +174,39 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
+                  padding: const EdgeInsets.fromLTRB(24, 36, 24, 28),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text('Agoriya',
-                        style: AppTheme.sora(40, weight: FontWeight.w800, color: Colors.white, letterSpacing: -1),
+                      Image.asset(
+                        'assets/logo/tf-logo.png',
+                        height: 100,
+                        width: 100,
+                      ).animate().fadeIn(duration: 500.ms).scale(begin: const Offset(0.85, 0.85)),
+                      const SizedBox(height: 16),
+                      Text.rich(
+                        TextSpan(
+                          text: 'TrackFolks',
+                          style: AppTheme.sora(36, weight: FontWeight.w800, color: AppTheme.primary, letterSpacing: -1),
+                          children: _appVersion.isNotEmpty
+                              ? [
+                                  WidgetSpan(
+                                    child: Transform.translate(
+                                      offset: const Offset(3, -14),
+                                      child: Text(
+                                        'v$_appVersion',
+                                        style: AppTheme.sora(11, color: AppTheme.primary.withValues(alpha: 0.75)),
+                                      ),
+                                    ),
+                                  ),
+                                ]
+                              : [],
+                        ),
                       ).animate().fadeIn(duration: 600.ms).slideY(begin: -0.2),
                       const SizedBox(height: 4),
                       Text('Field Force Tracker',
-                        style: AppTheme.sora(16, color: Colors.white.withValues(alpha: 0.7)),
+                        style: AppTheme.sora(15, color: AppTheme.primary.withValues(alpha: 0.75)),
                       ).animate().fadeIn(delay: 200.ms),
-                      if (_appVersion.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text('v$_appVersion',
-                          style: AppTheme.sora(12, color: Colors.white.withValues(alpha: 0.45)),
-                        ).animate().fadeIn(delay: 350.ms),
-                      ],
                     ],
                   ),
                 ),
@@ -323,8 +337,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ],
                                 ),
 
-                                // ── Organisation code (new users / no code) ──
-                                if (_otpConfirmed && _showCodeSection) ...[
+                                // ── Organisation code ───────────────────────
+                                if (_otpConfirmed) ...[
                                   const SizedBox(height: 20),
                                   _sectionTitle('Organisation Code (Optional)'),
                                   const SizedBox(height: 4),
@@ -339,8 +353,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       Expanded(
                                         child: TextFormField(
                                           controller: _codeController,
-                                          enabled: _otpConfirmed && !submitting &&
-                                              _codeState != _CodeState.loaded,
+                                          enabled: _otpConfirmed && !submitting,
                                           textCapitalization: TextCapitalization.characters,
                                           maxLength: 6,
                                           decoration: InputDecoration(
@@ -348,6 +361,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                             counterText: '',
                                             errorText: _codeError,
                                           ),
+                                          onChanged: (_) {
+                                            if (_codeState != _CodeState.idle) {
+                                              setState(() {
+                                                _codeState = _CodeState.idle;
+                                                _orgCodeDoc = null;
+                                                _orgMembers = [];
+                                                _selectedManagerId = null;
+                                                _codeError = null;
+                                              });
+                                            }
+                                          },
                                         ),
                                       ),
                                       const SizedBox(width: 12),
@@ -357,6 +381,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         done: _codeState == _CodeState.loaded,
                                         onPressed: (!_otpConfirmed ||
                                                 submitting ||
+                                                _codeState == _CodeState.loading ||
                                                 _codeState == _CodeState.loaded)
                                             ? null
                                             : _getPeople,
@@ -398,22 +423,28 @@ class _LoginScreenState extends State<LoginScreen> {
                                                   weight: FontWeight.w600,
                                                   color: AppTheme.textSecondary)),
                                           const SizedBox(height: 6),
-                                          DropdownButtonFormField<String>(
+                                          DropdownButtonFormField<String?>(
                                             key: ValueKey(_selectedManagerId),
-                                            initialValue: _selectedManagerId,
+                                            value: _selectedManagerId,
                                             isExpanded: true,
                                             decoration: const InputDecoration(
-                                                hintText: 'Select manager'),
-                                            items: _orgMembers.map((u) => DropdownMenuItem(
-                                                  value: u.id,
-                                                  child: Text(u.fullName,
-                                                      overflow: TextOverflow.ellipsis),
-                                                )).toList(),
+                                                hintText: 'No Manager'),
+                                            items: [
+                                              const DropdownMenuItem<String?>(
+                                                value: null,
+                                                child: Text('No Manager'),
+                                              ),
+                                              ..._orgMembers
+                                                  .where((u) => u.id != _selfId)
+                                                  .map((u) => DropdownMenuItem<String?>(
+                                                        value: u.id,
+                                                        child: Text(u.fullName,
+                                                            overflow: TextOverflow.ellipsis),
+                                                      )),
+                                            ],
                                             onChanged: (!_otpConfirmed || submitting)
                                                 ? null
                                                 : (val) => setState(() => _selectedManagerId = val),
-                                            validator: (v) =>
-                                                v == null ? 'Select a manager' : null,
                                           ),
                                         ],
                                       ),

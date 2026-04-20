@@ -17,11 +17,10 @@ service cloud.firestore {
       );
     }
 
-    // ─── Codes — public read (needed before login), owner-only write ─────────
+    // ─── Codes — public read, owner-only create; update/delete via CF only ──
     match /Codes/{code} {
       allow read: if true;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.token.userId;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.token.userId;
     }
 
     // ─── Users ───────────────────────────────────────────────────────────────

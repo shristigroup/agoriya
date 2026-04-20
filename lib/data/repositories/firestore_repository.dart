@@ -320,8 +320,15 @@ class FirestoreRepository {
     return OrgCodeModel.fromFirestore(doc);
   }
 
-  /// Generates a unique 6-char alphanumeric code and creates the Codes doc.
+  /// Returns the existing Code for this owner, or creates a new one.
   Future<String> createOrgCode(String ownerId) async {
+    // Reuse any Code doc already owned by this user.
+    final existing = await _codes
+        .where('userId', isEqualTo: ownerId)
+        .limit(1)
+        .get();
+    if (existing.docs.isNotEmpty) return existing.docs.first.id;
+
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/1/I ambiguity
     final rand = Random.secure();
     for (int attempts = 0; attempts < 10; attempts++) {
@@ -339,15 +346,7 @@ class FirestoreRepository {
     throw Exception('Could not generate unique org code');
   }
 
-  Future<void> incrementOrgUserCount(String code) async {
-    await _codes.doc(code).update({'currentUserCount': FieldValue.increment(1)});
-  }
-
-  Future<void> decrementOrgUserCount(String code) async {
-    await _codes.doc(code).update({'currentUserCount': FieldValue.increment(-1)});
-  }
-
-  /// All users who share this org code.
+/// All users who share this org code.
   /// Calls the unauthenticated Cloud Function — needed before login when
   /// Firestore rules would otherwise block the query.
   Future<List<UserModel>> getOrgMembers(String code) async {

@@ -155,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen>
       await _showPermissionDialog(
         'Location Permission Required',
         'Location access has been permanently denied.\n\n'
-        'Please go to Settings → Agoriya → Permissions → Location and enable it.',
+        'Please go to Settings → TrackFolks → Permissions → Location and enable it.',
       );
       return false;
     }
@@ -163,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (perm == LocationPermission.denied) {
       await _showPermissionDialog(
         'Location Permission Required',
-        'Agoriya needs location access to track your field visits.\n\n'
+        'TrackFolks needs location access to track your field visits.\n\n'
         'Please enable location permission in Settings.',
       );
       return false;
@@ -184,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen>
       builder: (_) => AlertDialog(
         title: const Text('Background Location Needed'),
         content: const Text(
-          'Agoriya needs to track your location while punched in, even when '
+          'TrackFolks needs to track your location while punched in, even when '
           'the app is in the background.\n\n'
           'Precise location is not required — approximate is fine.\n\n'
           'On the next screen select "Allow all the time".',
@@ -209,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (!bgStatus.isGranted) {
       await _showPermissionDialog(
         'Background Location Needed',
-        'Please go to Settings → Agoriya → Permissions → Location '
+        'Please go to Settings → TrackFolks → Permissions → Location '
         'and select "Allow all the time".\n\n'
         'You do not need to enable "Precise location".',
       );
@@ -225,9 +225,9 @@ class _HomeScreenState extends State<HomeScreen>
         title: 'Camera Permission Required',
         permanentlyDeniedMessage:
             'Camera access has been permanently denied.\n\n'
-            'Please go to Settings → Agoriya → Camera and enable it.',
+            'Please go to Settings → TrackFolks → Camera and enable it.',
         deniedMessage:
-            'Agoriya needs camera access to take a selfie when you punch in.\n\n'
+            'TrackFolks needs camera access to take a selfie when you punch in.\n\n'
             'Please enable camera permission in Settings.',
       );
 
@@ -528,7 +528,7 @@ class _HomeScreenState extends State<HomeScreen>
                   )
                 : null,
             title: Text(
-              _isReadOnly ? (widget.viewingUserName ?? 'Team Member') : 'Agoriya',
+              _isReadOnly ? (widget.viewingUserName ?? 'Team Member') : 'TrackFolks',
               style: AppTheme.sora(22, weight: FontWeight.w700, color: Colors.white),
             ),
             actions: [
