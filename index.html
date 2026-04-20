@@ -3,26 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Agoriya — Field Force Tracker</title>
-  <meta name="description" content="Agoriya helps field teams track attendance, visits, and location — all in one place." />
+  <title>TrackFolks — Field Force Tracker</title>
+  <meta name="description" content="TrackFolks helps field teams track attendance, visits, and location — all in one place." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --green:       #1A6B3C;
-      --green-dark:  #145530;
-      --green-light: #e8f5ee;
+      --red:         #8B1A1A;
+      --red-dark:    #5C0F0F;
+      --red-light:   #fbeaea;
       --gold:        #F5A623;
       --gold-shadow: rgba(245,166,35,0.35);
-      --text:        #1a1a1a;
-      --muted:       #666;
-      --hint:        #999;
+      --text:        #1A0A0A;
+      --muted:       #6B5050;
+      --hint:        #B09090;
       --surface:     #ffffff;
-      --bg:          #f4f6f4;
+      --bg:          #F9F7F7;
+      --divider:     #EDE0E0;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: var(--bg);
       color: var(--text);
       -webkit-font-smoothing: antialiased;
@@ -30,7 +34,7 @@
 
     /* ── Header ── */
     header {
-      background: var(--green);
+      background: var(--red-dark);
       padding: 18px 24px;
       display: flex;
       align-items: center;
@@ -38,19 +42,19 @@
     }
     .logo {
       width: 42px; height: 42px;
-      background: white;
       border-radius: 11px;
-      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
       flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
+    .logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .brand { display: flex; flex-direction: column; gap: 1px; }
     .brand-name  { color: white; font-size: 20px; font-weight: 800; letter-spacing: -0.4px; line-height: 1; }
-    .brand-tag   { color: rgba(255,255,255,0.65); font-size: 12px; font-weight: 400; }
+    .brand-tag   { color: rgba(255,255,255,0.55); font-size: 12px; font-weight: 400; }
 
     /* ── Hero ── */
     .hero {
-      background: linear-gradient(160deg, var(--green) 0%, var(--green-dark) 100%);
+      background: linear-gradient(160deg, var(--red) 0%, var(--red-dark) 100%);
       padding: 56px 24px 64px;
       text-align: center;
     }
@@ -63,7 +67,7 @@
       margin-bottom: 14px;
     }
     .hero p {
-      color: rgba(255,255,255,0.75);
+      color: rgba(255,255,255,0.72);
       font-size: 16px;
       line-height: 1.6;
       max-width: 420px;
@@ -81,8 +85,8 @@
     }
     .platform-pill {
       display: inline-flex; align-items: center; gap: 6px;
-      background: var(--green-light);
-      color: var(--green);
+      background: var(--red-light);
+      color: var(--red);
       font-size: 12px; font-weight: 700;
       padding: 5px 13px; border-radius: 20px;
       margin-bottom: 18px;
@@ -96,6 +100,7 @@
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 9px;
       padding: 15px 28px; border-radius: 50px;
+      font-family: 'Sora', sans-serif;
       font-size: 15px; font-weight: 700; text-decoration: none;
       transition: transform 0.18s, box-shadow 0.18s;
       cursor: pointer; border: none;
@@ -107,21 +112,21 @@
       box-shadow: 0 4px 18px var(--gold-shadow);
     }
     .btn-gold:hover { box-shadow: 0 7px 24px var(--gold-shadow); }
-    .btn-green { background: var(--green); color: white; box-shadow: 0 4px 14px rgba(26,107,60,0.3); }
+    .btn-red { background: var(--red); color: white; box-shadow: 0 4px 14px rgba(139,26,26,0.3); }
 
-    .divider { border: none; border-top: 1px solid #eee; margin: 22px 0; }
+    .divider { border: none; border-top: 1px solid var(--divider); margin: 22px 0; }
 
     /* ── Steps ── */
     .steps { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
     .step  { display: flex; gap: 12px; align-items: flex-start; }
     .step-num {
-      background: var(--green); color: white;
+      background: var(--red); color: white;
       min-width: 24px; height: 24px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       font-size: 11px; font-weight: 800; flex-shrink: 0; margin-top: 1px;
     }
     .step-text { font-size: 14px; color: #444; line-height: 1.55; }
-    .step-text a { color: var(--green); font-weight: 600; text-decoration: none; }
+    .step-text a { color: var(--red); font-weight: 600; text-decoration: none; }
     .step-text a:hover { text-decoration: underline; }
 
     .warning-box {
@@ -144,9 +149,10 @@
       background: var(--surface);
       border-radius: 16px; padding: 18px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      border: 1px solid var(--divider);
     }
     .feature-icon { font-size: 26px; margin-bottom: 10px; }
-    .feature-title { font-size: 13px; font-weight: 700; color: var(--green); margin-bottom: 4px; }
+    .feature-title { font-size: 13px; font-weight: 700; color: var(--red); margin-bottom: 4px; }
     .feature-desc  { font-size: 12px; color: var(--muted); line-height: 1.45; }
 
     /* ── Footer ── */
@@ -154,7 +160,7 @@
       text-align: center; padding: 28px 24px 40px;
       font-size: 12px; color: var(--hint); line-height: 1.7;
     }
-    footer a { color: var(--green); text-decoration: none; }
+    footer a { color: var(--red); text-decoration: none; }
 
     /* ── Show/hide OS sections ── */
     #section-ios, #section-android, #section-other { display: none; }
@@ -169,13 +175,10 @@
   <!-- ── Header ── -->
   <header>
     <div class="logo">
-      <svg width="26" height="26" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M50 10 L90 85 H70 L50 45 L30 85 H10 Z" fill="#1A6B3C"/>
-        <rect x="28" y="60" width="44" height="10" rx="5" fill="#F5A623"/>
-      </svg>
+      <img src="assets/logo/tf-logo.png" alt="TrackFolks logo" />
     </div>
     <div class="brand">
-      <span class="brand-name">Agoriya</span>
+      <span class="brand-name">TrackFolks</span>
       <span class="brand-tag">Field Force Tracker</span>
     </div>
   </header>
@@ -196,7 +199,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
           iPhone / iPad
         </div>
-        <div class="card-title">Get Agoriya on iOS</div>
+        <div class="card-title">Get TrackFolks on iOS</div>
         <div class="card-sub">Available via TestFlight — Apple's official beta testing platform.</div>
         <a class="btn btn-gold" href="https://testflight.apple.com/join/Q4qpE2eh" target="_blank" rel="noopener">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M19.59 7L12 3 4.41 7 12 11 19.59 7zM12 13.08L4 9v6l8 4 8-4V9l-8 4.08z"/></svg>
@@ -223,7 +226,7 @@
           </div>
           <div class="step">
             <div class="step-num">4</div>
-            <div class="step-text">Open Agoriya and sign in with your registered phone number.</div>
+            <div class="step-text">Open TrackFolks and sign in with your registered phone number.</div>
           </div>
         </div>
       </div>
@@ -234,11 +237,11 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.341a.85.85 0 0 1-.852.852.85.85 0 0 1-.851-.852V9.852A.85.85 0 0 1 16.671 9a.85.85 0 0 1 .852.852v5.489zm-11.194 0A.85.85 0 0 1 5.477 16.2a.85.85 0 0 1-.852-.852V9.852A.85.85 0 0 1 5.477 9a.85.85 0 0 1 .852.852v5.489zM14.74 2.1l1.207-1.214a.307.307 0 0 0 0-.435.307.307 0 0 0-.435 0L14.2 1.772A6.047 6.047 0 0 0 12 1.383c-.768 0-1.5.138-2.2.389L8.488.45a.307.307 0 0 0-.435 0 .307.307 0 0 0 0 .435L9.26 2.1A5.978 5.978 0 0 0 6.17 7.419h11.658A5.978 5.978 0 0 0 14.74 2.1zm-5.49 2.95a.516.516 0 1 1 0-1.032.516.516 0 0 1 0 1.032zm5.5 0a.516.516 0 1 1 0-1.032.516.516 0 0 1 0 1.032zM6.17 18.5c0 .828.673 1.5 1.5 1.5h.83v2.148a.85.85 0 0 0 .852.852.85.85 0 0 0 .851-.852V20h1.594v2.148a.85.85 0 0 0 .852.852.85.85 0 0 0 .852-.852V20h.83c.828 0 1.5-.672 1.5-1.5V7.84H6.17V18.5z"/></svg>
           Android
         </div>
-        <div class="card-title">Get Agoriya for Android</div>
+        <div class="card-title">Get TrackFolks for Android</div>
         <div class="card-sub">Download and install the APK directly — no Play Store required.</div>
         <a class="btn btn-gold" id="android-download-btn"
-           href="https://firebasestorage.googleapis.com/v0/b/agoriya-app.firebasestorage.app/o/releases%2Flatest.apk?alt=media&v=0.2.10"
-           download="agoriya.apk">
+           href="https://firebasestorage.googleapis.com/v0/b/agoriya-app.firebasestorage.app/o/releases%2Flatest.apk?alt=media&v=1.0.0"
+           download="trackfolks.apk">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h3.84v4h5.66V9h3.84L12 2z"/></svg>
           Download APK
         </a>
@@ -251,7 +254,7 @@
           <div class="step">
             <div class="step-num">2</div>
             <div class="step-text">
-              Open your <strong>Downloads</strong> folder and tap the <strong>agoriya.apk</strong> file.
+              Open your <strong>Downloads</strong> folder and tap the <strong>trackfolks.apk</strong> file.
             </div>
           </div>
           <div class="step">
@@ -263,26 +266,26 @@
           </div>
           <div class="step">
             <div class="step-num">4</div>
-            <div class="step-text">Tap <strong>Install</strong> and open Agoriya to sign in.</div>
+            <div class="step-text">Tap <strong>Install</strong> and open TrackFolks to sign in.</div>
           </div>
         </div>
         <div class="warning-box">
-          <strong>Note:</strong> You may see a "Play Protect" warning. Tap <strong>Install anyway</strong> — Agoriya is safe and distributed privately for your organisation.
+          <strong>Note:</strong> You may see a "Play Protect" warning. Tap <strong>Install anyway</strong> — TrackFolks is safe and distributed privately for your organisation.
         </div>
       </div>
 
       <!-- Other / Desktop -->
       <div id="section-other">
-        <div class="card-title">Download Agoriya</div>
+        <div class="card-title">Download TrackFolks</div>
         <div class="card-sub">Choose your platform below.</div>
         <div style="display:flex; gap:12px; flex-wrap:wrap;">
           <a class="btn btn-gold" href="https://testflight.apple.com/join/Q4qpE2eh" target="_blank" rel="noopener">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
             iOS — TestFlight
           </a>
-          <a class="btn btn-green"
-             href="https://firebasestorage.googleapis.com/v0/b/agoriya-app.firebasestorage.app/o/releases%2Flatest.apk?alt=media&v=0.2.10"
-             download="agoriya.apk">
+          <a class="btn btn-red"
+             href="https://firebasestorage.googleapis.com/v0/b/agoriya-app.firebasestorage.app/o/releases%2Flatest.apk?alt=media&v=1.0.0"
+             download="trackfolks.apk">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h3.84v4h5.66V9h3.84L12 2z"/></svg>
             Android — APK
           </a>
@@ -300,7 +303,7 @@
 
   <!-- ── Features ── -->
   <div class="features-section">
-    <div class="section-label">What Agoriya does</div>
+    <div class="section-label">What TrackFolks does</div>
     <div class="feature-grid">
       <div class="feature-card">
         <div class="feature-icon">📍</div>
@@ -327,15 +330,13 @@
 
   <!-- ── Footer ── -->
   <footer>
-    <p>Agoriya &copy; <span id="year"></span> Shrishti Group</p>
+    <p>TrackFolks &copy; <span id="year"></span> Shrishti Group</p>
     <p style="margin-top:4px;">Built for field teams. <a href="https://github.com/shristigroup/agoriya">View on GitHub</a></p>
   </footer>
 
   <script>
-    // Set year
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // OS detection
     const ua = navigator.userAgent || '';
     const isIOS     = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
     const isAndroid = /Android/.test(ua);
