@@ -49,3 +49,4 @@ functions/.runtimeconfig.json
 
 dist/
 .claude/
+_site/
