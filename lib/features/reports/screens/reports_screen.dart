@@ -126,7 +126,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final code = currentUser?.code ?? '';
     if (code.isEmpty) return;
     SharePlus.instance.share(ShareParams(
-      text: 'Join my team on TrackFolks!\n\nUse my organisation code: $code\n\nDownload the app: https://shristigroup.github.io/trackfolks',
+      text: 'Join my team on TrackFolks!\n\nUse my organisation code: $code\n\nDownload the app: https://tf.shristigroup.com',
     ));
   }
 
