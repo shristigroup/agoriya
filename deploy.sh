@@ -31,14 +31,14 @@ fi
 info "Current version: $PUBSPEC_VERSION"
 
 # ─── Compare with last built version ──────────────────────────────────────────
-# if [[ -f "$VERSION_FILE" ]]; then
-#   LAST_VERSION=$(cat "$VERSION_FILE")
-#   if [[ "$LAST_VERSION" == "$PUBSPEC_VERSION" ]]; then
-#     warn "Version $PUBSPEC_VERSION was already built. Bump the version in pubspec.yaml before deploying."
-#     warn "Example: version: 0.2.0+2"
-#     exit 1
-#   fi
-# fi
+if [[ -f "$VERSION_FILE" ]]; then
+  LAST_VERSION=$(cat "$VERSION_FILE")
+  if [[ "$LAST_VERSION" == "$PUBSPEC_VERSION" ]]; then
+    warn "Version $PUBSPEC_VERSION was already built. Bump the version in pubspec.yaml before deploying."
+    warn "Example: version: 0.2.0+2"
+    exit 1
+  fi
+fi
 
 mkdir -p "$DIST_DIR"
 

@@ -1,7 +1,7 @@
 name: agoriya
 description: Agoriya v1.0 - Field Force Tracking App
 publish_to: 'none'
-version: 1.0.0
+version: 1.0.1+2
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
