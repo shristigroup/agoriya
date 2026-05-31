@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
+import '../../../core/utils/csv_export_service.dart';
 import '../../../data/local/local_storage_service.dart';
 import '../../../data/models/tracking_model.dart';
 import '../../../data/models/org_code_model.dart';
 import '../../../data/data_manager.dart';
 import '../../../data/repositories/firestore_repository.dart';
 import '../../history/screens/history_screen.dart';
+import '../widgets/export_bottom_sheet.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -21,6 +23,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   bool _loading = true;
   String? _error;
   OrgCodeModel? _orgCode;
+  bool _isOwner = false;
 
   @override
   void initState() {
@@ -68,7 +71,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       if (fresh.code != null && fresh.code!.isNotEmpty) {
         try {
           final orgCode = await repo.getOrgCode(fresh.code!);
-          if (mounted) setState(() => _orgCode = orgCode);
+          if (mounted) setState(() {
+            _orgCode = orgCode;
+            _isOwner = orgCode?.ownerId == fresh.id;
+          });
         } catch (_) {}
       }
     } catch (_) {}
@@ -121,6 +127,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
+  void _openExport() {
+    final members = _reports
+        .map((e) => CsvMemberRef(userId: e.userId, name: e.name))
+        .toList();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => ExportBottomSheet(members: members),
+    );
+  }
+
   void _shareInvite() {
     final currentUser = LocalStorageService.getUser();
     final code = currentUser?.code ?? '';
@@ -137,7 +157,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('My Team')),
+      appBar: AppBar(
+        title: const Text('My Team'),
+        actions: [
+          if (_isOwner)
+            IconButton(
+              icon: const Icon(Icons.upload_file_outlined),
+              tooltip: 'Export report',
+              onPressed: _openExport,
+            ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
           : _error != null
