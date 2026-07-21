@@ -14,7 +14,7 @@ dependencies:
   firebase_core: ^4.6.0
   firebase_auth: ^6.3.0
   cloud_firestore: ^6.2.0
-  firebase_storage: ^13.2.0
+  firebase_storage: ^13.4.5
   firebase_messaging: ^16.1.3
 
   # Maps
@@ -30,7 +30,7 @@ dependencies:
   flutter_local_notifications: ^18.0.0
 
   # Camera
-  camera: ^0.12.0+1
+  camera: ^0.12.0+2
   image_picker: ^1.1.2
 
   # Local storage
@@ -49,7 +49,7 @@ dependencies:
   google_fonts: ^8.0.2
 
   # App info
-  package_info_plus: ^8.0.0
+  package_info_plus: ^10.2.1
 
   # Utilities
   intl: ^0.20.2
@@ -61,7 +61,7 @@ dependencies:
   lottie: ^3.1.2
   shimmer: ^3.0.0
   badges: ^3.1.2
-  share_plus: ^12.0.2
+  share_plus: ^13.2.1
 
 dev_dependencies:
   flutter_test:
