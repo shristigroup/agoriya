@@ -13,6 +13,24 @@ import '../models/visit_model.dart';
 import '../models/location_model.dart';
 import '../models/monthly_summary_model.dart';
 
+/// Thrown when a Firestore document write fails because the document
+/// exceeded the 1 MiB size limit. Firestore itself only surfaces this as a
+/// generic `invalid-argument` FirebaseException — this wraps that specific
+/// case (detected via [_isDocumentSizeLimitError]) so callers can catch it
+/// distinctly instead of string-matching error messages themselves.
+class FirestoreDocumentSizeLimitException implements Exception {
+  final String message;
+  FirestoreDocumentSizeLimitException(this.message);
+  @override
+  String toString() => 'FirestoreDocumentSizeLimitException: $message';
+}
+
+bool _isDocumentSizeLimitError(FirebaseException e) {
+  final msg = e.message?.toLowerCase() ?? '';
+  return e.code == 'invalid-argument' &&
+      (msg.contains('size') || msg.contains('byte') || msg.contains('exceeds'));
+}
+
 class FirestoreRepository {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -124,7 +142,34 @@ class FirestoreRepository {
   /// Sets stopTime on the Tracking doc (punch-out).
   Future<void> closeTracking(
       String userId, String trackingId, DateTime stopTime) async {
+    try {
+      await _trackingDoc(userId, trackingId).update({
+        'stopTime': Timestamp.fromDate(stopTime),
+        'isPunchedIn': false,
+      });
+    } on FirebaseException catch (e) {
+      if (_isDocumentSizeLimitError(e)) {
+        throw FirestoreDocumentSizeLimitException(
+            e.message ?? 'Document size limit exceeded');
+      }
+      rethrow;
+    }
+  }
+
+  /// Punch-out write for when the doc has already hit (or just hit) the
+  /// size limit: reads the doc, drops the last location entry to free up
+  /// space, then writes stopTime in the same update — so punch-out can
+  /// still succeed even though the locations array is at capacity.
+  Future<void> closeTrackingFreeingSpace(
+      String userId, String trackingId, DateTime stopTime) async {
+    final doc = await _trackingDoc(userId, trackingId).get();
+    final data = doc.data() as Map<String, dynamic>?;
+    final locations =
+        List<Map<String, dynamic>>.from(data?['locations'] as List? ?? []);
+    if (locations.isNotEmpty) locations.removeLast();
+
     await _trackingDoc(userId, trackingId).update({
+      'locations': locations,
       'stopTime': Timestamp.fromDate(stopTime),
       'isPunchedIn': false,
     });
@@ -149,11 +194,19 @@ class FirestoreRepository {
   ) async {
     print('[FirestoreRepo] writeLocations → ${allLocations.length} points, '
         '${distanceKm.toStringAsFixed(3)} km | trackingId=$trackingId');
-    await _trackingDoc(userId, trackingId).update({
-      'locations': allLocations.map((p) => p.toFirestore()).toList(),
-      'distance': distanceKm,
-      'lastUpdatedAt': FieldValue.serverTimestamp(),
-    });
+    try {
+      await _trackingDoc(userId, trackingId).update({
+        'locations': allLocations.map((p) => p.toFirestore()).toList(),
+        'distance': distanceKm,
+        'lastUpdatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      if (_isDocumentSizeLimitError(e)) {
+        throw FirestoreDocumentSizeLimitException(
+            e.message ?? 'Document size limit exceeded');
+      }
+      rethrow;
+    }
     print('[FirestoreRepo] writeLocations OK → trackingId=$trackingId');
   }
 

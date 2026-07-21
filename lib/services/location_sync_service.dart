@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:latlong2/latlong.dart';
 import '../core/utils/app_utils.dart';
 import '../data/data_manager.dart';
 import '../data/local/local_storage_service.dart';
@@ -190,6 +191,18 @@ class LocationSyncService {
   /// already-synced points and to correctly chain the distance calc from
   /// where the last sync left off). Public — also used directly by
   /// HomeBloc's punch-out flow, which has its own final-sync shape.
+  ///
+  /// The batch is replaced by OSRM's simplified (Douglas-Peucker reduced)
+  /// road geometry rather than just repositioning each raw sample 1:1 — so
+  /// the stored path actually hugs the road when the UI connects the dots,
+  /// not just straight lines between sparse samples. Intermediate points
+  /// get an interpolated timestamp (proportional to cumulative distance
+  /// along the path, i.e. assuming constant speed across the batch) since
+  /// they're not real GPS fixes — only for display, nothing reads them.
+  /// The first and last point keep their REAL timestamp, and the last also
+  /// keeps its real durationSeconds, since track_tab.dart's "last update"
+  /// display and the Cloud Functions "stationary" notification both depend
+  /// on the last point's timestamp/duration being accurate.
   static Future<(List<LocationPoint>, double)?> snapBatch({
     required List<LocationPoint> batch,
     required List<LocationPoint> finalLocations,
@@ -207,20 +220,15 @@ class LocationSyncService {
 
     if (valid.isEmpty) return null;
 
-    final tracepoints = await OsrmService.snapTracepoints(
+    final geometry = await OsrmService.matchSimplifiedGeometry(
       valid.map((p) => p.position).toList(),
     );
 
-    final snapped = <LocationPoint>[];
-    for (int i = 0; i < valid.length; i++) {
-      final pos = tracepoints[i] ?? valid[i].position;
-      snapped.add(LocationPoint(
-        position: pos,
-        timestamp: valid[i].timestamp,
-        isSnapped: true,
-        durationSeconds: valid[i].durationSeconds,
-      ));
-    }
+    final snapped = (geometry != null && geometry.isNotEmpty)
+        ? _interpolateFromGeometry(geometry, valid)
+        // OSRM failed or the batch was too small to match — keep the raw
+        // points as-is rather than losing them.
+        : valid.map((p) => p.copyWith(isSnapped: false)).toList();
 
     double distance = 0.0;
     final prevPoint = finalLocations.isNotEmpty ? finalLocations.last : null;
@@ -232,5 +240,56 @@ class LocationSyncService {
     }
 
     return (snapped, distance);
+  }
+
+  /// Builds the final point list from OSRM's simplified road [geometry],
+  /// assigning each intermediate point a timestamp interpolated between
+  /// [valid]'s real first/last timestamps, proportional to cumulative
+  /// distance along the path — see [snapBatch] doc for why only the first
+  /// and last points keep their real timestamp/duration.
+  static List<LocationPoint> _interpolateFromGeometry(
+    List<LatLng> geometry,
+    List<LocationPoint> valid,
+  ) {
+    if (geometry.length == 1) {
+      return [valid.last.copyWith(position: geometry.first, isSnapped: true)];
+    }
+
+    final cumulative = <double>[0.0];
+    for (int i = 1; i < geometry.length; i++) {
+      cumulative.add(cumulative[i - 1] +
+          AppUtils.haversineMeters(geometry[i - 1], geometry[i]));
+    }
+    final totalDistance = cumulative.last;
+
+    final firstTs = valid.first.timestamp;
+    final lastTs = valid.last.timestamp;
+    final totalMicros = lastTs.difference(firstTs).inMicroseconds;
+
+    final result = <LocationPoint>[];
+    for (int i = 0; i < geometry.length; i++) {
+      if (i == 0) {
+        result.add(LocationPoint(
+          position: geometry[i],
+          timestamp: firstTs,
+          isSnapped: true,
+        ));
+        continue;
+      }
+      if (i == geometry.length - 1) {
+        result.add(LocationPoint(
+          position: geometry[i],
+          timestamp: lastTs,
+          isSnapped: true,
+          durationSeconds: valid.last.durationSeconds,
+        ));
+        continue;
+      }
+      final fraction = totalDistance > 0 ? cumulative[i] / totalDistance : 0.0;
+      final ts =
+          firstTs.add(Duration(microseconds: (totalMicros * fraction).round()));
+      result.add(LocationPoint(position: geometry[i], timestamp: ts, isSnapped: true));
+    }
+    return result;
   }
 }

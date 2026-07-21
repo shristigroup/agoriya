@@ -26,6 +26,12 @@ class AppConstants {
   static const String finalLocationsKey = 'final_locations';
   static const String finalLocationsDistanceKey = 'final_locations_distance';
 
+  // Set once today's Tracking doc has hit Firestore's 1 MiB document size
+  // limit — so the user is only notified once per session, not on every
+  // subsequent failed sync. Cleared on a fresh punch-in, NOT on resume
+  // (resuming continues the same, already-oversized doc).
+  static const String locationSizeLimitHitKey = 'location_size_limit_hit';
+
   // Cursor-box keys — owned by the background isolate (trackingCursorBox).
   static const String currentBatchKey = 'current_batch';
 

@@ -105,44 +105,54 @@ class OsrmService {
     return total;
   }
 
-  /// Snaps each input point to its nearest road position using OSRM tracepoints.
-  /// Returns a list of the same length — null at an index means OSRM could not
-  /// match that point; callers should fall back to the original position.
-  static Future<List<LatLng?>> snapTracepoints(List<LatLng> points) async {
-    if (points.length < 2) return points.map<LatLng?>((p) => p).toList();
+  /// Map-matches [points] (a raw GPS trace) to roads and returns a
+  /// SIMPLIFIED geometry — Douglas-Peucker reduced by OSRM itself
+  /// (`overview=simplified`), the same concept as Google Directions'
+  /// `overview_polyline`: far fewer points than the raw trace or a
+  /// `overview=full` request, while still visually following the road.
+  /// Concatenates all returned matchings in trace order (OSRM can split a
+  /// low-confidence trace into multiple matchings). Returns null on any
+  /// error or if OSRM couldn't match anything — callers should fall back
+  /// to the original unsnapped points.
+  static Future<List<LatLng>?> matchSimplifiedGeometry(
+      List<LatLng> points) async {
+    if (points.length < 2) return null;
 
     try {
       final coords = points.map((p) => '${p.longitude},${p.latitude}').join(';');
       final url = '${AppConstants.osrmMatchUrl}/$coords'
-          '?overview=false&annotations=false';
+          '?overview=simplified&geometries=geojson&annotations=false';
       final response =
           await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        if (data['code'] == 'Ok' && data['tracepoints'] != null) {
-          final result = (data['tracepoints'] as List).map<LatLng?>((tp) {
-            if (tp == null) return null;
-            final loc = tp['location'] as List;
-            return LatLng((loc[1] as num).toDouble(), (loc[0] as num).toDouble());
-          }).toList();
-          final matched = result.where((p) => p != null).length;
-          print('[OSRM] snapTracepoints OK | ${points.length} points → '
-              '$matched matched');
-          return result;
+        if (data['code'] == 'Ok' && data['matchings'] != null) {
+          final result = <LatLng>[];
+          for (final matching in data['matchings'] as List) {
+            final coords = matching['geometry']['coordinates'] as List;
+            result.addAll(coords.map((c) => LatLng(
+                  (c[1] as num).toDouble(),
+                  (c[0] as num).toDouble(),
+                )));
+          }
+          if (result.isNotEmpty) {
+            print('[OSRM] matchSimplifiedGeometry OK | ${points.length} raw '
+                'points → ${result.length} simplified points');
+            return result;
+          }
         }
-        print('[OSRM] snapTracepoints non-OK response | '
+        print('[OSRM] matchSimplifiedGeometry non-OK response | '
             'code=${data['code']} → falling back to raw points');
       } else {
-        print('[OSRM] snapTracepoints HTTP ${response.statusCode} → '
+        print('[OSRM] matchSimplifiedGeometry HTTP ${response.statusCode} → '
             'falling back to raw points');
       }
     } catch (e) {
-      print('[OSRM] snapTracepoints error: $e → falling back to raw points');
+      print('[OSRM] matchSimplifiedGeometry error: $e → falling back to raw points');
     }
 
-    // Fall back to original points on any error
-    return points.map<LatLng?>((p) => p).toList();
+    return null;
   }
 
   static double _toRad(double deg) => deg * math.pi / 180;

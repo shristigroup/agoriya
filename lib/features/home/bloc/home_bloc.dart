@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'home_event.dart';
 import 'home_state.dart';
 import '../../../data/data_manager.dart';
+import '../../../data/local/local_storage_service.dart';
 import '../../../data/models/visit_model.dart';
 import '../../../data/models/location_model.dart';
 import '../../../core/constants/app_constants.dart';
@@ -18,6 +19,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   bool _snapping = false;
   bool _punchingOut = false;
+
+  static const String _sizeLimitMessage =
+      "We're unable to save any more of your location updates for today — "
+      "the storage limit for today's tracking has been reached. Please "
+      'contact the app administrator.';
 
   StreamSubscription? _newPointSub;
 
@@ -169,6 +175,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
     emit(current.copyWith(isPunchingOut: true));
 
+    final wasLimitKnown = LocalStorageService.isLocationSizeLimitHit();
+
     try {
       final now = DateTime.now();
 
@@ -205,12 +213,21 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
             batchDistanceKm: osrmDistance,
           ),
         ];
-        await DataManager.persistLocations(
-          userId: userId,
-          trackingId: current.tracking!.id,
-          allLocations: allLocations,
-          distanceKm: newFinalDistance,
-        );
+        try {
+          await DataManager.persistLocations(
+            userId: userId,
+            trackingId: current.tracking!.id,
+            allLocations: allLocations,
+            distanceKm: newFinalDistance,
+          );
+        } catch (e) {
+          // Don't let a failed final-batch write block punch-out — stopTime
+          // still needs to be recorded regardless. If this was the size
+          // limit, DataManager.persistLocations already flagged it, and
+          // DataManager.punchOut below knows to free up space for stopTime.
+          print('[HomeBloc] punchOut: final batch persist failed, '
+              'continuing to close tracking anyway: $e');
+        }
       }
 
       final updatedTracking = await DataManager.punchOut(
@@ -218,6 +235,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         currentTracking: current.tracking!,
         timestamp: now,
       );
+
+      if (!wasLimitKnown && LocalStorageService.isLocationSizeLimitHit()) {
+        emit(HomeError(_sizeLimitMessage));
+      }
 
       emit(PunchOutSuccess(
         tracking: updatedTracking,
@@ -342,6 +363,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     _snapping = true;
     emit(current.copyWith(isSnapping: true));
 
+    final wasLimitKnown = LocalStorageService.isLocationSizeLimitHit();
+
     try {
       final result = await LocationSyncService.syncCore(
         userId: userId,
@@ -354,20 +377,18 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         if (state is HomeLoaded) {
           emit((state as HomeLoaded).copyWith(isSnapping: false));
         }
-        return;
+      } else if (state is HomeLoaded) {
+        final freshSnap = await LocationTrackingService.requestSnapshot();
+        final freshBatch = freshSnap?.currentBatch ?? <LocationPoint>[];
+        emit((state as HomeLoaded).copyWith(
+          isSnapping: false,
+          finalLocations: result.finalLocations,
+          finalLocationsDistance: result.finalLocationsDistance,
+          currentBatch: freshBatch,
+          currentBatchDistance:
+              _currentBatchDistanceKm(freshBatch, result.finalLocations),
+        ));
       }
-
-      if (state is! HomeLoaded) return;
-      final freshSnap = await LocationTrackingService.requestSnapshot();
-      final freshBatch = freshSnap?.currentBatch ?? <LocationPoint>[];
-      emit((state as HomeLoaded).copyWith(
-        isSnapping: false,
-        finalLocations: result.finalLocations,
-        finalLocationsDistance: result.finalLocationsDistance,
-        currentBatch: freshBatch,
-        currentBatchDistance:
-            _currentBatchDistanceKm(freshBatch, result.finalLocations),
-      ));
     } catch (e) {
       // syncCore already catches its own errors and returns null — this is
       // a backstop for anything outside it (e.g. the fresh snapshot re-read
@@ -378,6 +399,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       }
     } finally {
       _snapping = false;
+    }
+
+    // syncCore (via DataManager.persistLocations) marks the size-limit flag
+    // internally on the relevant failure — this just decides whether to
+    // show the one-time toast, then restores the tracking UI (HomeError
+    // isn't a HomeLoaded subtype, so the map/tracking view would otherwise
+    // disappear until the next event).
+    if (!wasLimitKnown && LocalStorageService.isLocationSizeLimitHit()) {
+      final latestLoaded = state is HomeLoaded ? state as HomeLoaded : current;
+      emit(HomeError(_sizeLimitMessage));
+      emit(latestLoaded.copyWith());
     }
   }
 

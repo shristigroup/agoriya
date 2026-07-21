@@ -214,6 +214,20 @@ class LocalStorageService {
           ?.toDouble() ??
       0.0;
 
+  static bool isLocationSizeLimitHit() =>
+      _settingsBox.get(AppConstants.locationSizeLimitHitKey) == true;
+
+  /// Records that today's Tracking doc hit Firestore's size limit —
+  /// idempotent: only actually writes (and returns true) the first time.
+  /// Returns false if it was already known, so callers can tell "this call
+  /// is what just discovered it" (worth notifying the user) apart from
+  /// "already knew, nothing new to say."
+  static Future<bool> markLocationSizeLimitHitIfNew() async {
+    if (isLocationSizeLimitHit()) return false;
+    await _settingsBox.put(AppConstants.locationSizeLimitHitKey, true);
+    return true;
+  }
+
   /// Clears HomeBloc's own tracking-state keys. Called on fresh punch-in to
   /// start clean. Does NOT touch the isolate's cursor box — that's cleared
   /// by the isolate itself when it receives a `fresh: true` setParams (see
@@ -222,6 +236,7 @@ class LocalStorageService {
     await _locationsBox.delete(AppConstants.finalLocationsKey);
     await _settingsBox.delete(AppConstants.finalLocationsDistanceKey);
     await _settingsBox.delete(AppConstants.currentTrackingIdKey);
+    await _settingsBox.delete(AppConstants.locationSizeLimitHitKey);
   }
 
   // ─── Tracking cursor state — background isolate ONLY (trackingCursorBox) ──
