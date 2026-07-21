@@ -108,31 +108,34 @@ if [[ "$BUILD_ANDROID" == true ]]; then
   success "APK → $APK_DEST"
 
   # ── Upload APK to Firebase Storage ──────────────────────────────────────────
-  if command -v gsutil &>/dev/null; then
+  if command -v gcloud &>/dev/null; then
     gcloud config set project agoriya-app
 
     info "Uploading APK to Firebase Storage..."
 
-    gsutil cp "$APK_DEST" \
+    gcloud storage cp "$APK_DEST" \
       "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk"
-    gsutil cp "$APK_DEST" \
+    gcloud storage cp "$APK_DEST" \
       "gs://$STORAGE_BUCKET/releases/latest.apk"
 
     # Make both files publicly readable.
     # Requires uniform bucket-level access to be OFF (fine-grained ACLs).
     # If your bucket uses uniform access, set a Storage Rule instead:
     #   match /releases/{file} { allow read; }
-    gsutil acl ch -u AllUsers:R \
-      "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk" 2>/dev/null \
+    gcloud storage objects update \
+      "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk" \
+      --add-acl-grant=entity=allUsers,role=READER 2>/dev/null \
       || warn "Could not set ACL — ensure Firebase Storage rules allow public reads for /releases/."
-    gsutil acl ch -u AllUsers:R \
-      "gs://$STORAGE_BUCKET/releases/latest.apk" 2>/dev/null \
+    gcloud storage objects update \
+      "gs://$STORAGE_BUCKET/releases/latest.apk" \
+      --add-acl-grant=entity=allUsers,role=READER 2>/dev/null \
       || warn "Could not set ACL on latest.apk — check Storage rules."
 
     # Disable caching on latest.apk so browsers always fetch the newest version.
-    gsutil setmeta -h "Cache-Control:no-cache,max-age=0" \
+    gcloud storage objects update \
       "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk" \
-      "gs://$STORAGE_BUCKET/releases/latest.apk" 2>/dev/null \
+      "gs://$STORAGE_BUCKET/releases/latest.apk" \
+      --cache-control="no-cache,max-age=0" 2>/dev/null \
       || warn "Could not set Cache-Control headers — downloads may be cached by browsers."
 
     success "APK uploaded → gs://$STORAGE_BUCKET/releases/latest.apk"
@@ -155,7 +158,7 @@ if [[ "$BUILD_ANDROID" == true ]]; then
         || warn "git push failed — push index.html manually so the download page updates."
     fi
   else
-    warn "gsutil not found — skipping Firebase Storage upload."
+    warn "gcloud not found — skipping Firebase Storage upload."
     warn "Install Google Cloud SDK: https://cloud.google.com/sdk"
     warn "Then run: gcloud auth login && gcloud config set project agoriya-app"
   fi
@@ -251,7 +254,7 @@ echo "$PUBSPEC_VERSION" > "$VERSION_FILE"
 success "────────────────────────────────────────"
 success "Build complete — version $PUBSPEC_VERSION"
 [[ "$BUILD_ANDROID" == true ]] && success "  APK: dist/agoriya-$PUBSPEC_VERSION.apk"
-[[ "$BUILD_ANDROID" == true ]] && command -v gsutil &>/dev/null && success "  Storage: gs://$STORAGE_BUCKET/releases/latest.apk"
+[[ "$BUILD_ANDROID" == true ]] && command -v gcloud &>/dev/null && success "  Storage: gs://$STORAGE_BUCKET/releases/latest.apk"
 [[ "$BUILD_IOS"     == true ]] && [[ "$(uname)" == "Darwin" ]] && success "  IPA: dist/agoriya-$PUBSPEC_VERSION.ipa"
 [[ "$UPLOAD_IOS"    == true ]] && success "  Uploaded to TestFlight ✓"
 success "────────────────────────────────────────"
