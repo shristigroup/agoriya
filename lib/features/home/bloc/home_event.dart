@@ -14,17 +14,12 @@ class PunchInEvent extends HomeEvent {
 
 class PunchOutEvent extends HomeEvent {}
 
+/// The location-tracking background isolate is the sole writer of
+/// currentBatch/finalLocations in Hive — this event is just a signal to
+/// re-read them, optionally also triggering a batch sync.
 class NewLocationPointEvent extends HomeEvent {
-  final double lat;
-  final double lng;
-  final DateTime timestamp;
   final bool processBatch;
-  NewLocationPointEvent({
-    required this.lat,
-    required this.lng,
-    required this.timestamp,
-    this.processBatch = false,
-  });
+  NewLocationPointEvent({this.processBatch = false});
 }
 
 class CreateVisitEvent extends HomeEvent {
@@ -60,8 +55,9 @@ class AddCommentEvent extends HomeEvent {
 class ResumeSessionEvent extends HomeEvent {}
 
 /// Fired when the app returns to the foreground (AppLifecycleState.resumed).
-/// If a session is active and currentBatch is non-empty, snaps the raw batch
-/// to roads for display and writes the snapped result to Hive — so the map
-/// shows a clean route immediately without waiting for the next batchFlushed.
-/// Does NOT write to Firestore; that still happens on batchFlushed.
+/// Re-reads currentBatch/finalLocations from Hive (the background isolate
+/// may have written to them while the app was backgrounded) and, if the
+/// backlog is already at/past the flush threshold — meaning a processBatch
+/// signal was missed while the app was dead — triggers a sync immediately
+/// rather than waiting for the next sample.
 class AppResumedEvent extends HomeEvent {}

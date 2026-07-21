@@ -183,26 +183,37 @@ class DataManager {
   static double getFinalLocationsDistance() =>
       LocalStorageService.getFinalLocationsDistance();
 
-  static double getCurrentBatchDistance() =>
-      LocalStorageService.getCurrentBatchDistance();
+  /// Live haversine estimate for the unsynced currentBatch, anchored to the
+  /// last committed point (mirrors how the batch's OSRM distance is anchored
+  /// in [_snapBatch] once it's synced).
+  static double getCurrentBatchDistance() {
+    final batch = LocalStorageService.getCurrentBatch();
+    if (batch.isEmpty) return 0.0;
+    final finalLocations = LocalStorageService.getFinalLocations();
+    final points = [if (finalLocations.isNotEmpty) finalLocations.last, ...batch];
+    double sum = 0.0;
+    for (int i = 0; i < points.length - 1; i++) {
+      sum += AppUtils.haversineMeters(points[i].position, points[i + 1].position) /
+          1000.0;
+    }
+    return sum;
+  }
 
   /// Returns the display distance: OSRM total + live haversine for currentBatch.
   static double getDisplayDistance(String userId, TrackingModel? tracking) {
     if (isOwner(userId)) {
       return LocalStorageService.getFinalLocationsDistance() +
-          LocalStorageService.getCurrentBatchDistance();
+          getCurrentBatchDistance();
     }
     return tracking?.distance ?? 0.0;
   }
 
-  /// Persists a new point into currentBatch + updates currentBatchDistance.
-  static Future<void> saveCurrentBatch(
-    List<LocationPoint> updatedBatch,
-    double newBatchDistance,
-  ) async {
-    await LocalStorageService.saveCurrentBatch(updatedBatch);
-    await LocalStorageService.saveCurrentBatchDistance(newBatchDistance);
-  }
+  /// Forces a fresh disk read of the locations box — the location-tracking
+  /// background isolate writes to currentBatch/finalLocations independently,
+  /// so callers must reload before reading anything it may have written
+  /// since this isolate's box instance was last opened.
+  static Future<void> reloadLocationsBox() =>
+      LocalStorageService.reloadLocationsBox();
 
   static Future<void> saveFinalLocations(List<LocationPoint> points) =>
       LocalStorageService.saveFinalLocations(points);

@@ -6,8 +6,12 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_core/firebase_core.dart';
-import '../../core/constants/app_constants.dart';
-import '../../firebase_options.dart';
+import 'package:latlong2/latlong.dart';
+import '../core/constants/app_constants.dart';
+import '../core/utils/app_utils.dart';
+import '../data/local/local_storage_service.dart';
+import '../data/models/location_model.dart';
+import '../firebase_options.dart';
 
 class LocationTrackingService {
   static final FlutterBackgroundService _bgService =
@@ -90,6 +94,16 @@ class LocationTrackingService {
     debugPrint('[LocationService] stopTracking sent');
   }
 
+  /// Confirms a successfully synced batch so the background isolate (the
+  /// sole writer of currentBatch) can trim entries up to this timestamp.
+  /// Never called on sync failure — leaving currentBatch untouched is what
+  /// makes a failed sync naturally retryable on the next signal/resume.
+  static void confirmBatchSynced(DateTime uptoTimestamp) {
+    _bgService.invoke('batchSynced', {
+      'uptoTimestamp': uptoTimestamp.toIso8601String(),
+    });
+  }
+
   static Future<bool> get isRunning => _bgService.isRunning();
 }
 
@@ -113,8 +127,6 @@ void _onStart(ServiceInstance service) async {
   Timer? samplingTimer;
   StreamSubscription<Position>? positionSub;
 
-  // ── Shared: emit one GPS point + trigger batch signal ─────────────────────
-
   String _ts() {
     final t = DateTime.now();
     return '${t.hour.toString().padLeft(2,'0')}:'
@@ -122,19 +134,64 @@ void _onStart(ServiceInstance service) async {
            '${t.second.toString().padLeft(2,'0')}';
   }
 
-  void emitPoint(double lat, double lng) {
-    if (userId == null || date == null) return;
-    final now = DateTime.now();
+  // ── Sample handling: this isolate is the SOLE writer of currentBatch ──────
+  // (and of the durationSeconds field on the last finalLocations entry, for
+  // the stationary case with an empty currentBatch). HomeBloc only reads
+  // these — see location_tracking_service design notes in the fix plan.
+
+  Future<void> handleSample(double lat, double lng, DateTime timestamp) async {
+    if (userId == null || date == null) {
+      debugPrint('[LocationService] handleSample skipped: params not set yet');
+      return;
+    }
+
+    // Cross-isolate box: reload so we see any finalLocations write HomeBloc
+    // may have made (e.g. after a batch sync) since our last sample.
+    await LocalStorageService.reloadLocationsBox();
+
+    final newPosition = LatLng(lat, lng);
+    final currentBatch = LocalStorageService.getCurrentBatch();
+    final finalLocations = LocalStorageService.getFinalLocations();
+    final lastPoint = currentBatch.isNotEmpty
+        ? currentBatch.last
+        : (finalLocations.isNotEmpty ? finalLocations.last : null);
+
+    final distanceMeters = lastPoint != null
+        ? AppUtils.haversineMeters(lastPoint.position, newPosition)
+        : 0.0;
+
+    if (lastPoint != null &&
+        distanceMeters < AppConstants.stationaryThresholdMeters.toDouble()) {
+      // Stationary: update durationSeconds on the last point, don't append.
+      final durationSeconds =
+          timestamp.difference(lastPoint.timestamp).inSeconds;
+      if (currentBatch.isNotEmpty) {
+        final pts = List<LocationPoint>.from(currentBatch);
+        pts[pts.length - 1] =
+            pts.last.copyWith(durationSeconds: durationSeconds);
+        await LocalStorageService.saveCurrentBatch(pts);
+      } else if (finalLocations.isNotEmpty) {
+        final pts = List<LocationPoint>.from(finalLocations);
+        pts[pts.length - 1] =
+            pts.last.copyWith(durationSeconds: durationSeconds);
+        await LocalStorageService.saveFinalLocations(pts);
+      }
+      debugPrint('[LocationService ${_ts()}] stationary'
+          ' | durationSeconds=$durationSeconds → $lat, $lng');
+    } else {
+      // Movement: append a new raw point to currentBatch.
+      final pts = [
+        ...currentBatch,
+        LocationPoint(position: newPosition, timestamp: timestamp, isSnapped: false),
+      ];
+      await LocalStorageService.saveCurrentBatch(pts);
+    }
+
     pointsSinceLastSignal++;
     final bool flush = pointsSinceLastSignal >= AppConstants.locationBatchSize;
     if (flush) pointsSinceLastSignal = 0;
-    service.invoke('newPoint', {
-      'lat': lat,
-      'lng': lng,
-      'timestamp': now.toIso8601String(),
-      'processBatch': flush,
-    });
-    debugPrint('[LocationService ${_ts()}] newPoint'
+    service.invoke('newPoint', {'processBatch': flush});
+    debugPrint('[LocationService ${_ts()}] sample stored'
         ' #${flush ? AppConstants.locationBatchSize : pointsSinceLastSignal}'
         '/${AppConstants.locationBatchSize}'
         '${flush ? ' → flush' : ''}'
@@ -170,7 +227,7 @@ void _onStart(ServiceInstance service) async {
       debugPrint(
           '[LocationService] Position: ${pos.latitude}, ${pos.longitude} '
           '(accuracy: ${pos.accuracy.toStringAsFixed(1)}m)');
-      emitPoint(pos.latitude, pos.longitude);
+      await handleSample(pos.latitude, pos.longitude, DateTime.now());
     } catch (e) {
       debugPrint('[LocationService] collectLocation error: $e');
     }
@@ -199,7 +256,7 @@ void _onStart(ServiceInstance service) async {
     positionSub =
         Geolocator.getPositionStream(locationSettings: locationSettings)
             .listen(
-      (pos) {
+      (pos) async {
         // Time-gate: honour the same sampling interval as Android.
         final now = DateTime.now();
         if (lastPointTime != null &&
@@ -208,7 +265,7 @@ void _onStart(ServiceInstance service) async {
           return;
         }
         lastPointTime = now;
-        emitPoint(pos.latitude, pos.longitude);
+        await handleSample(pos.latitude, pos.longitude, now);
       },
       onError: (e) => debugPrint('[LocationService] positionStream error: $e'),
     );
@@ -232,33 +289,37 @@ void _onStart(ServiceInstance service) async {
     }
   });
 
+  // HomeBloc confirms a successful OSRM+Firestore sync by sending the
+  // timestamp of the last point it processed. Trim only up to that point —
+  // anything appended concurrently during the sync is left intact.
+  service.on('batchSynced').listen((data) async {
+    if (data == null) return;
+    final uptoIso = data['uptoTimestamp'] as String?;
+    if (uptoIso == null) return;
+    final upto = DateTime.parse(uptoIso);
+
+    final remaining = LocalStorageService.getCurrentBatch()
+        .where((p) => p.timestamp.isAfter(upto))
+        .toList();
+    await LocalStorageService.saveCurrentBatch(remaining);
+    debugPrint('[LocationService] batchSynced trim → upto=$uptoIso, '
+        'remaining=${remaining.length}');
+  });
+
   service.on('stopTracking').listen((_) async {
     debugPrint('[LocationService] Stopping');
     samplingTimer?.cancel();
     await positionSub?.cancel();
     positionSub = null;
-
-    // Flush remaining points via a final newPoint with processBatch=true.
-    if (pointsSinceLastSignal > 0) {
-      try {
-        final pos = await Geolocator.getLastKnownPosition();
-        if (pos != null) {
-          service.invoke('newPoint', {
-            'lat': pos.latitude,
-            'lng': pos.longitude,
-            'timestamp': DateTime.now().toIso8601String(),
-            'processBatch': true,
-          });
-          debugPrint('[LocationService] Final newPoint+flush sent');
-        }
-      } catch (_) {}
-    }
-
+    // No synthetic final point needed: every sample is written to Hive as
+    // it's captured, so there's nothing pending to flush here. HomeBloc's
+    // punch-out flow reads currentBatch fresh from Hive and syncs it.
     debugPrint('[LocationService] Stopped');
     service.stopSelf();
   });
 
-  // ── Firebase init ──────────────────────────────────────────────────────────
+  // ── Hive + Firebase init ─────────────────────────────────────────────────
+  await LocalStorageService.openLocationsBoxOnly();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Signal the main isolate that listeners are registered and Firebase is ready.

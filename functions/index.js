@@ -1,4 +1,5 @@
 const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -226,6 +227,55 @@ exports.onCommentWrite = onDocumentCreated(
 //     // Token updates are handled client-side; this function is intentionally empty.
 //   }
 // );
+
+// ─── Location tracking watchdog — recover tracking the OS killed ────────────
+// Runs every 5 minutes. Finds punched-in users whose last location sync is
+// stale (past a 15-min sampling window + buffer) and sends a silent,
+// data-only FCM message that the app uses to restart tracking in the
+// background — without waiting for the user to reopen the app. Reliable on
+// Android unless the user has force-stopped the app; on iOS this is a
+// best-effort improvement since Apple can throttle silent push delivery.
+const STALE_THRESHOLD_MS = 20 * 60 * 1000; // 15 min sampling window + 5 min buffer
+
+exports.locationTrackingWatchdog = onSchedule(
+  { schedule: "every 5 minutes", region: "asia-south1" },
+  async () => {
+    const now = Date.now();
+    const snap = await db
+      .collectionGroup("Tracking")
+      .where("isPunchedIn", "==", true)
+      .get();
+
+    await Promise.all(snap.docs.map(async (doc) => {
+      const data = doc.data();
+      const lastUpdatedAt = data.lastUpdatedAt
+        ? data.lastUpdatedAt.toMillis()
+        : (data.startTime ? data.startTime.toMillis() : now);
+
+      if (now - lastUpdatedAt < STALE_THRESHOLD_MS) return;
+
+      const userId = doc.ref.parent.parent.id;
+      const date = doc.id.substring(0, 10);
+      const token = await getUserToken(userId);
+      if (!token) return;
+
+      try {
+        await messaging.send({
+          token,
+          data: { type: "location_wakeup", userId, date },
+          android: { priority: "high" },
+          apns: {
+            headers: { "apns-priority": "5" },
+            payload: { aps: { "content-available": 1 } },
+          },
+        });
+        console.log(`[locationTrackingWatchdog] wakeup sent → ${userId} (${doc.id})`);
+      } catch (err) {
+        console.error(`[locationTrackingWatchdog] send error for ${userId}:`, err.message);
+      }
+    }));
+  }
+);
 
 // ─── 5. Reports hierarchy updater ────────────────────────────────────────────
 exports.updateReportsHierarchy = onDocumentWritten(

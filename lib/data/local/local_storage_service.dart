@@ -25,6 +25,31 @@ class LocalStorageService {
     _settingsBox = await Hive.openBox(AppConstants.settingsBox);
   }
 
+  /// Opens just the locations box. Used by the location-tracking background
+  /// isolate (`location_tracking_service.dart`), which only needs
+  /// currentBatch/finalLocations and shouldn't pay the cost of opening every
+  /// box the way the main isolate's [init] does.
+  static Future<void> openLocationsBoxOnly() async {
+    await Hive.initFlutter();
+    _locationsBox = await Hive.openBox(AppConstants.locationsBox);
+  }
+
+  /// Forces a fresh disk read of the locations box.
+  ///
+  /// This box is written by two isolates — the main UI isolate and the
+  /// location-tracking background isolate — and Hive does not share
+  /// in-memory box state across isolates: a box opened once keeps serving
+  /// whatever was in memory at open time until it's explicitly closed and
+  /// reopened. Call this before reading currentBatch/finalLocations whenever
+  /// the other isolate may have written to them since this isolate's box
+  /// instance was last opened.
+  static Future<void> reloadLocationsBox() async {
+    if (Hive.isBoxOpen(AppConstants.locationsBox)) {
+      await Hive.box(AppConstants.locationsBox).close();
+    }
+    _locationsBox = await Hive.openBox(AppConstants.locationsBox);
+  }
+
   // ─── User ────────────────────────────────────────────────────────────────
   static Future<void> saveUser(UserModel user) async {
     await _userBox.put(AppConstants.currentUserKey, jsonEncode(user.toJson()));
@@ -145,11 +170,13 @@ class LocalStorageService {
   //
   // Two arrays:
   //   finalLocations  — OSRM-snapped, exactly mirrors the Firestore locations doc
-  //   currentBatch    — raw GPS since the last committed batch, not yet in Firestore
+  //   currentBatch    — raw GPS since the last committed batch, not yet in Firestore.
+  //                     Written directly by the location-tracking background
+  //                     isolate (sole writer); HomeBloc only reads it.
   //
-  // Two distances:
-  //   finalLocationsDistance  — OSRM total for all committed batches
-  //   currentBatchDistance    — live haversine estimate for currentBatch points
+  // finalLocationsDistance — OSRM total for all committed batches. The live
+  // estimate for currentBatch is computed on read (haversine sum), not
+  // persisted separately.
 
   static Future<void> saveFinalLocations(List<LocationPoint> points) async {
     await _locationsBox.put(
@@ -187,20 +214,11 @@ class LocalStorageService {
           ?.toDouble() ??
       0.0;
 
-  static Future<void> saveCurrentBatchDistance(double km) async =>
-      _settingsBox.put(AppConstants.currentBatchDistanceKey, km);
-
-  static double getCurrentBatchDistance() =>
-      (_settingsBox.get(AppConstants.currentBatchDistanceKey) as num?)
-          ?.toDouble() ??
-      0.0;
-
   /// Clears all tracking-state keys. Called on fresh punch-in to start clean.
   static Future<void> clearTodayTrackingState() async {
     await _locationsBox.delete(AppConstants.finalLocationsKey);
     await _locationsBox.delete(AppConstants.currentBatchKey);
     await _settingsBox.delete(AppConstants.finalLocationsDistanceKey);
-    await _settingsBox.delete(AppConstants.currentBatchDistanceKey);
     await _settingsBox.delete(AppConstants.currentTrackingIdKey);
   }
 

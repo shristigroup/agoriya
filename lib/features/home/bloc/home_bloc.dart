@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -38,12 +37,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final bgService = FlutterBackgroundService();
 
     _newPointSub = bgService.on('newPoint').listen((data) {
-      if (data == null) return;
       add(NewLocationPointEvent(
-        lat: (data['lat'] as num).toDouble(),
-        lng: (data['lng'] as num).toDouble(),
-        timestamp: DateTime.parse(data['timestamp'] as String),
-        processBatch: (data['processBatch'] as bool?) ?? false,
+        processBatch: (data?['processBatch'] as bool?) ?? false,
       ));
     });
   }
@@ -66,6 +61,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final tracking = DataManager.getActiveTracking();
     final visits = await DataManager.getVisitsForDay(userId, today);
 
+    // The background isolate may have written points while the app was
+    // dead — reload before reading currentBatch/finalLocations.
+    await DataManager.reloadLocationsBox();
     final finalLocations = DataManager.getFinalLocations();
     final currentBatch = DataManager.getCurrentBatch();
     final finalDistance = DataManager.getFinalLocationsDistance();
@@ -101,6 +99,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       currentBatchDistance: batchDistance,
     ));
 
+    // Covers the case where a processBatch signal was missed while the app
+    // was dead — catch up immediately rather than waiting for the next one.
+    if (currentBatch.length >= AppConstants.locationBatchSize) {
+      await _processBatch(emit);
+    }
   }
 
   // ── Punch In ──────────────────────────────────────────────────────────────
@@ -143,10 +146,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       LocationTrackingService.stop();
       await Future.delayed(const Duration(seconds: 1));
 
-      // Snap the final currentBatch inline.
+      // Read fresh — the background isolate may have written points right
+      // up until it received stopTracking.
+      await DataManager.reloadLocationsBox();
+      final finalLocations = DataManager.getFinalLocations();
+      final currentBatch = DataManager.getCurrentBatch();
+
       final snapResult = await _snapBatch(
-        batch: List<LocationPoint>.from(current.currentBatch),
-        finalLocations: current.finalLocations,
+        batch: currentBatch,
+        finalLocations: finalLocations,
       );
 
       double osrmDistance = 0.0;
@@ -155,8 +163,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         (snappedBatch, osrmDistance) = snapResult;
       }
 
-      final newFinalDistance = current.finalLocationsDistance + osrmDistance;
-      var allLocations = [...current.finalLocations, ...snappedBatch];
+      final newFinalDistance =
+          DataManager.getFinalLocationsDistance() + osrmDistance;
+      var allLocations = [...finalLocations, ...snappedBatch];
 
       if (allLocations.isNotEmpty) {
         allLocations = [
@@ -222,48 +231,35 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     if (state is! HomeLoaded) return;
     final current = state as HomeLoaded;
     if (current.tracking?.isPunchedIn != true) return;
-    if (current.currentBatch.isEmpty) return;
-    if (_snapping) return;
 
-    _snapping = true;
-    emit(current.copyWith(isSnapping: true));
+    // The background isolate is the sole writer of currentBatch/finalLocations
+    // — reload before reading so we see whatever it wrote while backgrounded.
+    await DataManager.reloadLocationsBox();
+    final currentBatch = DataManager.getCurrentBatch();
+    final finalLocations = DataManager.getFinalLocations();
+    final lastPoint = currentBatch.isNotEmpty
+        ? currentBatch.last
+        : (finalLocations.isNotEmpty ? finalLocations.last : null);
 
-    try {
-      final snapResult = await _snapBatch(
-        batch: List<LocationPoint>.from(current.currentBatch),
-        finalLocations: current.finalLocations,
-      );
+    emit(current.copyWith(
+      currentBatch: currentBatch,
+      finalLocations: finalLocations,
+      currentBatchDistance: DataManager.getCurrentBatchDistance(),
+      lastKnownLocation: lastPoint?.position ?? current.lastKnownLocation,
+    ));
 
-      if (snapResult == null) {
-        if (state is HomeLoaded) {
-          emit((state as HomeLoaded).copyWith(isSnapping: false));
-        }
-        return;
-      }
-
-      final (snappedBatch, _) = snapResult;
-
-      // Persist snapped batch to Hive so a subsequent relaunch also shows a
-      // clean path. Distance estimate is unchanged — accurate value comes from
-      // OSRM when ProcessCurrentBatchEvent fires on batchFlushed.
-      await DataManager.saveCurrentBatch(
-          snappedBatch, current.currentBatchDistance);
-
-      if (state is HomeLoaded) {
-        emit((state as HomeLoaded).copyWith(
-          currentBatch: snappedBatch,
-          isSnapping: false,
-        ));
-      }
-    } catch (e) {
-      debugPrint('[HomeBloc] appResumed snap error: $e');
-      if (state is HomeLoaded) {
-        emit((state as HomeLoaded).copyWith(isSnapping: false));
-      }
+    // Covers the case where a processBatch signal was missed while the app
+    // was dead — catch up immediately rather than waiting for the next sample.
+    if (currentBatch.length >= AppConstants.locationBatchSize) {
+      await _processBatch(emit);
     }
   }
 
   // ── New Location Point ────────────────────────────────────────────────────
+  // The background isolate is the sole writer of currentBatch/finalLocations
+  // (stationary detection, distance accumulation, and Hive writes all happen
+  // there — see location_tracking_service.dart). This handler just re-reads
+  // what it wrote and, on a flush signal, drives the OSRM+Firestore sync.
 
   Future<void> _onNewLocationPoint(
       NewLocationPointEvent event, Emitter<HomeState> emit) async {
@@ -271,124 +267,63 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final current = state as HomeLoaded;
     if (current.tracking?.isPunchedIn != true) return;
 
-    final newPosition = LatLng(event.lat, event.lng);
-
-    // Last stored point — used for distance check and duration calculation.
-    final lastPoint = current.currentBatch.isNotEmpty
-        ? current.currentBatch.last
-        : current.finalLocations.isNotEmpty
-            ? current.finalLocations.last
-            : null;
-
-    final distanceMeters = lastPoint != null
-        ? _haversineMeters(lastPoint.position, newPosition)
-        : 0.0;
-
-    // ── Stationary: within threshold → update durationSeconds on last point ──
-    if (lastPoint != null &&
-        distanceMeters < AppConstants.stationaryThresholdMeters.toDouble()) {
-      final durationSeconds =
-          event.timestamp.difference(lastPoint.timestamp).inSeconds;
-
-      var updatedBatch = current.currentBatch;
-      var updatedFinal = current.finalLocations;
-
-      if (current.currentBatch.isNotEmpty) {
-        final pts = List<LocationPoint>.from(current.currentBatch);
-        pts[pts.length - 1] =
-            pts.last.copyWith(durationSeconds: durationSeconds);
-        updatedBatch = pts;
-        await DataManager.saveCurrentBatch(
-            updatedBatch, current.currentBatchDistance);
-        debugPrint('[HomeBloc] duration update | source=currentBatch'
-            ' | ts=${pts.last.timestamp.toIso8601String()}'
-            ' | lat=${pts.last.position.latitude}'
-            ' | lng=${pts.last.position.longitude}'
-            ' | durationSeconds=$durationSeconds');
-      } else {
-        final pts = List<LocationPoint>.from(current.finalLocations);
-        pts[pts.length - 1] =
-            pts.last.copyWith(durationSeconds: durationSeconds);
-        updatedFinal = pts;
-        await DataManager.saveFinalLocations(updatedFinal);
-        debugPrint('[HomeBloc] duration update | source=finalLocations'
-            ' | ts=${pts.last.timestamp.toIso8601String()}'
-            ' | lat=${pts.last.position.latitude}'
-            ' | lng=${pts.last.position.longitude}'
-            ' | durationSeconds=$durationSeconds');
-      }
-
-      emit(current.copyWith(
-        currentBatch: updatedBatch,
-        finalLocations: updatedFinal,
-        lastKnownLocation: newPosition,
-        lastGpsUpdateTime: event.timestamp,
-      ));
-
-      if (event.processBatch) await _processBatch(emit);
-      return;
-    }
-
-    // ── Movement: add new point to batch ─────────────────────────────────────
-    final deltaKm = distanceMeters / 1000.0;
-    final newPoint = LocationPoint(
-      position: newPosition,
-      timestamp: event.timestamp,
-      isSnapped: false,
-    );
-    final updatedBatch = [...current.currentBatch, newPoint];
-    final newBatchDistance = current.currentBatchDistance + deltaKm;
-
-    await DataManager.saveCurrentBatch(updatedBatch, newBatchDistance);
+    await DataManager.reloadLocationsBox();
+    final currentBatch = DataManager.getCurrentBatch();
+    final finalLocations = DataManager.getFinalLocations();
+    final lastPoint = currentBatch.isNotEmpty
+        ? currentBatch.last
+        : (finalLocations.isNotEmpty ? finalLocations.last : null);
 
     emit(current.copyWith(
-      currentBatch: updatedBatch,
-      lastKnownLocation: newPosition,
-      lastGpsUpdateTime: event.timestamp,
-      currentBatchDistance: newBatchDistance,
+      currentBatch: currentBatch,
+      finalLocations: finalLocations,
+      currentBatchDistance: DataManager.getCurrentBatchDistance(),
+      lastKnownLocation: lastPoint?.position ?? current.lastKnownLocation,
+      lastGpsUpdateTime: DateTime.now(),
     ));
 
     if (event.processBatch) await _processBatch(emit);
   }
 
   // ── Process Current Batch ─────────────────────────────────────────────────
+  // Reads currentBatch fresh (never trusts in-memory state, since the
+  // background isolate is the sole writer), snaps it via OSRM, and syncs to
+  // Firestore. currentBatch in Hive is left untouched until the sync
+  // succeeds — on failure, nothing is cleared, so the batch is naturally
+  // retried on the next signal/resume instead of being lost.
 
   Future<void> _processBatch(Emitter<HomeState> emit) async {
     if (state is! HomeLoaded) return;
+    if (_snapping) return;
 
     final current = state as HomeLoaded;
     if (current.tracking == null) return;
 
-    final batchToProcess = List<LocationPoint>.from(current.currentBatch);
-    if (batchToProcess.isEmpty && current.finalLocations.isEmpty) return;
+    await DataManager.reloadLocationsBox();
+    final batchToProcess = DataManager.getCurrentBatch();
+    final finalLocations = DataManager.getFinalLocations();
+    if (batchToProcess.isEmpty && finalLocations.isEmpty) return;
 
-    // ── Step 1: clear currentBatch in state and Hive.
-    emit(current.copyWith(
-      currentBatch: [],
-      currentBatchDistance: 0.0,
-      isSnapping: true,
-    ));
-    await DataManager.saveCurrentBatch([], 0.0);
+    _snapping = true;
+    emit(current.copyWith(isSnapping: true));
 
     try {
-      // ── Step 2: snap batch if non-empty; osrmDistance stays 0 if stationary.
       double osrmDistance = 0.0;
       List<LocationPoint> snappedBatch = [];
 
       if (batchToProcess.isNotEmpty) {
         final snapResult = await _snapBatch(
           batch: batchToProcess,
-          finalLocations: current.finalLocations,
+          finalLocations: finalLocations,
         );
         if (snapResult != null) {
           (snappedBatch, osrmDistance) = snapResult;
         }
       }
 
-      // ── Step 3: compute cumulative distance and build full locations array.
-      final latestState = state is HomeLoaded ? state as HomeLoaded : current;
-      final newFinalDistance = latestState.finalLocationsDistance + osrmDistance;
-      var allLocations = [...latestState.finalLocations, ...snappedBatch];
+      final newFinalDistance =
+          DataManager.getFinalLocationsDistance() + osrmDistance;
+      var allLocations = [...finalLocations, ...snappedBatch];
 
       if (allLocations.isEmpty) {
         if (state is HomeLoaded) {
@@ -397,7 +332,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         return;
       }
 
-      // ── Step 4: stamp last point with cumulative + batch distances.
       allLocations = [
         ...allLocations.take(allLocations.length - 1),
         allLocations.last.copyWith(
@@ -406,7 +340,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         ),
       ];
 
-      // ── Step 5: write to Firestore.
       debugPrint(
           '[HomeBloc] Syncing ${allLocations.length} total points to Firestore '
           '(+${snappedBatch.length} new, distance: ${newFinalDistance.toStringAsFixed(3)} km)'
@@ -419,12 +352,21 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         distanceKm: newFinalDistance,
       );
 
-      // ── Step 6: update state.
+      // Confirm success so the background isolate (sole writer of
+      // currentBatch) can trim entries up to this point — anything it
+      // appended concurrently during the sync is left intact.
+      if (batchToProcess.isNotEmpty) {
+        LocationTrackingService.confirmBatchSynced(batchToProcess.last.timestamp);
+      }
+
       if (state is! HomeLoaded) return;
+      await DataManager.reloadLocationsBox();
       emit((state as HomeLoaded).copyWith(
         isSnapping: false,
         finalLocations: allLocations,
         finalLocationsDistance: newFinalDistance,
+        currentBatch: DataManager.getCurrentBatch(),
+        currentBatchDistance: DataManager.getCurrentBatchDistance(),
       ));
     } catch (e) {
       debugPrint('[HomeBloc] processCurrentBatch error: $e');
@@ -540,25 +482,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         finalLocations.isNotEmpty ? finalLocations.last : null;
     final distInput = [if (prevPoint != null) prevPoint, ...snapped];
     for (int i = 0; i < distInput.length - 1; i++) {
-      distance +=
-          _haversineMeters(distInput[i].position, distInput[i + 1].position) /
-              1000.0;
+      distance += AppUtils.haversineMeters(
+              distInput[i].position, distInput[i + 1].position) /
+          1000.0;
     }
 
     return (snapped, distance);
   }
-
-  /// Returns distance in metres between two LatLng points.
-  double _haversineMeters(LatLng a, LatLng b) {
-    const r = 6371000.0; // Earth radius in metres
-    final dLat = _rad(b.latitude - a.latitude);
-    final dLng = _rad(b.longitude - a.longitude);
-    final h = math.pow(math.sin(dLat / 2), 2) +
-        math.cos(_rad(a.latitude)) *
-            math.cos(_rad(b.latitude)) *
-            math.pow(math.sin(dLng / 2), 2);
-    return 2 * r * math.asin(math.sqrt(h));
-  }
-
-  double _rad(double deg) => deg * math.pi / 180;
 }

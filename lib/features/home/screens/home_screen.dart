@@ -251,12 +251,48 @@ class _HomeScreenState extends State<HomeScreen>
     return false;
   }
 
+  /// Requests exemption from Android battery optimization so OEM battery
+  /// managers (Xiaomi, Vivo, Oppo, OnePlus, etc.) are less likely to kill
+  /// the location-tracking foreground service outright. Not blocking —
+  /// tracking still works, just less reliably in the background, without it.
+  Future<void> _ensureBatteryOptimizationExemption() async {
+    final status = await Permission.ignoreBatteryOptimizations.status;
+    if (status.isGranted) return;
+    if (!mounted) return;
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Keep Tracking Reliable'),
+        content: const Text(
+          'Some phones aggressively stop background apps to save battery, '
+          'which can interrupt location tracking.\n\n'
+          'Allow TrackFolks to run without battery restrictions for '
+          'reliable tracking while punched in.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Later'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Allow'),
+          ),
+        ],
+      ),
+    );
+    if (proceed == true) {
+      await Permission.ignoreBatteryOptimizations.request();
+    }
+  }
+
   Future<void> _handlePunchIn(HomeLoaded state) async {
     if (!await _ensureLocationPermission()) return;
     if (!await _ensureCameraPermission()) return;
     // Request POST_NOTIFICATIONS so the foreground tracking notification
     // shows on Android 13+. Not blocking — tracking works without it.
     if (Platform.isAndroid) await Permission.notification.request();
+    if (Platform.isAndroid) await _ensureBatteryOptimizationExemption();
 
     final file = await Navigator.of(context).push<File>(
       MaterialPageRoute(builder: (_) => const PunchInCameraScreen()),

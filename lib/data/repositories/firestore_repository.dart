@@ -115,6 +115,7 @@ class FirestoreRepository {
     if (latest != null && latest.isActive && latest.id != tracking.id) {
       await _trackingDoc(userId, latest.id).update({
         'stopTime': Timestamp.fromDate(DateTime.now()),
+        'isPunchedIn': false,
       });
     }
     await _trackingDoc(userId, tracking.id).set(tracking.toFirestore());
@@ -125,6 +126,7 @@ class FirestoreRepository {
       String userId, String trackingId, DateTime stopTime) async {
     await _trackingDoc(userId, trackingId).update({
       'stopTime': Timestamp.fromDate(stopTime),
+      'isPunchedIn': false,
     });
   }
 
@@ -132,6 +134,7 @@ class FirestoreRepository {
   Future<void> resumeTracking(String userId, String trackingId) async {
     await _trackingDoc(userId, trackingId).update({
       'stopTime': FieldValue.delete(),
+      'isPunchedIn': true,
     });
   }
 

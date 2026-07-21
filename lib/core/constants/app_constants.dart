@@ -16,11 +16,10 @@ class AppConstants {
   static const String finalLocationsKey = 'final_locations';
   static const String currentBatchKey = 'current_batch';
   static const String finalLocationsDistanceKey = 'final_locations_distance';
-  static const String currentBatchDistanceKey = 'current_batch_distance';
 
   // Location tracking
   static const int locationSamplingSeconds = 60; // sample every 1 min
-  static const int locationBatchSize = 15;         // signal HomeBloc every 3 points (~3 min) — testing
+  static const int locationBatchSize = 15;         // signal HomeBloc every 15 points (~15 min)
 
   // OSRM
   static const String osrmBaseUrl = 'https://router.project-osrm.org';
