@@ -5,34 +5,62 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
 import '../firebase_options.dart';
-import 'location_tracking_service.dart';
+import 'location_sync_service.dart';
 
 // Top-level FCM background handler (required to be top-level, and a
 // separate isolate entry point on Android — needs its own plugin/Firebase
 // init, same pattern as location_tracking_service.dart's _onStart).
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  if (message.data['type'] != 'location_wakeup') return;
+  print('[FCM] Background message received | data=${message.data}');
+
+  if (message.data['type'] != 'location_wakeup') {
+    print('[FCM] Ignoring — type is not location_wakeup');
+    return;
+  }
 
   final userId = message.data['userId'] as String?;
   final date = message.data['date'] as String?;
-  if (userId == null || date == null) return;
-
-  DartPluginRegistrant.ensureInitialized();
-  if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  final trackingId = message.data['trackingId'] as String?;
+  if (userId == null || date == null || trackingId == null) {
+    print('[FCM] location_wakeup missing userId/date/trackingId — ignoring '
+        '(data=${message.data})');
+    return;
   }
 
-  // This handler runs in its own headless isolate (Android may spin up a
-  // fresh process for it), which never ran the app's normal main() — so the
-  // background-service plugin config (onStart callback, notification
-  // channel, etc.) needs to be (re-)registered here before start() can work.
-  await LocationTrackingService.initialize();
+  print('[FCM] location_wakeup → restarting tracking '
+      '| userId=$userId date=$date trackingId=$trackingId');
 
-  // Server-side watchdog only sends this when the tracking session is still
-  // punched-in and stale — just restart the service; LocationTrackingService
-  // handles the "already running" case as a no-op param update.
-  await LocationTrackingService.start(userId, date);
+  try {
+    DartPluginRegistrant.ensureInitialized();
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    }
+
+    // Ensures the background-service plugin is initialized + the tracking
+    // isolate is running (this handler is its own fresh engine, which
+    // never ran the app's normal main(), so initialize() must happen here
+    // too — before start() can work) and syncs any pending batch to
+    // Firestore. See LocationSyncService.ensureRunningAndSync for exactly
+    // what is/isn't parallelized internally. Safe to call even if the
+    // service was already alive: start() no-ops to a param update, and the
+    // sync is guarded by LocationsBoxLock so it backs off cleanly if the
+    // main app turns out to be alive after all.
+    final result = await LocationSyncService.ensureRunningAndSync(
+      userId: userId,
+      date: date,
+      trackingId: trackingId,
+    );
+    if (result != null) {
+      print('[FCM] Pending batch synced from background handler '
+          '| ${result.finalLocations.length} points, '
+          '${result.finalLocationsDistance.toStringAsFixed(3)} km');
+    }
+
+    print('[FCM] location_wakeup handled successfully');
+  } catch (e, st) {
+    print('[FCM] location_wakeup error: $e\n$st');
+  }
 }
 
 class NotificationService {

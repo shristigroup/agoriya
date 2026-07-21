@@ -121,14 +121,25 @@ class OsrmService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data['code'] == 'Ok' && data['tracepoints'] != null) {
-          return (data['tracepoints'] as List).map<LatLng?>((tp) {
+          final result = (data['tracepoints'] as List).map<LatLng?>((tp) {
             if (tp == null) return null;
             final loc = tp['location'] as List;
             return LatLng((loc[1] as num).toDouble(), (loc[0] as num).toDouble());
           }).toList();
+          final matched = result.where((p) => p != null).length;
+          print('[OSRM] snapTracepoints OK | ${points.length} points → '
+              '$matched matched');
+          return result;
         }
+        print('[OSRM] snapTracepoints non-OK response | '
+            'code=${data['code']} → falling back to raw points');
+      } else {
+        print('[OSRM] snapTracepoints HTTP ${response.statusCode} → '
+            'falling back to raw points');
       }
-    } catch (_) {}
+    } catch (e) {
+      print('[OSRM] snapTracepoints error: $e → falling back to raw points');
+    }
 
     // Fall back to original points on any error
     return points.map<LatLng?>((p) => p).toList();

@@ -6,6 +6,7 @@ import '../models/tracking_model.dart';
 import '../models/visit_model.dart';
 import '../models/location_model.dart';
 import '../models/monthly_summary_model.dart';
+import 'locations_box_lock.dart';
 
 class LocalStorageService {
   static late Box _userBox;
@@ -15,8 +16,24 @@ class LocalStorageService {
   static late Box _reportsBox;
   static late Box _settingsBox;
 
+  // Owned EXCLUSIVELY by the location-tracking background isolate — see
+  // AppConstants.trackingCursorBox. Only ever assigned by [openCursorBoxOnly],
+  // which only that isolate calls; the main isolate's [init] never opens it.
+  static late Box _cursorBox;
+
   static Future<void> init() async {
     await Hive.initFlutter();
+    // Hold this for the app's entire process lifetime, before opening
+    // locationsBox/settingsBox — see LocationsBoxLock for the protocol this
+    // implements. Bounded so a stuck lock can never block app startup.
+    try {
+      await LocationsBoxLock.acquireForSession()
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      print('[LocalStorageService] Could not acquire locations_box lock at '
+          'startup within 10s ($e) — proceeding without it. The FCM sync '
+          "path's cross-isolate guard will be weaker this session.");
+    }
     _userBox = await Hive.openBox(AppConstants.userBox);
     _trackingBox = await Hive.openBox(AppConstants.attendanceBox); // same box, new purpose
     _visitsBox = await Hive.openBox(AppConstants.visitsBox);
@@ -25,29 +42,29 @@ class LocalStorageService {
     _settingsBox = await Hive.openBox(AppConstants.settingsBox);
   }
 
-  /// Opens just the locations box. Used by the location-tracking background
-  /// isolate (`location_tracking_service.dart`), which only needs
-  /// currentBatch/finalLocations and shouldn't pay the cost of opening every
-  /// box the way the main isolate's [init] does.
-  static Future<void> openLocationsBoxOnly() async {
+  /// Opens locationsBox + settingsBox fresh — for the FCM watchdog
+  /// handler's isolate ONLY. The caller must already hold
+  /// [LocationsBoxLock] before calling this (see
+  /// LocationSyncService.ensureRunningAndSync) — the main isolate opens
+  /// these boxes once in [init] and keeps them open for its whole lifetime,
+  /// so this is never called from there.
+  static Future<void> openLocationsBoxForSync() async {
     await Hive.initFlutter();
     _locationsBox = await Hive.openBox(AppConstants.locationsBox);
+    _settingsBox = await Hive.openBox(AppConstants.settingsBox);
   }
 
-  /// Forces a fresh disk read of the locations box.
-  ///
-  /// This box is written by two isolates — the main UI isolate and the
-  /// location-tracking background isolate — and Hive does not share
-  /// in-memory box state across isolates: a box opened once keeps serving
-  /// whatever was in memory at open time until it's explicitly closed and
-  /// reopened. Call this before reading currentBatch/finalLocations whenever
-  /// the other isolate may have written to them since this isolate's box
-  /// instance was last opened.
-  static Future<void> reloadLocationsBox() async {
-    if (Hive.isBoxOpen(AppConstants.locationsBox)) {
-      await Hive.box(AppConstants.locationsBox).close();
-    }
-    _locationsBox = await Hive.openBox(AppConstants.locationsBox);
+  /// Opens the tracking-cursor box. Called ONLY by the location-tracking
+  /// background isolate (`location_tracking_service.dart`) — never by the
+  /// main isolate. Hive does not support one box being opened by two
+  /// isolates concurrently (separate isolates get separate in-memory box
+  /// instances over the same file, and concurrent writes can corrupt it) —
+  /// keeping this box's ownership strictly single-isolate is what makes
+  /// [getCurrentBatch]/[getPendingSampleCount]/[getLastConfirmedPoint]/etc.
+  /// below safe to call without any reload/close-reopen dance.
+  static Future<void> openCursorBoxOnly() async {
+    await Hive.initFlutter();
+    _cursorBox = await Hive.openBox(AppConstants.trackingCursorBox);
   }
 
   // ─── User ────────────────────────────────────────────────────────────────
@@ -166,17 +183,14 @@ class LocalStorageService {
   static Future<void> sealVisits(String userId, String date) async =>
       _settingsBox.put('vseal_${userId}_$date', true);
 
-  // ─── Today's tracking state ───────────────────────────────────────────────
+  // ─── Today's tracking state — HomeBloc/main isolate (locationsBox) ────────
   //
-  // Two arrays:
-  //   finalLocations  — OSRM-snapped, exactly mirrors the Firestore locations doc
-  //   currentBatch    — raw GPS since the last committed batch, not yet in Firestore.
-  //                     Written directly by the location-tracking background
-  //                     isolate (sole writer); HomeBloc only reads it.
+  // finalLocations — OSRM-snapped, exactly mirrors the Firestore locations doc.
+  // finalLocationsDistance — OSRM total for all committed batches.
   //
-  // finalLocationsDistance — OSRM total for all committed batches. The live
-  // estimate for currentBatch is computed on read (haversine sum), not
-  // persisted separately.
+  // currentBatch/pendingSampleCount/lastConfirmedPoint are NOT here — they
+  // live in the isolate-owned cursor box below. HomeBloc reaches them only
+  // via LocationTrackingService messages, never directly.
 
   static Future<void> saveFinalLocations(List<LocationPoint> points) async {
     await _locationsBox.put(
@@ -192,20 +206,6 @@ class LocalStorageService {
         .toList();
   }
 
-  static Future<void> saveCurrentBatch(List<LocationPoint> points) async {
-    await _locationsBox.put(
-        AppConstants.currentBatchKey,
-        jsonEncode(points.map((p) => p.toJson()).toList()));
-  }
-
-  static List<LocationPoint> getCurrentBatch() {
-    final raw = _locationsBox.get(AppConstants.currentBatchKey);
-    if (raw == null) return [];
-    return (jsonDecode(raw) as List<dynamic>)
-        .map((e) => LocationPoint.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
-  }
-
   static Future<void> saveFinalLocationsDistance(double km) async =>
       _settingsBox.put(AppConstants.finalLocationsDistanceKey, km);
 
@@ -214,12 +214,64 @@ class LocalStorageService {
           ?.toDouble() ??
       0.0;
 
-  /// Clears all tracking-state keys. Called on fresh punch-in to start clean.
+  /// Clears HomeBloc's own tracking-state keys. Called on fresh punch-in to
+  /// start clean. Does NOT touch the isolate's cursor box — that's cleared
+  /// by the isolate itself when it receives a `fresh: true` setParams (see
+  /// LocationTrackingService.start).
   static Future<void> clearTodayTrackingState() async {
     await _locationsBox.delete(AppConstants.finalLocationsKey);
-    await _locationsBox.delete(AppConstants.currentBatchKey);
     await _settingsBox.delete(AppConstants.finalLocationsDistanceKey);
     await _settingsBox.delete(AppConstants.currentTrackingIdKey);
+  }
+
+  // ─── Tracking cursor state — background isolate ONLY (trackingCursorBox) ──
+  // See AppConstants.trackingCursorBox for why this box is isolate-exclusive.
+
+  static Future<void> saveCurrentBatch(List<LocationPoint> points) async {
+    await _cursorBox.put(
+        AppConstants.currentBatchKey,
+        jsonEncode(points.map((p) => p.toJson()).toList()));
+  }
+
+  static List<LocationPoint> getCurrentBatch() {
+    final raw = _cursorBox.get(AppConstants.currentBatchKey);
+    if (raw == null) return [];
+    return (jsonDecode(raw) as List<dynamic>)
+        .map((e) => LocationPoint.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  static Future<void> savePendingSampleCount(int count) async {
+    await _cursorBox.put(AppConstants.pendingSampleCountKey, count);
+  }
+
+  static int getPendingSampleCount() =>
+      (_cursorBox.get(AppConstants.pendingSampleCountKey) as num?)
+          ?.toInt() ??
+      0;
+
+  static Future<void> saveLastConfirmedPoint(LocationPoint? point) async {
+    if (point == null) {
+      await _cursorBox.delete(AppConstants.lastConfirmedPointKey);
+    } else {
+      await _cursorBox.put(
+          AppConstants.lastConfirmedPointKey, jsonEncode(point.toJson()));
+    }
+  }
+
+  static LocationPoint? getLastConfirmedPoint() {
+    final raw = _cursorBox.get(AppConstants.lastConfirmedPointKey);
+    if (raw == null) return null;
+    return LocationPoint.fromJson(Map<String, dynamic>.from(jsonDecode(raw)));
+  }
+
+  /// Clears all cursor-box keys. Called by the isolate on a fresh punch-in
+  /// (`fresh: true` setParams) so a new session starts with no leftover
+  /// state from a previous day/session.
+  static Future<void> clearCursorState() async {
+    await _cursorBox.delete(AppConstants.currentBatchKey);
+    await _cursorBox.delete(AppConstants.pendingSampleCountKey);
+    await _cursorBox.delete(AppConstants.lastConfirmedPointKey);
   }
 
   // ─── Persisted locations for any user+date ────────────────────────────────

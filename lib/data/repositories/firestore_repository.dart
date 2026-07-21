@@ -147,11 +147,14 @@ class FirestoreRepository {
     List<LocationPoint> allLocations,
     double distanceKm,
   ) async {
+    print('[FirestoreRepo] writeLocations → ${allLocations.length} points, '
+        '${distanceKm.toStringAsFixed(3)} km | trackingId=$trackingId');
     await _trackingDoc(userId, trackingId).update({
       'locations': allLocations.map((p) => p.toFirestore()).toList(),
       'distance': distanceKm,
       'lastUpdatedAt': FieldValue.serverTimestamp(),
     });
+    print('[FirestoreRepo] writeLocations OK → trackingId=$trackingId');
   }
 
   /// Increments visitCount on the active Tracking doc.

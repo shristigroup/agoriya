@@ -18,6 +18,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIST_DIR="$SCRIPT_DIR/dist"
 VERSION_FILE="$DIST_DIR/.last_version"
 STORAGE_BUCKET="agoriya-app.firebasestorage.app"
+TRACKING_ENV_FILE="$SCRIPT_DIR/functions/.env"
+
+# ─── Tracking config (shared with Cloud Functions — see functions/.env.example) ──
+# functions/.env is gitignored; fall back to the tracked example so a fresh
+# clone can still build, and warn since that means defaults are in play.
+if [[ ! -f "$TRACKING_ENV_FILE" ]]; then
+  warn "functions/.env not found — using functions/.env.example defaults."
+  warn "Copy functions/.env.example to functions/.env to customize tracking intervals."
+  TRACKING_ENV_FILE="$SCRIPT_DIR/functions/.env.example"
+fi
 
 # ─── Read version from pubspec.yaml ───────────────────────────────────────────
 PUBSPEC_VERSION=$(grep '^version:' "$SCRIPT_DIR/pubspec.yaml" \
@@ -95,7 +105,7 @@ flutter pub get
 # ─── Android — release APK ───────────────────────────────────────────────────
 if [[ "$BUILD_ANDROID" == true ]]; then
   info "Building Android release APK..."
-  flutter build apk --release
+  flutter build apk --release --dart-define-from-file="$TRACKING_ENV_FILE"
 
   APK_SRC="$SCRIPT_DIR/build/app/outputs/flutter-apk/app-release.apk"
   APK_DEST="$DIST_DIR/agoriya-$PUBSPEC_VERSION.apk"
@@ -171,7 +181,7 @@ if [[ "$BUILD_IOS" == true ]]; then
     warn "iOS build skipped — not running on macOS."
   else
     info "Building iOS release IPA..."
-    flutter build ipa --release
+    flutter build ipa --release --dart-define-from-file="$TRACKING_ENV_FILE"
 
     # flutter build ipa places the archive here
     IPA_SRC=$(find "$SCRIPT_DIR/build/ios/archive" -name "*.xcarchive" | head -1)

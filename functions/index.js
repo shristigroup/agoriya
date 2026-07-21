@@ -6,6 +6,12 @@ admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
 
+// ─── Location tracking tuning (see functions/.env.example) ──────────────────
+// Loaded automatically from functions/.env on deploy/emulate (functions v2).
+const LOCATION_BATCH_MINUTES = Number(process.env.LOCATION_BATCH_MINUTES || 15);
+const WATCHDOG_BUFFER_MINUTES = Number(process.env.WATCHDOG_BUFFER_MINUTES || 5);
+const WATCHDOG_SCHEDULE_MINUTES = Number(process.env.WATCHDOG_SCHEDULE_MINUTES || 5);
+
 // ─── Helper: get FCM token for a user ────────────────────────────────────────
 async function getUserToken(userId) {
   const doc = await db.collection("Users").doc(userId).get();
@@ -229,16 +235,18 @@ exports.onCommentWrite = onDocumentCreated(
 // );
 
 // ─── Location tracking watchdog — recover tracking the OS killed ────────────
-// Runs every 5 minutes. Finds punched-in users whose last location sync is
-// stale (past a 15-min sampling window + buffer) and sends a silent,
-// data-only FCM message that the app uses to restart tracking in the
-// background — without waiting for the user to reopen the app. Reliable on
-// Android unless the user has force-stopped the app; on iOS this is a
-// best-effort improvement since Apple can throttle silent push delivery.
-const STALE_THRESHOLD_MS = 20 * 60 * 1000; // 15 min sampling window + 5 min buffer
+// Runs every WATCHDOG_SCHEDULE_MINUTES. Finds punched-in users whose last
+// location sync is stale (past LOCATION_BATCH_MINUTES + WATCHDOG_BUFFER_MINUTES)
+// and sends a silent, data-only FCM message that the app uses to restart
+// tracking in the background — without waiting for the user to reopen the
+// app. Reliable on Android unless the user has force-stopped the app; on iOS
+// this is a best-effort improvement since Apple can throttle silent push
+// delivery.
+const STALE_THRESHOLD_MS =
+  (LOCATION_BATCH_MINUTES + WATCHDOG_BUFFER_MINUTES) * 60 * 1000;
 
 exports.locationTrackingWatchdog = onSchedule(
-  { schedule: "every 5 minutes", region: "asia-south1" },
+  { schedule: `every ${WATCHDOG_SCHEDULE_MINUTES} minutes`, region: "asia-south1" },
   async () => {
     const now = Date.now();
     const snap = await db
@@ -256,13 +264,14 @@ exports.locationTrackingWatchdog = onSchedule(
 
       const userId = doc.ref.parent.parent.id;
       const date = doc.id.substring(0, 10);
+      const trackingId = doc.id;
       const token = await getUserToken(userId);
       if (!token) return;
 
       try {
         await messaging.send({
           token,
-          data: { type: "location_wakeup", userId, date },
+          data: { type: "location_wakeup", userId, date, trackingId },
           android: { priority: "high" },
           apns: {
             headers: { "apns-priority": "5" },

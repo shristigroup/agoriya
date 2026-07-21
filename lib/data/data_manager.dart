@@ -174,46 +174,16 @@ class DataManager {
 
   // ─── Today's tracking state (own user only) ────────────────────────────────
 
+  // currentBatch/pendingSampleCount live in the location-tracking background
+  // isolate's own Hive box now (see AppConstants.trackingCursorBox) — never
+  // read directly here. HomeBloc reaches them exclusively via
+  // LocationTrackingService.requestSnapshot()/the newPoint event payload.
+
   static List<LocationPoint> getFinalLocations() =>
       LocalStorageService.getFinalLocations();
 
-  static List<LocationPoint> getCurrentBatch() =>
-      LocalStorageService.getCurrentBatch();
-
   static double getFinalLocationsDistance() =>
       LocalStorageService.getFinalLocationsDistance();
-
-  /// Live haversine estimate for the unsynced currentBatch, anchored to the
-  /// last committed point (mirrors how the batch's OSRM distance is anchored
-  /// in [_snapBatch] once it's synced).
-  static double getCurrentBatchDistance() {
-    final batch = LocalStorageService.getCurrentBatch();
-    if (batch.isEmpty) return 0.0;
-    final finalLocations = LocalStorageService.getFinalLocations();
-    final points = [if (finalLocations.isNotEmpty) finalLocations.last, ...batch];
-    double sum = 0.0;
-    for (int i = 0; i < points.length - 1; i++) {
-      sum += AppUtils.haversineMeters(points[i].position, points[i + 1].position) /
-          1000.0;
-    }
-    return sum;
-  }
-
-  /// Returns the display distance: OSRM total + live haversine for currentBatch.
-  static double getDisplayDistance(String userId, TrackingModel? tracking) {
-    if (isOwner(userId)) {
-      return LocalStorageService.getFinalLocationsDistance() +
-          getCurrentBatchDistance();
-    }
-    return tracking?.distance ?? 0.0;
-  }
-
-  /// Forces a fresh disk read of the locations box — the location-tracking
-  /// background isolate writes to currentBatch/finalLocations independently,
-  /// so callers must reload before reading anything it may have written
-  /// since this isolate's box instance was last opened.
-  static Future<void> reloadLocationsBox() =>
-      LocalStorageService.reloadLocationsBox();
 
   static Future<void> saveFinalLocations(List<LocationPoint> points) =>
       LocalStorageService.saveFinalLocations(points);

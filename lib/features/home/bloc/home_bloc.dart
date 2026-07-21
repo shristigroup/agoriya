@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
@@ -12,7 +11,7 @@ import '../../../data/models/location_model.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../services/location_tracking_service.dart';
-import '../../../services/osrm_service.dart';
+import '../../../services/location_sync_service.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final String userId;
@@ -37,8 +36,18 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final bgService = FlutterBackgroundService();
 
     _newPointSub = bgService.on('newPoint').listen((data) {
+      if (data == null) return;
+      final batch = ((data['currentBatch'] as List?) ?? const [])
+          .map((e) => LocationPoint.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final anchorJson = data['lastConfirmedPoint'] as Map?;
+      final anchor = anchorJson != null
+          ? LocationPoint.fromJson(Map<String, dynamic>.from(anchorJson))
+          : null;
       add(NewLocationPointEvent(
-        processBatch: (data?['processBatch'] as bool?) ?? false,
+        processBatch: (data['processBatch'] as bool?) ?? false,
+        currentBatch: batch,
+        lastConfirmedPoint: anchor,
       ));
     });
   }
@@ -61,20 +70,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final tracking = DataManager.getActiveTracking();
     final visits = await DataManager.getVisitsForDay(userId, today);
 
-    // The background isolate may have written points while the app was
-    // dead — reload before reading currentBatch/finalLocations.
-    await DataManager.reloadLocationsBox();
     final finalLocations = DataManager.getFinalLocations();
-    final currentBatch = DataManager.getCurrentBatch();
     final finalDistance = DataManager.getFinalLocationsDistance();
-    final batchDistance = DataManager.getCurrentBatchDistance();
-
-    // Seed lastKnownLocation from the last tracked point.
-    final LatLng? lastKnownLocation = finalLocations.isNotEmpty
-        ? finalLocations.last.position
-        : currentBatch.isNotEmpty
-            ? currentBatch.last.position
-            : null;
 
     // Reconcile service state with tracking on every app start.
     final serviceRunning = await LocationTrackingService.isRunning;
@@ -89,6 +86,27 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       if (serviceRunning) LocationTrackingService.stop();
     }
 
+    // The isolate is the sole owner of currentBatch/lastConfirmedPoint —
+    // request its state instead of ever reading its Hive box directly.
+    List<LocationPoint> currentBatch = [];
+    LocationPoint? lastConfirmedPoint;
+    int pendingSampleCount = 0;
+    if (tracking?.isPunchedIn == true) {
+      final snap = await LocationTrackingService.requestSnapshot();
+      if (snap != null) {
+        currentBatch = snap.currentBatch;
+        lastConfirmedPoint = snap.lastConfirmedPoint;
+        pendingSampleCount = snap.pendingSampleCount;
+      }
+    }
+
+    // Seed lastKnownLocation from the last tracked point.
+    final LatLng? lastKnownLocation = finalLocations.isNotEmpty
+        ? finalLocations.last.position
+        : currentBatch.isNotEmpty
+            ? currentBatch.last.position
+            : lastConfirmedPoint?.position;
+
     emit(HomeLoaded(
       tracking: tracking,
       finalLocations: finalLocations,
@@ -96,12 +114,20 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       visits: visits,
       lastKnownLocation: lastKnownLocation,
       finalLocationsDistance: finalDistance,
-      currentBatchDistance: batchDistance,
+      currentBatchDistance:
+          _currentBatchDistanceKm(currentBatch, finalLocations),
     ));
 
-    // Covers the case where a processBatch signal was missed while the app
-    // was dead — catch up immediately rather than waiting for the next one.
-    if (currentBatch.length >= AppConstants.locationBatchSize) {
+    // Covers the case where a flush signal was missed while the app was
+    // dead. pendingSampleCount (not currentBatch.length) is the right check
+    // here — a pure stationary run never grows currentBatch, but samples
+    // still accumulate toward it, so this is the only reliable signal that
+    // a sync is owed. Threshold at locationBatchSize, not >0: a small
+    // pending count isn't overdue yet — it'll flush naturally via the
+    // normal live path once it reaches this same threshold, same as any
+    // other in-session count. Only >= means a flush was actually due and
+    // never got confirmed.
+    if (pendingSampleCount >= AppConstants.locationBatchSize) {
       await _processBatch(emit);
     }
   }
@@ -114,7 +140,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final today = AppUtils.todayKey();
       final tracking = await DataManager.punchIn(
           userId, today, DateTime.now(), event.imageUrl);
-      await LocationTrackingService.start(userId, today);
+      // fresh: true — a genuine new session, so the isolate wipes any
+      // leftover cursor state (currentBatch/pendingSampleCount/
+      // lastConfirmedPoint) from a previous day/session before sampling.
+      await LocationTrackingService.start(userId, today, fresh: true);
       emit(PunchInSuccess(tracking));
     } catch (e) {
       emit(HomeError(e.toString()));
@@ -143,16 +172,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     try {
       final now = DateTime.now();
 
+      // Request the final cursor state BEFORE stopping — the isolate must
+      // still be alive to respond to this.
+      final snap = await LocationTrackingService.requestSnapshot();
+      final currentBatch = snap?.currentBatch ?? <LocationPoint>[];
+
       LocationTrackingService.stop();
       await Future.delayed(const Duration(seconds: 1));
 
-      // Read fresh — the background isolate may have written points right
-      // up until it received stopTracking.
-      await DataManager.reloadLocationsBox();
       final finalLocations = DataManager.getFinalLocations();
-      final currentBatch = DataManager.getCurrentBatch();
 
-      final snapResult = await _snapBatch(
+      final snapResult = await LocationSyncService.snapBatch(
         batch: currentBatch,
         finalLocations: finalLocations,
       );
@@ -194,7 +224,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         totalTime: updatedTracking.attendanceDuration,
       ));
     } catch (e) {
-      debugPrint('[HomeBloc] punchOut error: $e');
+      print('[HomeBloc] punchOut error: $e');
       try {
         emit(current.copyWith(isPunchingOut: false));
       } catch (_) {}
@@ -216,10 +246,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final today = AppUtils.todayKey();
       final resumed =
           await DataManager.resumeSession(userId, current.tracking!);
+      // Not fresh — continuing the same day's session, cursor state (if any
+      // survived) should be kept.
       await LocationTrackingService.start(userId, today);
       emit(current.copyWith(tracking: resumed));
     } catch (e) {
-      debugPrint('[HomeBloc] resumeSession error: $e');
+      print('[HomeBloc] resumeSession error: $e');
       emit(HomeError(e.toString()));
     }
   }
@@ -232,34 +264,45 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final current = state as HomeLoaded;
     if (current.tracking?.isPunchedIn != true) return;
 
-    // The background isolate is the sole writer of currentBatch/finalLocations
-    // — reload before reading so we see whatever it wrote while backgrounded.
-    await DataManager.reloadLocationsBox();
-    final currentBatch = DataManager.getCurrentBatch();
-    final finalLocations = DataManager.getFinalLocations();
-    final lastPoint = currentBatch.isNotEmpty
-        ? currentBatch.last
-        : (finalLocations.isNotEmpty ? finalLocations.last : null);
+    // The isolate may have been killed by the OS while backgrounded —
+    // restart it (not fresh: continuing the same session) before asking
+    // for its state.
+    if (!await LocationTrackingService.isRunning) {
+      final permission = await Geolocator.checkPermission();
+      final hasPermission = permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse;
+      if (!hasPermission) return;
+      await LocationTrackingService.start(userId, AppUtils.todayKey());
+    }
+
+    final snap = await LocationTrackingService.requestSnapshot();
+    if (snap == null) return;
+
+    final lastPoint = snap.currentBatch.isNotEmpty
+        ? snap.currentBatch.last
+        : snap.lastConfirmedPoint;
 
     emit(current.copyWith(
-      currentBatch: currentBatch,
-      finalLocations: finalLocations,
-      currentBatchDistance: DataManager.getCurrentBatchDistance(),
+      currentBatch: snap.currentBatch,
+      currentBatchDistance:
+          _currentBatchDistanceKm(snap.currentBatch, current.finalLocations),
       lastKnownLocation: lastPoint?.position ?? current.lastKnownLocation,
     ));
 
-    // Covers the case where a processBatch signal was missed while the app
-    // was dead — catch up immediately rather than waiting for the next sample.
-    if (currentBatch.length >= AppConstants.locationBatchSize) {
+    // Covers the case where a flush signal was missed while the app was
+    // backgrounded — pendingSampleCount catches a pure stationary run too,
+    // where currentBatch never grows (see _onInit for the same reasoning
+    // on the >= threshold vs. >0).
+    if (snap.pendingSampleCount >= AppConstants.locationBatchSize) {
       await _processBatch(emit);
     }
   }
 
   // ── New Location Point ────────────────────────────────────────────────────
-  // The background isolate is the sole writer of currentBatch/finalLocations
-  // (stationary detection, distance accumulation, and Hive writes all happen
-  // there — see location_tracking_service.dart). This handler just re-reads
-  // what it wrote and, on a flush signal, drives the OSRM+Firestore sync.
+  // The background isolate is the sole owner of currentBatch/
+  // lastConfirmedPoint and pushes their current values with every sample —
+  // this handler just applies them to live UI state and, on a flush
+  // signal, drives the OSRM+Firestore sync.
 
   Future<void> _onNewLocationPoint(
       NewLocationPointEvent event, Emitter<HomeState> emit) async {
@@ -267,17 +310,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final current = state as HomeLoaded;
     if (current.tracking?.isPunchedIn != true) return;
 
-    await DataManager.reloadLocationsBox();
-    final currentBatch = DataManager.getCurrentBatch();
-    final finalLocations = DataManager.getFinalLocations();
-    final lastPoint = currentBatch.isNotEmpty
-        ? currentBatch.last
-        : (finalLocations.isNotEmpty ? finalLocations.last : null);
+    final lastPoint = event.currentBatch.isNotEmpty
+        ? event.currentBatch.last
+        : event.lastConfirmedPoint;
 
     emit(current.copyWith(
-      currentBatch: currentBatch,
-      finalLocations: finalLocations,
-      currentBatchDistance: DataManager.getCurrentBatchDistance(),
+      currentBatch: event.currentBatch,
+      currentBatchDistance:
+          _currentBatchDistanceKm(event.currentBatch, current.finalLocations),
       lastKnownLocation: lastPoint?.position ?? current.lastKnownLocation,
       lastGpsUpdateTime: DateTime.now(),
     ));
@@ -286,11 +326,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
 
   // ── Process Current Batch ─────────────────────────────────────────────────
-  // Reads currentBatch fresh (never trusts in-memory state, since the
-  // background isolate is the sole writer), snaps it via OSRM, and syncs to
-  // Firestore. currentBatch in Hive is left untouched until the sync
-  // succeeds — on failure, nothing is cleared, so the batch is naturally
-  // retried on the next signal/resume instead of being lost.
+  // Requests currentBatch fresh from the isolate (never trusts stale
+  // in-memory state), snaps it via OSRM, and syncs to Firestore. The
+  // isolate's cursor state is left untouched until the sync succeeds — on
+  // failure, nothing is confirmed, so the batch is naturally retried on the
+  // next signal/resume instead of being lost.
 
   Future<void> _processBatch(Emitter<HomeState> emit) async {
     if (state is! HomeLoaded) return;
@@ -299,77 +339,40 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final current = state as HomeLoaded;
     if (current.tracking == null) return;
 
-    await DataManager.reloadLocationsBox();
-    final batchToProcess = DataManager.getCurrentBatch();
-    final finalLocations = DataManager.getFinalLocations();
-    if (batchToProcess.isEmpty && finalLocations.isEmpty) return;
-
     _snapping = true;
     emit(current.copyWith(isSnapping: true));
 
     try {
-      double osrmDistance = 0.0;
-      List<LocationPoint> snappedBatch = [];
+      final result = await LocationSyncService.syncCore(
+        userId: userId,
+        trackingId: current.tracking!.id,
+        finalLocations: DataManager.getFinalLocations(),
+        finalLocationsDistance: DataManager.getFinalLocationsDistance(),
+      );
 
-      if (batchToProcess.isNotEmpty) {
-        final snapResult = await _snapBatch(
-          batch: batchToProcess,
-          finalLocations: finalLocations,
-        );
-        if (snapResult != null) {
-          (snappedBatch, osrmDistance) = snapResult;
-        }
-      }
-
-      final newFinalDistance =
-          DataManager.getFinalLocationsDistance() + osrmDistance;
-      var allLocations = [...finalLocations, ...snappedBatch];
-
-      if (allLocations.isEmpty) {
+      if (result == null) {
         if (state is HomeLoaded) {
           emit((state as HomeLoaded).copyWith(isSnapping: false));
         }
         return;
       }
 
-      allLocations = [
-        ...allLocations.take(allLocations.length - 1),
-        allLocations.last.copyWith(
-          cumulativeDistanceKm: newFinalDistance,
-          batchDistanceKm: osrmDistance,
-        ),
-      ];
-
-      debugPrint(
-          '[HomeBloc] Syncing ${allLocations.length} total points to Firestore '
-          '(+${snappedBatch.length} new, distance: ${newFinalDistance.toStringAsFixed(3)} km)'
-          ' | last.ts=${allLocations.last.timestamp.toIso8601String()}'
-          ' | last.durationSeconds=${allLocations.last.durationSeconds}');
-      await DataManager.persistLocations(
-        userId: userId,
-        trackingId: current.tracking!.id,
-        allLocations: allLocations,
-        distanceKm: newFinalDistance,
-      );
-
-      // Confirm success so the background isolate (sole writer of
-      // currentBatch) can trim entries up to this point — anything it
-      // appended concurrently during the sync is left intact.
-      if (batchToProcess.isNotEmpty) {
-        LocationTrackingService.confirmBatchSynced(batchToProcess.last.timestamp);
-      }
-
       if (state is! HomeLoaded) return;
-      await DataManager.reloadLocationsBox();
+      final freshSnap = await LocationTrackingService.requestSnapshot();
+      final freshBatch = freshSnap?.currentBatch ?? <LocationPoint>[];
       emit((state as HomeLoaded).copyWith(
         isSnapping: false,
-        finalLocations: allLocations,
-        finalLocationsDistance: newFinalDistance,
-        currentBatch: DataManager.getCurrentBatch(),
-        currentBatchDistance: DataManager.getCurrentBatchDistance(),
+        finalLocations: result.finalLocations,
+        finalLocationsDistance: result.finalLocationsDistance,
+        currentBatch: freshBatch,
+        currentBatchDistance:
+            _currentBatchDistanceKm(freshBatch, result.finalLocations),
       ));
     } catch (e) {
-      debugPrint('[HomeBloc] processCurrentBatch error: $e');
+      // syncCore already catches its own errors and returns null — this is
+      // a backstop for anything outside it (e.g. the fresh snapshot re-read
+      // above), so isSnapping never gets stuck true.
+      print('[HomeBloc] processCurrentBatch error: $e');
       if (state is HomeLoaded) {
         emit((state as HomeLoaded).copyWith(isSnapping: false));
       }
@@ -443,50 +446,18 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  Future<(List<LocationPoint>, double)?> _snapBatch({
-    required List<LocationPoint> batch,
-    required List<LocationPoint> finalLocations,
-  }) async {
-    if (batch.isEmpty) return null;
-
-    final sorted = List<LocationPoint>.from(batch)
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-    final lastSyncedTs =
-        finalLocations.isNotEmpty ? finalLocations.last.timestamp : null;
-    final valid = lastSyncedTs != null
-        ? sorted
-            .where((p) => p.timestamp.isAfter(lastSyncedTs))
-            .toList()
-        : sorted;
-
-    if (valid.isEmpty) return null;
-
-    final tracepoints = await OsrmService.snapTracepoints(
-      valid.map((p) => p.position).toList(),
-    );
-
-    final snapped = <LocationPoint>[];
-    for (int i = 0; i < valid.length; i++) {
-      final pos = tracepoints[i] ?? valid[i].position;
-      snapped.add(LocationPoint(
-        position: pos,
-        timestamp: valid[i].timestamp,
-        isSnapped: true,
-        durationSeconds: valid[i].durationSeconds,
-      ));
-    }
-
-    double distance = 0.0;
-    final prevPoint =
-        finalLocations.isNotEmpty ? finalLocations.last : null;
-    final distInput = [if (prevPoint != null) prevPoint, ...snapped];
-    for (int i = 0; i < distInput.length - 1; i++) {
-      distance += AppUtils.haversineMeters(
-              distInput[i].position, distInput[i + 1].position) /
+  /// Live haversine estimate for the unsynced currentBatch, anchored to the
+  /// last committed point — mirrors how the batch's OSRM distance is
+  /// anchored in [LocationSyncService.snapBatch] once it's synced.
+  double _currentBatchDistanceKm(
+      List<LocationPoint> batch, List<LocationPoint> finalLocations) {
+    if (batch.isEmpty) return 0.0;
+    final points = [if (finalLocations.isNotEmpty) finalLocations.last, ...batch];
+    double sum = 0.0;
+    for (int i = 0; i < points.length - 1; i++) {
+      sum += AppUtils.haversineMeters(points[i].position, points[i + 1].position) /
           1000.0;
     }
-
-    return (snapped, distance);
+    return sum;
   }
 }
