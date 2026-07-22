@@ -9,7 +9,7 @@ const messaging = admin.messaging();
 // ─── Location tracking tuning (see functions/.env.example) ──────────────────
 // Loaded automatically from functions/.env on deploy/emulate (functions v2).
 const LOCATION_BATCH_MINUTES = Number(process.env.LOCATION_BATCH_MINUTES || 15);
-const WATCHDOG_BUFFER_MINUTES = Number(process.env.WATCHDOG_BUFFER_MINUTES || 5);
+const LOCATION_SAMPLE_INTERVAL_MINUTE = Number(process.env.LOCATION_SAMPLE_INTERVAL_MINUTE || 1);
 const WATCHDOG_SCHEDULE_MINUTES = Number(process.env.WATCHDOG_SCHEDULE_MINUTES || 5);
 
 // ─── Helper: get FCM token for a user ────────────────────────────────────────
@@ -236,14 +236,23 @@ exports.onCommentWrite = onDocumentCreated(
 
 // ─── Location tracking watchdog — recover tracking the OS killed ────────────
 // Runs every WATCHDOG_SCHEDULE_MINUTES. Finds punched-in users whose last
-// location sync is stale (past LOCATION_BATCH_MINUTES + WATCHDOG_BUFFER_MINUTES)
-// and sends a silent, data-only FCM message that the app uses to restart
-// tracking in the background — without waiting for the user to reopen the
-// app. Reliable on Android unless the user has force-stopped the app; on iOS
-// this is a best-effort improvement since Apple can throttle silent push
-// delivery.
+// location sync is stale and sends a silent, data-only FCM message that the
+// app uses to restart tracking in the background — without waiting for the
+// user to reopen the app. Reliable on Android unless the user has
+// force-stopped the app; on iOS this is a best-effort improvement since
+// Apple can throttle silent push delivery.
+//
+// Staleness threshold = LOCATION_BATCH_MINUTES + LOCATION_SAMPLE_INTERVAL_MINUTE,
+// not an arbitrary buffer: the live-sync flush isn't a fixed wall-clock
+// timer, it's triggered by sample COUNT hitting a multiple of the batch
+// size, so a healthy app's actual flush timing has up to one sample-interval
+// of natural jitter around the nominal LOCATION_BATCH_MINUTES mark — this
+// ties the margin to that real mechanism instead of guessing at a constant.
+// Worst-case total delay before a stale doc is caught = this threshold PLUS
+// up to WATCHDOG_SCHEDULE_MINUTES (the watchdog only checks this often) —
+// with defaults, (15 + 1) + 5 = 21 minutes, not just the threshold alone.
 const STALE_THRESHOLD_MS =
-  (LOCATION_BATCH_MINUTES + WATCHDOG_BUFFER_MINUTES) * 60 * 1000;
+  (LOCATION_BATCH_MINUTES + LOCATION_SAMPLE_INTERVAL_MINUTE) * 60 * 1000;
 
 exports.locationTrackingWatchdog = onSchedule(
   { schedule: `every ${WATCHDOG_SCHEDULE_MINUTES} minutes`, region: "asia-south1" },
