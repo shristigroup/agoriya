@@ -277,7 +277,6 @@ exports.locationTrackingWatchdog = onSchedule(
       if (now - heartbeatAt < HEARTBEAT_STALE_THRESHOLD_MS) return;
 
       const pingedAtMs = data.watchdogPingedAt ? data.watchdogPingedAt.toMillis() : null;
-      const pingCount = data.watchdogPingCount || 0;
 
       // Recovered since the last ping — fresh heartbeat arrived, clear
       // episode state so the next unrelated stale spell starts clean.
@@ -289,8 +288,16 @@ exports.locationTrackingWatchdog = onSchedule(
         return;
       }
 
-      // Already pinged enough times with no recovery — give up.
-      if (pingedAtMs !== null && pingCount >= WATCHDOG_PING_COUNT_THRESHOLD) {
+      // Increment before deciding, so a pingCount that's already at
+      // threshold is acted on THIS run — not one extra WATCHDOG_SCHEDULE_
+      // MINUTES cycle later, which sending-then-checking-next-time would
+      // otherwise waste. This means the ping numbered at the threshold is
+      // never actually sent — give-up takes its place once the last
+      // ACTUAL ping (pingCount - 1 sends) has had one full cycle to prove
+      // it worked.
+      const nextPingCount = (data.watchdogPingCount || 0) + 1;
+
+      if (pingedAtMs !== null && nextPingCount >= WATCHDOG_PING_COUNT_THRESHOLD) {
         await doc.ref.update({
           stopTime: admin.firestore.Timestamp.now(),
           isPunchedIn: false,
@@ -327,9 +334,9 @@ exports.locationTrackingWatchdog = onSchedule(
         });
         await doc.ref.update({
           watchdogPingedAt: admin.firestore.FieldValue.serverTimestamp(),
-          watchdogPingCount: pingCount + 1,
+          watchdogPingCount: nextPingCount,
         });
-        console.log(`[locationTrackingWatchdog] wakeup sent → ${userId} (${doc.id}), attempt ${pingCount + 1}`);
+        console.log(`[locationTrackingWatchdog] wakeup sent → ${userId} (${doc.id}), attempt ${nextPingCount}`);
       } catch (err) {
         console.error(`[locationTrackingWatchdog] send error for ${userId}:`, err.message);
       }
