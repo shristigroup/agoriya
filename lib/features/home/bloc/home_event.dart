@@ -70,3 +70,9 @@ class ResumeSessionEvent extends HomeEvent {}
 /// signal was missed while backgrounded — triggers a sync immediately
 /// rather than waiting for the next sample.
 class AppResumedEvent extends HomeEvent {}
+
+/// Fired when the app leaves the foreground (AppLifecycleState.paused).
+/// Closes locationsBox/settingsBox and releases the cross-isolate lock (see
+/// LocationsBoxLock) so the FCM watchdog can safely sync while the app is
+/// backgrounded — the window it's most likely to be needed.
+class AppPausedEvent extends HomeEvent {}

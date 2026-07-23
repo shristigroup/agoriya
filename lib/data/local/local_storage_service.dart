@@ -42,14 +42,43 @@ class LocalStorageService {
     _settingsBox = await Hive.openBox(AppConstants.settingsBox);
   }
 
-  /// Opens locationsBox + settingsBox fresh — for the FCM watchdog
-  /// handler's isolate ONLY. The caller must already hold
-  /// [LocationsBoxLock] before calling this (see
-  /// LocationSyncService.ensureRunningAndSync) — the main isolate opens
-  /// these boxes once in [init] and keeps them open for its whole lifetime,
-  /// so this is never called from there.
+  /// Opens locationsBox + settingsBox fresh — for any caller that doesn't
+  /// already hold them open for a foreground session (the FCM watchdog's
+  /// isolate, or the main isolate transiently re-acquiring the lock while
+  /// backgrounded — see
+  /// LocationSyncService.processBatchAndEmitLatestLocationData). The caller
+  /// must already hold [LocationsBoxLock] before calling this.
   static Future<void> openLocationsBoxForSync() async {
     await Hive.initFlutter();
+    _locationsBox = await Hive.openBox(AppConstants.locationsBox);
+    _settingsBox = await Hive.openBox(AppConstants.settingsBox);
+  }
+
+  /// Closes locationsBox + settingsBox and releases the cross-isolate lock —
+  /// call when the app is backgrounded during an active tracking session
+  /// (see HomeBloc's AppPausedEvent), so the FCM watchdog (or a future
+  /// boot/update-triggered recovery) can safely sync while this session
+  /// isn't using these boxes. Pairs with [reopenLocationsBoxForForeground].
+  static Future<void> closeLocationsBoxForBackground() async {
+    await _locationsBox.close();
+    await _settingsBox.close();
+    await LocationsBoxLock.releaseHeld();
+  }
+
+  /// Reacquires the lock and reopens locationsBox + settingsBox — call when
+  /// the app returns to foreground (see HomeBloc's AppResumedEvent). Blocks
+  /// briefly if another isolate is mid-sync; bounded so a stuck lock can
+  /// never prevent the app from resuming normal operation.
+  static Future<void> reopenLocationsBoxForForeground() async {
+    try {
+      await LocationsBoxLock.acquireForSession()
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      print('[LocalStorageService] Could not reacquire locations_box lock '
+          'on resume within 10s ($e) — proceeding without it. The FCM sync '
+          "path's cross-isolate guard will be weaker until next background/"
+          'foreground cycle.');
+    }
     _locationsBox = await Hive.openBox(AppConstants.locationsBox);
     _settingsBox = await Hive.openBox(AppConstants.settingsBox);
   }

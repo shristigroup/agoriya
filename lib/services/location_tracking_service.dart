@@ -193,11 +193,39 @@ void _onStart(ServiceInstance service) async {
   Timer? samplingTimer;
   StreamSubscription<Position>? positionSub;
 
-  String _ts() {
-    final t = DateTime.now();
+  String _ts([DateTime? at]) {
+    final t = at ?? DateTime.now();
     return '${t.hour.toString().padLeft(2,'0')}:'
            '${t.minute.toString().padLeft(2,'0')}:'
            '${t.second.toString().padLeft(2,'0')}';
+  }
+
+  // Android only: re-shows the foreground-service notification with the same
+  // id/channel so Android updates it in place instead of posting a new one.
+  // Without this, "Tracking location..." stays static for the entire session
+  // even if sampling has silently stalled (permission revoked, OEM battery
+  // manager suspending callbacks, an unhandled error) — there'd be no way to
+  // tell a healthy session from a dead one just by looking at the notification.
+  final notificationsPlugin = FlutterLocalNotificationsPlugin();
+  Future<void> updateTrackingNotification(DateTime sampledAt) async {
+    if (!Platform.isAndroid) return;
+    final hhmm = '${sampledAt.hour.toString().padLeft(2, '0')}:'
+        '${sampledAt.minute.toString().padLeft(2, '0')}';
+    await notificationsPlugin.show(
+      AppConstants.bgNotificationId,
+      'TrackFolks',
+      'Tracking location · last sample $hhmm',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          AppConstants.bgServiceChannel,
+          'Location Tracking',
+          importance: Importance.low,
+          priority: Priority.low,
+          ongoing: true,
+          autoCancel: false,
+        ),
+      ),
+    );
   }
 
   // ── Sample handling: this isolate is the SOLE owner of the tracking
@@ -269,6 +297,8 @@ void _onStart(ServiceInstance service) async {
     print('[LocationService ${_ts()}] signal'
         ' #$pointsSinceLastSignal'
         '${flush ? ' → flush' : ''}');
+
+    await updateTrackingNotification(timestamp);
   }
 
   // ── Android: one-shot GPS collection ──────────────────────────────────────

@@ -37,19 +37,18 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     }
 
-    // Ensures the background-service plugin is initialized + the tracking
-    // isolate is running (this handler is its own fresh engine, which
-    // never ran the app's normal main(), so initialize() must happen here
-    // too — before start() can work) and syncs any pending batch to
-    // Firestore. See LocationSyncService.ensureRunningAndSync for exactly
-    // what is/isn't parallelized internally. Safe to call even if the
-    // service was already alive: start() no-ops to a param update, and the
-    // sync is guarded by LocationsBoxLock so it backs off cleanly if the
-    // main app turns out to be alive after all.
-    final result = await LocationSyncService.ensureRunningAndSync(
+    // This handler is its own fresh engine, which never ran the app's
+    // normal main(), so it always needs its own initialize()+start() before
+    // a sync can happen — safe to call even if the service was already
+    // alive (start() no-ops to a param update). The sync itself is guarded
+    // by LocationsBoxLock so it backs off cleanly if the main app turns out
+    // to be alive after all. forceSync: true — this handler only runs
+    // because the watchdog already decided a sync is overdue.
+    await LocationSyncService.initializeAndStart(userId, date);
+    final result = await LocationSyncService.processBatchAndEmitLatestLocationData(
       userId: userId,
-      date: date,
       trackingId: trackingId,
+      forceSync: true,
     );
     if (result != null) {
       print('[FCM] Pending batch synced from background handler '

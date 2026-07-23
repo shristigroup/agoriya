@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:latlong2/latlong.dart';
+import '../core/constants/app_constants.dart';
 import '../core/utils/app_utils.dart';
 import '../data/data_manager.dart';
 import '../data/local/local_storage_service.dart';
@@ -11,42 +11,138 @@ import 'osrm_service.dart';
 class LocationSyncResult {
   final List<LocationPoint> finalLocations;
   final double finalLocationsDistance;
+  final List<LocationPoint> currentBatch;
+  final double currentBatchDistance;
+  final LatLng? lastKnownLocation;
   const LocationSyncResult({
     required this.finalLocations,
     required this.finalLocationsDistance,
+    required this.currentBatch,
+    required this.currentBatchDistance,
+    required this.lastKnownLocation,
   });
 }
 
-/// The "sync a pending batch to Firestore" job — shared by HomeBloc (which
-/// already has locationsBox/settingsBox open for its whole lifetime) and
-/// the FCM watchdog handler (a separate, short-lived isolate that opens
-/// them fresh, guarded by [LocationsBoxLock]). One implementation, so the
-/// two call sites can't drift apart.
+/// Everything to do with turning tracking-isolate + Hive data into what the
+/// UI shows and what Firestore stores. One implementation shared by
+/// HomeBloc (foreground UI), the FCM watchdog, and any future boot/update-
+/// triggered recovery — so none of these call sites can drift apart.
 class LocationSyncService {
-  /// Core algorithm: request the tracking isolate's pending batch, snap it
-  /// via OSRM, build the full locations array, persist to Firestore+Hive,
-  /// and confirm back to the isolate. Callers must ensure safe access to
-  /// locationsBox/settingsBox before calling this — see
-  /// [ensureRunningAndSync] for the FCM-handler path; HomeBloc's own box
-  /// access is already safe since it's the box's session-long owner.
-  static Future<LocationSyncResult?> syncCore({
+  /// The single entry point for "give me the latest tracking data, syncing
+  /// a pending batch to Firestore first if one's due." Always returns the
+  /// freshest finalLocations/currentBatch available for display, whether or
+  /// not an actual sync happened — [forceSync] or a pending sample count
+  /// at/past [AppConstants.locationBatchSize] triggers the OSRM+Firestore
+  /// work; otherwise this is just a cheap read. Returns null only if the
+  /// cross-isolate lock couldn't be acquired at all.
+  ///
+  /// [LocationsBoxLock.isHeldByThisIsolate] is the single source of truth
+  /// for whether the caller already owns locationsBox/settingsBox — no
+  /// separate "am I backgrounded" flag to keep in sync with reality:
+  /// - Already held (HomeBloc's own foreground-session hold): reuses the
+  ///   already-open box, leaves it exactly as found.
+  /// - Not held (HomeBloc backgrounded, or a fresh FCM/boot isolate): tries
+  ///   to acquire it fresh (bounded timeout); backs off with null if that
+  ///   fails (another isolate is using these boxes right now). On success,
+  ///   opens the box just for this call and closes it + releases the lock
+  ///   again afterward.
+  static Future<LocationSyncResult?> processBatchAndEmitLatestLocationData({
     required String userId,
     required String trackingId,
+    bool forceSync = false,
+  }) async {
+    final alreadyHeld = LocationsBoxLock.isHeldByThisIsolate;
+    if (!alreadyHeld) {
+      final acquired = await LocationsBoxLock.tryAcquire();
+      if (!acquired) {
+        print('[LocationSync] Could not acquire locations_box lock — '
+            'another isolate is using it right now, skipping.');
+        return null;
+      }
+      await LocalStorageService.openLocationsBoxForSync();
+    }
+
+    try {
+      final finalLocations = LocalStorageService.getFinalLocations();
+      final finalLocationsDistance =
+          LocalStorageService.getFinalLocationsDistance();
+      final snap = await LocationTrackingService.requestSnapshot();
+      final pendingSampleCount = snap?.pendingSampleCount ?? 0;
+
+      final shouldSync =
+          forceSync || pendingSampleCount >= AppConstants.locationBatchSize;
+      if (shouldSync) {
+        final synced = await _syncPendingBatch(
+          userId: userId,
+          trackingId: trackingId,
+          snap: snap,
+          finalLocations: finalLocations,
+          finalLocationsDistance: finalLocationsDistance,
+        );
+        if (synced != null) {
+          final (syncedFinalLocations, syncedFinalDistance) = synced;
+          final freshSnap = await LocationTrackingService.requestSnapshot();
+          final freshBatch = freshSnap?.currentBatch ?? <LocationPoint>[];
+          return LocationSyncResult(
+            finalLocations: syncedFinalLocations,
+            finalLocationsDistance: syncedFinalDistance,
+            currentBatch: freshBatch,
+            currentBatchDistance:
+                batchDistanceKm(freshBatch, syncedFinalLocations),
+            lastKnownLocation: resolveLastKnownLocation(
+              currentBatch: freshBatch,
+              lastConfirmedPoint: freshSnap?.lastConfirmedPoint,
+              finalLocations: syncedFinalLocations,
+            ),
+          );
+        }
+        // Sync was due but failed (or turned out to be nothing to sync) —
+        // fall through and return the as-read values below instead.
+      }
+
+      final currentBatch = snap?.currentBatch ?? <LocationPoint>[];
+      return LocationSyncResult(
+        finalLocations: finalLocations,
+        finalLocationsDistance: finalLocationsDistance,
+        currentBatch: currentBatch,
+        currentBatchDistance: batchDistanceKm(currentBatch, finalLocations),
+        lastKnownLocation: resolveLastKnownLocation(
+          currentBatch: currentBatch,
+          lastConfirmedPoint: snap?.lastConfirmedPoint,
+          finalLocations: finalLocations,
+        ),
+      );
+    } finally {
+      if (!alreadyHeld) {
+        await LocalStorageService.closeLocationsBoxForBackground();
+      }
+    }
+  }
+
+  /// Snaps the isolate's pending batch via OSRM, persists the merged array
+  /// to Firestore+Hive, and confirms success back to the isolate so it can
+  /// trim currentBatch. Wrapped in its own try/catch (rather than letting
+  /// [processBatchAndEmitLatestLocationData] see the exception) so a
+  /// persist failure — e.g. Firestore's 1 MiB size limit, which
+  /// DataManager.persistLocations already flags internally — degrades to
+  /// "nothing synced this round" instead of losing the as-read fallback
+  /// data the caller still has.
+  static Future<(List<LocationPoint>, double)?> _syncPendingBatch({
+    required String userId,
+    required String trackingId,
+    required TrackingSnapshot? snap,
     required List<LocationPoint> finalLocations,
     required double finalLocationsDistance,
   }) async {
     try {
-      final snap = await LocationTrackingService.requestSnapshot();
       final batchToProcess = snap?.currentBatch ?? <LocationPoint>[];
       if (batchToProcess.isEmpty && finalLocations.isEmpty) return null;
 
       double osrmDistance = 0.0;
       List<LocationPoint> snappedBatch = [];
       if (batchToProcess.isNotEmpty) {
-        final snapResult = await snapBatch(
-          batch: batchToProcess,
-          finalLocations: finalLocations,
-        );
+        final snapResult =
+            await _snapBatch(batch: batchToProcess, finalLocations: finalLocations);
         if (snapResult != null) {
           (snappedBatch, osrmDistance) = snapResult;
         }
@@ -65,8 +161,8 @@ class LocationSyncService {
               snap!.lastConfirmedPoint!.durationSeconds) {
         allLocations = [
           ...allLocations.take(allLocations.length - 1),
-          allLocations.last
-              .copyWith(durationSeconds: snap.lastConfirmedPoint!.durationSeconds),
+          allLocations.last.copyWith(
+              durationSeconds: snap.lastConfirmedPoint!.durationSeconds),
         ];
       }
 
@@ -82,9 +178,7 @@ class LocationSyncService {
 
       print(
           '[LocationSync] Syncing ${allLocations.length} total points to Firestore '
-          '(+${snappedBatch.length} new, distance: ${newFinalDistance.toStringAsFixed(3)} km)'
-          ' | last.ts=${allLocations.last.timestamp.toIso8601String()}'
-          ' | last.durationSeconds=${allLocations.last.durationSeconds}');
+          '(+${snappedBatch.length} new, distance: ${newFinalDistance.toStringAsFixed(3)} km)');
       await DataManager.persistLocations(
         userId: userId,
         trackingId: trackingId,
@@ -98,99 +192,60 @@ class LocationSyncService {
       // new anchor — anything it appended concurrently is left intact.
       LocationTrackingService.confirmBatchSynced(allLocations.last);
 
-      return LocationSyncResult(
-        finalLocations: allLocations,
-        finalLocationsDistance: newFinalDistance,
-      );
+      return (allLocations, newFinalDistance);
     } catch (e) {
-      print('[LocationSync] syncCore error: $e');
+      print('[LocationSync] _syncPendingBatch error: $e');
       return null;
     }
   }
 
-  /// For the FCM watchdog handler ONLY.
-  ///
-  /// Only two things run in parallel here: {initialize the background-
-  /// service plugin, then start/update-params the tracking isolate} as one
-  /// chain, alongside {acquire the cross-isolate lock, then read
-  /// finalLocations} as the other. Those two chains genuinely don't depend
-  /// on each other, and both can take real time (service boot; lock
-  /// contention), so it's worth overlapping them given the tight
-  /// background-execution budget. initialize() itself isn't skippable based
-  /// on isRunning() — it registers this isolate's own platform-channel
-  /// bindings for invoke()/start(), which is per-engine-instance, not a
-  /// global "is a service running" flag; the FCM handler is always a fresh
-  /// engine, so it always needs its own initialize() regardless of whether
-  /// the native service happens to already be alive.
-  ///
-  /// The actual sync ([syncCore]: requestSnapshot → OSRM → Firestore)
-  /// canNOT start until the service is confirmed running — requestSnapshot
-  /// asks the tracking isolate for the points sitting in currentBatch, and
-  /// there's nothing to ask for until that isolate has booted and opened
-  /// its cursor box. So syncCore is unavoidably sequential, gated on
-  /// `serviceFuture` below — there is no way to parallelize the sync itself
-  /// with the service restart, only these two setup chains.
-  ///
-  /// Returns null if the lock couldn't be acquired in time (the main app is
-  /// most likely alive and already syncing on its own) or if there was
-  /// nothing to sync.
-  static Future<LocationSyncResult?> ensureRunningAndSync({
-    required String userId,
-    required String date,
-    required String trackingId,
-  }) async {
-    // (_, locked) — both futures start running the instant they're created
-    // above; .wait just makes "these two run concurrently, wait for both"
-    // visually explicit instead of relying on Dart's eager-async-start
-    // semantics being obvious from two bare `await` lines.
-    final (_, locked) = await (
-      _initializeAndStart(userId, date),
-      _acquireLockAndReadFinalLocations(),
-    ).wait;
-    if (locked == null) {
-      print('[LocationSync] Could not acquire locations_box lock — main '
-          'app likely alive, skipping FCM-driven sync.');
-      return null;
-    }
-
-    final (lockHandle, finalLocations, finalDistance) = locked;
-    try {
-      return await syncCore(
-        userId: userId,
-        trackingId: trackingId,
-        finalLocations: finalLocations,
-        finalLocationsDistance: finalDistance,
-      );
-    } finally {
-      await lockHandle.unlock();
-      await lockHandle.close();
-    }
-  }
-
-  /// initialize() must complete before start() can work (configure()
-  /// registers this engine's own invoke()/on() bindings) — so these two are
-  /// sequential relative to each other, but the whole chain runs in
-  /// parallel with the lock+read chain in [ensureRunningAndSync].
-  static Future<void> _initializeAndStart(String userId, String date) async {
+  /// For the FCM watchdog handler (and any future boot/update-triggered
+  /// recovery) ONLY — a fresh, short-lived engine that never ran the app's
+  /// normal main(), so it always needs its own initialize()+start() before
+  /// [processBatchAndEmitLatestLocationData] can do anything (unlike
+  /// HomeBloc, whose service is already known to be running).
+  static Future<void> initializeAndStart(String userId, String date) async {
     await LocationTrackingService.initialize();
     await LocationTrackingService.start(userId, date);
   }
 
-  static Future<(RandomAccessFile, List<LocationPoint>, double)?>
-      _acquireLockAndReadFinalLocations() async {
-    final raf = await LocationsBoxLock.tryAcquire();
-    if (raf == null) return null;
-    await LocalStorageService.openLocationsBoxForSync();
-    final finalLocations = LocalStorageService.getFinalLocations();
-    final finalDistance = LocalStorageService.getFinalLocationsDistance();
-    return (raf, finalLocations, finalDistance);
+  /// Picks the freshest known position, in strict recency order:
+  /// currentBatch.last (newest raw sample the isolate has) → lastConfirmedPoint
+  /// (the isolate's anchor — its durationSeconds can be fresher than
+  /// finalLocations.last even with an unchanged position, from a pure
+  /// stationary tick) → finalLocations.last (last Firestore-synced point).
+  /// Shared by every caller that maps a snapshot to UI state — HomeBloc's
+  /// per-sample live update and this service's own sync paths — so they
+  /// can't drift on which point they trust first.
+  static LatLng? resolveLastKnownLocation({
+    required List<LocationPoint> currentBatch,
+    required LocationPoint? lastConfirmedPoint,
+    required List<LocationPoint> finalLocations,
+  }) {
+    if (currentBatch.isNotEmpty) return currentBatch.last.position;
+    if (lastConfirmedPoint != null) return lastConfirmedPoint.position;
+    if (finalLocations.isNotEmpty) return finalLocations.last.position;
+    return null;
+  }
+
+  /// Live haversine estimate for the unsynced [batch], anchored to the last
+  /// committed point in [finalLocations].
+  static double batchDistanceKm(
+      List<LocationPoint> batch, List<LocationPoint> finalLocations) {
+    if (batch.isEmpty) return 0.0;
+    final points = [if (finalLocations.isNotEmpty) finalLocations.last, ...batch];
+    double sum = 0.0;
+    for (int i = 0; i < points.length - 1; i++) {
+      sum += AppUtils.haversineMeters(points[i].position, points[i + 1].position) /
+          1000.0;
+    }
+    return sum;
   }
 
   /// Snaps [batch] to roads via OSRM, anchored against the last already-
   /// synced point in [finalLocations] (needed both to de-dupe against
   /// already-synced points and to correctly chain the distance calc from
-  /// where the last sync left off). Public — also used directly by
-  /// HomeBloc's punch-out flow, which has its own final-sync shape.
+  /// where the last sync left off).
   ///
   /// The batch is replaced by OSRM's simplified (Douglas-Peucker reduced)
   /// road geometry rather than just repositioning each raw sample 1:1 — so
@@ -203,7 +258,7 @@ class LocationSyncService {
   /// keeps its real durationSeconds, since track_tab.dart's "last update"
   /// display and the Cloud Functions "stationary" notification both depend
   /// on the last point's timestamp/duration being accurate.
-  static Future<(List<LocationPoint>, double)?> snapBatch({
+  static Future<(List<LocationPoint>, double)?> _snapBatch({
     required List<LocationPoint> batch,
     required List<LocationPoint> finalLocations,
   }) async {
@@ -245,7 +300,7 @@ class LocationSyncService {
   /// Builds the final point list from OSRM's simplified road [geometry],
   /// assigning each intermediate point a timestamp interpolated between
   /// [valid]'s real first/last timestamps, proportional to cumulative
-  /// distance along the path — see [snapBatch] doc for why only the first
+  /// distance along the path — see [_snapBatch] doc for why only the first
   /// and last points keep their real timestamp/duration.
   static List<LocationPoint> _interpolateFromGeometry(
     List<LatLng> geometry,

@@ -67,8 +67,11 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && !_isReadOnly && mounted) {
+    if (_isReadOnly || !mounted) return;
+    if (state == AppLifecycleState.resumed) {
       context.read<HomeBloc>().add(AppResumedEvent());
+    } else if (state == AppLifecycleState.paused) {
+      context.read<HomeBloc>().add(AppPausedEvent());
     }
   }
 
