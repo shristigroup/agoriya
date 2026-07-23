@@ -6,6 +6,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/app_utils.dart';
@@ -67,12 +68,15 @@ class LocationTrackingService {
   }
 
   /// Starts (or updates params on an already-running) tracking session.
+  /// [trackingId] is the Tracking doc this session's samples belong to —
+  /// the isolate needs it directly (not just userId/date) to write its
+  /// per-sample heartbeat to the right Firestore doc without a lookup.
   /// [fresh] should be true ONLY for a genuine new punch-in — it tells the
   /// isolate to wipe its cursor state (currentBatch/pendingSampleCount/
   /// lastConfirmedPoint) before sampling begins. Every other caller (init
   /// reconciliation, resume, FCM wakeup, app-resume restart) continues an
   /// existing session and must leave cursor state intact.
-  static Future<void> start(String userId, String date,
+  static Future<void> start(String userId, String date, String trackingId,
       {bool fresh = false}) async {
     // If a previous service is still shutting down (stopSelf is async),
     // wait until it fully stops before starting fresh. Without this, isRunning()
@@ -107,9 +111,14 @@ class LocationTrackingService {
       print('[LocationService] Service already running — updating params');
     }
 
-    _bgService.invoke('setParams', {'userId': userId, 'date': date, 'fresh': fresh});
-    print(
-        '[LocationService] setParams sent → userId=$userId, date=$date, fresh=$fresh');
+    _bgService.invoke('setParams', {
+      'userId': userId,
+      'date': date,
+      'trackingId': trackingId,
+      'fresh': fresh,
+    });
+    print('[LocationService] setParams sent → userId=$userId, date=$date, '
+        'trackingId=$trackingId, fresh=$fresh');
   }
 
   static void stop() {
@@ -186,6 +195,7 @@ void _onStart(ServiceInstance service) async {
 
   String? userId;
   String? date;
+  String? trackingId;
   int pointsSinceLastSignal = 0;
 
   // Android: periodic timer (foreground service keeps the process alive).
@@ -226,6 +236,26 @@ void _onStart(ServiceInstance service) async {
         ),
       ),
     );
+  }
+
+  // Best-effort direct Firestore write — a fast, cheap liveness signal the
+  // server-side watchdog polls, separate from (and much more frequent than)
+  // the actual location-batch sync HomeBloc drives. Never allowed to break
+  // sampling if the network is briefly down; not gated by LocationsBoxLock,
+  // since it touches Firestore directly, not the local locationsBox/
+  // settingsBox that lock protects.
+  Future<void> writeHeartbeat() async {
+    if (userId == null || trackingId == null) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('Users')
+          .doc(userId)
+          .collection('Tracking')
+          .doc(trackingId)
+          .update({'locationHeartbeatTimestamp': FieldValue.serverTimestamp()});
+    } catch (e) {
+      print('[LocationService] writeHeartbeat error: $e');
+    }
   }
 
   // ── Sample handling: this isolate is the SOLE owner of the tracking
@@ -299,6 +329,7 @@ void _onStart(ServiceInstance service) async {
         '${flush ? ' → flush' : ''}');
 
     await updateTrackingNotification(timestamp);
+    await writeHeartbeat();
   }
 
   // ── Android: one-shot GPS collection ──────────────────────────────────────
@@ -383,14 +414,15 @@ void _onStart(ServiceInstance service) async {
     if (data == null) return;
     userId = data['userId'] as String?;
     date = data['date'] as String?;
+    trackingId = data['trackingId'] as String?;
     final fresh = data['fresh'] as bool? ?? false;
     if (fresh) {
       await LocalStorageService.clearCursorState();
       pointsSinceLastSignal = 0;
       print('[LocationService] Fresh session — cleared cursor state');
     }
-    print(
-        '[LocationService] setParams received → userId=$userId, date=$date, fresh=$fresh');
+    print('[LocationService] setParams received → userId=$userId, '
+        'date=$date, trackingId=$trackingId, fresh=$fresh');
     if (Platform.isAndroid) {
       collectLocation(); // immediate first point; timer handles the rest
     } else {

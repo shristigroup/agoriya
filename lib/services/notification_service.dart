@@ -14,8 +14,18 @@ import 'location_sync_service.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('[FCM] Background message received | data=${message.data}');
 
-  if (message.data['type'] != 'location_wakeup') {
-    print('[FCM] Ignoring — type is not location_wakeup');
+  final type = message.data['type'] as String?;
+
+  if (type == 'auto_punch_out') {
+    // The watchdog already closed the session server-side and sent this as
+    // a display notification (not data-only) — the OS shows it on its own.
+    // Nothing for the app to do.
+    print('[FCM] auto_punch_out received — session already closed server-side');
+    return;
+  }
+
+  if (type != 'location_wakeup') {
+    print('[FCM] Ignoring — unrecognized type: $type');
     return;
   }
 
@@ -38,17 +48,23 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     }
 
     // This handler is its own fresh engine, which never ran the app's
-    // normal main(), so it always needs its own initialize()+start() before
-    // a sync can happen — safe to call even if the service was already
-    // alive (start() no-ops to a param update). The sync itself is guarded
-    // by LocationsBoxLock so it backs off cleanly if the main app turns out
-    // to be alive after all. forceSync: true — this handler only runs
-    // because the watchdog already decided a sync is overdue.
-    await LocationSyncService.initializeAndStart(userId, date);
+    // normal main(), so it always needs its own initialize()+start() —
+    // safe to call even if the service was already alive (start() no-ops
+    // to a param update).
+    await LocationSyncService.initializeAndStart(userId, date, trackingId);
+
+    // The watchdog now wakes the app off the fast heartbeat signal, which
+    // can fire well before pendingSampleCount reaches the normal
+    // batch-size threshold — so don't always force a sync, just restarting
+    // sampling is often enough. Only force it if the last actual Firestore
+    // sync is stale beyond a full batch interval, so a session that was
+    // genuinely dead for a while doesn't sit waiting for the next natural
+    // batch boundary to become visible to the manager again.
+    final forceSync = await LocationSyncService.isFinalLocationsStale();
     final result = await LocationSyncService.processBatchAndEmitLatestLocationData(
       userId: userId,
       trackingId: trackingId,
-      forceSync: true,
+      forceSync: forceSync,
     );
     if (result != null) {
       print('[FCM] Pending batch synced from background handler '

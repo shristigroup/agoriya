@@ -204,9 +204,37 @@ class LocationSyncService {
   /// normal main(), so it always needs its own initialize()+start() before
   /// [processBatchAndEmitLatestLocationData] can do anything (unlike
   /// HomeBloc, whose service is already known to be running).
-  static Future<void> initializeAndStart(String userId, String date) async {
+  static Future<void> initializeAndStart(
+      String userId, String date, String trackingId) async {
     await LocationTrackingService.initialize();
-    await LocationTrackingService.start(userId, date);
+    await LocationTrackingService.start(userId, date, trackingId);
+  }
+
+  /// Whether the last committed sync is older than a full batch interval —
+  /// used by the FCM handler to decide whether a heartbeat-triggered wakeup
+  /// (which can fire well before pendingSampleCount reaches the normal
+  /// batch-size threshold) should still force a sync, so a session that was
+  /// actually dead for a while doesn't sit waiting for the next natural
+  /// batch boundary to become visible to the manager again. Manages the
+  /// lock itself since it's a standalone read, independent of whatever the
+  /// caller does next — safe to call even when nothing else holds it.
+  static Future<bool> isFinalLocationsStale() async {
+    final alreadyHeld = LocationsBoxLock.isHeldByThisIsolate;
+    if (!alreadyHeld) {
+      final acquired = await LocationsBoxLock.tryAcquire();
+      if (!acquired) return false; // can't check right now — don't force
+      await LocalStorageService.openLocationsBoxForSync();
+    }
+    try {
+      final finalLocations = LocalStorageService.getFinalLocations();
+      if (finalLocations.isEmpty) return false;
+      return DateTime.now().difference(finalLocations.last.timestamp) >
+          Duration(minutes: AppConstants.locationBatchMinutes);
+    } finally {
+      if (!alreadyHeld) {
+        await LocalStorageService.closeLocationsBoxForBackground();
+      }
+    }
   }
 
   /// Picks the freshest known position, in strict recency order:

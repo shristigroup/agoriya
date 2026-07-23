@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart' show AuthorizationStatus;
 import 'package:geolocator/geolocator.dart';
 import 'home_event.dart';
 import 'home_state.dart';
@@ -8,9 +9,11 @@ import '../../../data/data_manager.dart';
 import '../../../data/local/local_storage_service.dart';
 import '../../../data/models/visit_model.dart';
 import '../../../data/models/location_model.dart';
+import '../../../data/models/tracking_model.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../services/location_tracking_service.dart';
 import '../../../services/location_sync_service.dart';
+import '../../../services/notification_service.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final String userId;
@@ -75,21 +78,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final tracking = DataManager.getActiveTracking();
     final visits = await DataManager.getVisitsForDay(userId, today);
 
-    // Reconcile service state with tracking on every app start.
-    final serviceRunning = await LocationTrackingService.isRunning;
-    if (tracking?.isPunchedIn == true) {
-      if (!serviceRunning) {
-        final permission = await Geolocator.checkPermission();
-        final hasPermission = permission == LocationPermission.always ||
-            permission == LocationPermission.whileInUse;
-        if (hasPermission) await LocationTrackingService.start(userId, today);
-      }
-    } else {
-      if (serviceRunning) LocationTrackingService.stop();
-    }
-
     emit(HomeLoaded(tracking: tracking, visits: visits));
 
+    await _ensureServiceMatchesTracking(tracking, emit);
     await _processBatch(emit);
   }
 
@@ -104,7 +95,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       // fresh: true — a genuine new session, so the isolate wipes any
       // leftover cursor state (currentBatch/pendingSampleCount/
       // lastConfirmedPoint) from a previous day/session before sampling.
-      await LocationTrackingService.start(userId, today, fresh: true);
+      await LocationTrackingService.start(userId, today, tracking.id, fresh: true);
       emit(PunchInSuccess(tracking));
     } catch (e) {
       emit(HomeError(e.toString()));
@@ -175,7 +166,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           await DataManager.resumeSession(userId, current.tracking!);
       // Not fresh — continuing the same day's session, cursor state (if any
       // survived) should be kept.
-      await LocationTrackingService.start(userId, today);
+      await LocationTrackingService.start(userId, today, resumed.id);
       emit(current.copyWith(tracking: resumed));
     } catch (e) {
       print('[HomeBloc] resumeSession error: $e');
@@ -197,16 +188,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     // backgrounded and not holding the lock.
     await LocalStorageService.reopenLocationsBoxForForeground();
 
-    // The isolate may have been killed by the OS while backgrounded —
-    // restart it (not fresh: continuing the same session) before syncing.
-    if (!await LocationTrackingService.isRunning) {
-      final permission = await Geolocator.checkPermission();
-      final hasPermission = permission == LocationPermission.always ||
-          permission == LocationPermission.whileInUse;
-      if (!hasPermission) return;
-      await LocationTrackingService.start(userId, AppUtils.todayKey());
-    }
-
+    // The isolate may have been killed by the OS while backgrounded, or the
+    // user may have revoked a permission while away — reconcile before
+    // syncing, same check _onInit uses.
+    await _ensureServiceMatchesTracking(current.tracking, emit);
     await _processBatch(emit);
   }
 
@@ -228,6 +213,54 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     // itself per call rather than assuming the box is already open.
     // Reacquired for the whole foreground session again in _onAppResumed.
     await LocalStorageService.closeLocationsBoxForBackground();
+  }
+
+  // ── Service Reconciliation ────────────────────────────────────────────────
+  // Shared by _onInit (cold start) and _onAppResumed (warm resume) — the
+  // one part of those two flows that's genuinely identical: given a
+  // tracking model, is the service in the right run/stop state, and does it
+  // have what it needs to run. Location ("Allow all the time") and
+  // notification permission are both mandatory while punched in — without
+  // notification permission the manager never gets punch/visit
+  // notifications, so this isn't just a "nice to have" like camera. HomeBloc
+  // can't show the request/settings-redirect UI itself (no BuildContext),
+  // so on a shortfall it just raises permissionsRequired and leaves the
+  // blocking overlay to home_screen.dart.
+
+  Future<void> _ensureServiceMatchesTracking(
+      TrackingModel? tracking, Emitter<HomeState> emit) async {
+    if (state is! HomeLoaded) return;
+    emit((state as HomeLoaded).copyWith(isRefreshing: true));
+
+    final serviceRunning = await LocationTrackingService.isRunning;
+    bool permissionsRequired = false;
+
+    if (tracking?.isPunchedIn == true) {
+      if (await _hasRequiredPermissions()) {
+        if (!serviceRunning) {
+          await LocationTrackingService.start(
+              userId, AppUtils.todayKey(), tracking!.id);
+        }
+      } else {
+        permissionsRequired = true;
+      }
+    } else if (serviceRunning) {
+      LocationTrackingService.stop();
+    }
+
+    if (state is HomeLoaded) {
+      emit((state as HomeLoaded).copyWith(
+        isRefreshing: false,
+        permissionsRequired: permissionsRequired,
+      ));
+    }
+  }
+
+  Future<bool> _hasRequiredPermissions() async {
+    final locationPermission = await Geolocator.checkPermission();
+    if (locationPermission != LocationPermission.always) return false;
+    final notificationStatus = await NotificationService.getPermissionStatus();
+    return notificationStatus == AuthorizationStatus.authorized;
   }
 
   // ── New Location Point ────────────────────────────────────────────────────

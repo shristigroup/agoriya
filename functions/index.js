@@ -8,9 +8,9 @@ const messaging = admin.messaging();
 
 // ─── Location tracking tuning (see functions/.env.example) ──────────────────
 // Loaded automatically from functions/.env on deploy/emulate (functions v2).
-const LOCATION_BATCH_MINUTES = Number(process.env.LOCATION_BATCH_MINUTES || 15);
 const LOCATION_SAMPLE_INTERVAL_MINUTE = Number(process.env.LOCATION_SAMPLE_INTERVAL_MINUTE || 1);
 const WATCHDOG_SCHEDULE_MINUTES = Number(process.env.WATCHDOG_SCHEDULE_MINUTES || 5);
+const WATCHDOG_PING_COUNT_THRESHOLD = Number(process.env.WATCHDOG_PING_COUNT_THRESHOLD || 2);
 
 // ─── Helper: get FCM token for a user ────────────────────────────────────────
 async function getUserToken(userId) {
@@ -235,24 +235,23 @@ exports.onCommentWrite = onDocumentCreated(
 // );
 
 // ─── Location tracking watchdog — recover tracking the OS killed ────────────
-// Runs every WATCHDOG_SCHEDULE_MINUTES. Finds punched-in users whose last
-// location sync is stale and sends a silent, data-only FCM message that the
-// app uses to restart tracking in the background — without waiting for the
-// user to reopen the app. Reliable on Android unless the user has
-// force-stopped the app; on iOS this is a best-effort improvement since
-// Apple can throttle silent push delivery.
+// Runs every WATCHDOG_SCHEDULE_MINUTES. Finds punched-in users whose
+// locationHeartbeatTimestamp (written by the app on every GPS sample — much
+// more frequent than the actual Firestore location-batch sync) has gone
+// stale, and sends a silent, data-only FCM message that the app uses to
+// restart tracking in the background — without waiting for the user to
+// reopen the app. Reliable on Android unless the user has force-stopped the
+// app; on iOS this is a best-effort improvement since Apple can throttle
+// silent push delivery.
 //
-// Staleness threshold = LOCATION_BATCH_MINUTES + LOCATION_SAMPLE_INTERVAL_MINUTE,
-// not an arbitrary buffer: the live-sync flush isn't a fixed wall-clock
-// timer, it's triggered by sample COUNT hitting a multiple of the batch
-// size, so a healthy app's actual flush timing has up to one sample-interval
-// of natural jitter around the nominal LOCATION_BATCH_MINUTES mark — this
-// ties the margin to that real mechanism instead of guessing at a constant.
-// Worst-case total delay before a stale doc is caught = this threshold PLUS
-// up to WATCHDOG_SCHEDULE_MINUTES (the watchdog only checks this often) —
-// with defaults, (15 + 1) + 5 = 21 minutes, not just the threshold alone.
-const STALE_THRESHOLD_MS =
-  (LOCATION_BATCH_MINUTES + LOCATION_SAMPLE_INTERVAL_MINUTE) * 60 * 1000;
+// If a doc keeps failing to recover after WATCHDOG_PING_COUNT_THRESHOLD
+// pings (e.g. FCM delivery itself is blocked — force-stopped app, or a
+// platform limitation), the watchdog gives up: auto punches the user out,
+// notifies them directly (so they can reopen the app and punch back in,
+// which restarts every service cleanly), and the existing onTrackingWrite
+// trigger above notifies the manager automatically since it reacts to the
+// stopTime write itself, regardless of who/what made it.
+const HEARTBEAT_STALE_THRESHOLD_MS = 2 * LOCATION_SAMPLE_INTERVAL_MINUTE * 60 * 1000;
 
 exports.locationTrackingWatchdog = onSchedule(
   { schedule: `every ${WATCHDOG_SCHEDULE_MINUTES} minutes`, region: "asia-south1" },
@@ -265,15 +264,54 @@ exports.locationTrackingWatchdog = onSchedule(
 
     await Promise.all(snap.docs.map(async (doc) => {
       const data = doc.data();
-      const lastUpdatedAt = data.lastUpdatedAt
-        ? data.lastUpdatedAt.toMillis()
-        : (data.startTime ? data.startTime.toMillis() : now);
-
-      if (now - lastUpdatedAt < STALE_THRESHOLD_MS) return;
+      const heartbeatAt = data.locationHeartbeatTimestamp
+        ? data.locationHeartbeatTimestamp.toMillis()
+        : (data.lastUpdatedAt
+          ? data.lastUpdatedAt.toMillis()
+          : (data.startTime ? data.startTime.toMillis() : now));
 
       const userId = doc.ref.parent.parent.id;
       const date = doc.id.substring(0, 10);
       const trackingId = doc.id;
+
+      if (now - heartbeatAt < HEARTBEAT_STALE_THRESHOLD_MS) return;
+
+      const pingedAtMs = data.watchdogPingedAt ? data.watchdogPingedAt.toMillis() : null;
+      const pingCount = data.watchdogPingCount || 0;
+
+      // Recovered since the last ping — fresh heartbeat arrived, clear
+      // episode state so the next unrelated stale spell starts clean.
+      if (pingedAtMs !== null && heartbeatAt >= pingedAtMs) {
+        await doc.ref.update({
+          watchdogPingedAt: admin.firestore.FieldValue.delete(),
+          watchdogPingCount: admin.firestore.FieldValue.delete(),
+        });
+        return;
+      }
+
+      // Already pinged enough times with no recovery — give up.
+      if (pingedAtMs !== null && pingCount >= WATCHDOG_PING_COUNT_THRESHOLD) {
+        await doc.ref.update({
+          stopTime: admin.firestore.Timestamp.now(),
+          isPunchedIn: false,
+          watchdogPingedAt: admin.firestore.FieldValue.delete(),
+          watchdogPingCount: admin.firestore.FieldValue.delete(),
+          autoClosedReason: "no_location_data",
+        });
+        // Manager notification fires automatically via onTrackingWrite's
+        // stopTime branch above — this only needs to tell the worker.
+        const userToken = await getUserToken(userId);
+        await sendNotification(
+          userToken,
+          "Punched out automatically",
+          "You were punched out because your location data stopped syncing.",
+          { type: "auto_punch_out", trackingId }
+        );
+        console.log(`[locationTrackingWatchdog] auto punch-out → ${userId} (${doc.id})`);
+        return;
+      }
+
+      // Never pinged yet, or still under threshold — (re)ping.
       const token = await getUserToken(userId);
       if (!token) return;
 
@@ -287,7 +325,11 @@ exports.locationTrackingWatchdog = onSchedule(
             payload: { aps: { "content-available": 1 } },
           },
         });
-        console.log(`[locationTrackingWatchdog] wakeup sent → ${userId} (${doc.id})`);
+        await doc.ref.update({
+          watchdogPingedAt: admin.firestore.FieldValue.serverTimestamp(),
+          watchdogPingCount: pingCount + 1,
+        });
+        console.log(`[locationTrackingWatchdog] wakeup sent → ${userId} (${doc.id}), attempt ${pingCount + 1}`);
       } catch (err) {
         console.error(`[locationTrackingWatchdog] send error for ${userId}:`, err.message);
       }

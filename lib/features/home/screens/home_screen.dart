@@ -289,12 +289,22 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  Future<bool> _ensureNotificationPermission() => _ensureSimplePermission(
+        permission: Permission.notification,
+        title: 'Notification Permission Required',
+        permanentlyDeniedMessage:
+            'Notification access has been permanently denied.\n\n'
+            'Please go to Settings → TrackFolks → Notifications and enable it.',
+        deniedMessage:
+            'TrackFolks needs notification access so your manager is notified '
+            'when you punch in/out or check in/out of a visit.\n\n'
+            'Please enable notification permission in Settings.',
+      );
+
   Future<void> _handlePunchIn(HomeLoaded state) async {
     if (!await _ensureLocationPermission()) return;
     if (!await _ensureCameraPermission()) return;
-    // Request POST_NOTIFICATIONS so the foreground tracking notification
-    // shows on Android 13+. Not blocking — tracking works without it.
-    if (Platform.isAndroid) await Permission.notification.request();
+    if (!await _ensureNotificationPermission()) return;
     if (Platform.isAndroid) await _ensureBatteryOptimizationExemption();
 
     final file = await Navigator.of(context).push<File>(
@@ -516,6 +526,60 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  /// Opaque, non-dismissable overlay shown whenever HomeBloc reports
+  /// permissionsRequired (location "Allow all the time" and/or notification
+  /// permission missing while punched in). Guides the user to Settings
+  /// rather than firing another in-app request dialog, since both of these
+  /// permissions typically require a Settings visit to grant/upgrade anyway
+  /// (background location) or are already past their one-shot request
+  /// (previously denied). Retry re-runs HomeBloc's check immediately;
+  /// returning from Settings also clears it automatically via
+  /// AppResumedEvent.
+  Widget _buildPermissionRequiredOverlay() {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black87,
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_outline, color: Colors.white, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                'Permissions Required',
+                style: AppTheme.sora(20, weight: FontWeight.w700, color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'TrackFolks needs both of these to keep tracking your attendance '
+                'and to notify your manager:\n\n'
+                '• Location set to "Allow all the time"\n'
+                '• Notifications enabled\n\n'
+                'Open Settings, enable both, then return to TrackFolks.',
+                style: AppTheme.sora(14, color: Colors.white70),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: openAppSettings,
+                child: const Text('Open Settings'),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () =>
+                    context.read<HomeBloc>().add(HomeInitEvent(_targetUserId)),
+                child: const Text("I've enabled it — Retry",
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<HomeBloc, HomeState>(
@@ -700,6 +764,15 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ),
               ),
+            // Full-screen permission-required overlay — location ("Allow all
+            // the time") and notification permission are both mandatory
+            // while punched in (without notification permission the manager
+            // never gets punch/visit notifications). Blocks all interaction
+            // until fixed; clears automatically once HomeBloc re-checks and
+            // finds both granted (e.g. on returning from Settings, which
+            // triggers AppResumedEvent).
+            if (loaded != null && loaded.permissionsRequired)
+              _buildPermissionRequiredOverlay(),
           ],
         );
       },
