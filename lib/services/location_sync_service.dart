@@ -14,12 +14,37 @@ class LocationSyncResult {
   final List<LocationPoint> currentBatch;
   final double currentBatchDistance;
   final LatLng? lastKnownLocation;
+
+  /// The effective "last active" time — timestamp + durationSeconds of
+  /// whichever point [lastKnownLocation] was resolved from (currentBatch.last,
+  /// the isolate's lastConfirmedPoint anchor, or finalLocations.last, in that
+  /// priority order — see [LocationSyncService.resolveLastKnownLocationWithTimestamp]).
+  /// Deliberately derived from the SAME resolved point as the position,
+  /// rather than a separate DateTime.now()-at-processing-time or a
+  /// finalLocations-only read — those alone go stale during a stationary
+  /// run after a sync trims currentBatch to empty, since duration keeps
+  /// climbing on the anchor, which finalLocations doesn't see until the
+  /// next sync commits it.
+  final DateTime? lastActiveAt;
+
+  /// True if this call is the one that discovered the Firestore 1 MiB
+  /// document-size limit was newly hit — computed here (where the lock is
+  /// safely held) rather than by the caller separately touching
+  /// LocalStorageService.isLocationSizeLimitHit(), which isn't safe to call
+  /// from HomeBloc directly: by the time control returns to the caller, this
+  /// function may have already closed locationsBox/settingsBox again (the
+  /// backgrounded case), so a second, independent read from outside would
+  /// throw "Box has already been closed".
+  final bool sizeLimitJustHit;
+
   const LocationSyncResult({
     required this.finalLocations,
     required this.finalLocationsDistance,
     required this.currentBatch,
     required this.currentBatchDistance,
     required this.lastKnownLocation,
+    required this.lastActiveAt,
+    required this.sizeLimitJustHit,
   });
 }
 
@@ -63,6 +88,12 @@ class LocationSyncService {
     }
 
     try {
+      // Captured up front, inside the lock-held region, so the "did this
+      // call newly trigger it" comparison below is always a safe read —
+      // never touched by the caller directly (see LocationSyncResult.
+      // sizeLimitJustHit).
+      final wasLimitKnown = LocalStorageService.isLocationSizeLimitHit();
+
       final finalLocations = LocalStorageService.getFinalLocations();
       final finalLocationsDistance =
           LocalStorageService.getFinalLocationsDistance();
@@ -83,17 +114,22 @@ class LocationSyncService {
           final (syncedFinalLocations, syncedFinalDistance) = synced;
           final freshSnap = await LocationTrackingService.requestSnapshot();
           final freshBatch = freshSnap?.currentBatch ?? <LocationPoint>[];
+          final freshPoint = resolveLastKnownLocationWithTimestamp(
+            currentBatch: freshBatch,
+            lastConfirmedPoint: freshSnap?.lastConfirmedPoint,
+            finalLocations: syncedFinalLocations,
+          );
           return LocationSyncResult(
             finalLocations: syncedFinalLocations,
             finalLocationsDistance: syncedFinalDistance,
             currentBatch: freshBatch,
             currentBatchDistance:
                 batchDistanceKm(freshBatch, syncedFinalLocations),
-            lastKnownLocation: resolveLastKnownLocation(
-              currentBatch: freshBatch,
-              lastConfirmedPoint: freshSnap?.lastConfirmedPoint,
-              finalLocations: syncedFinalLocations,
-            ),
+            lastKnownLocation: freshPoint?.position,
+            lastActiveAt: freshPoint?.timestamp.add(
+                Duration(seconds: freshPoint.durationSeconds ?? 0)),
+            sizeLimitJustHit: !wasLimitKnown &&
+                LocalStorageService.isLocationSizeLimitHit(),
           );
         }
         // Sync was due but failed (or turned out to be nothing to sync) —
@@ -101,16 +137,21 @@ class LocationSyncService {
       }
 
       final currentBatch = snap?.currentBatch ?? <LocationPoint>[];
+      final point = resolveLastKnownLocationWithTimestamp(
+        currentBatch: currentBatch,
+        lastConfirmedPoint: snap?.lastConfirmedPoint,
+        finalLocations: finalLocations,
+      );
       return LocationSyncResult(
         finalLocations: finalLocations,
         finalLocationsDistance: finalLocationsDistance,
         currentBatch: currentBatch,
         currentBatchDistance: batchDistanceKm(currentBatch, finalLocations),
-        lastKnownLocation: resolveLastKnownLocation(
-          currentBatch: currentBatch,
-          lastConfirmedPoint: snap?.lastConfirmedPoint,
-          finalLocations: finalLocations,
-        ),
+        lastKnownLocation: point?.position,
+        lastActiveAt: point?.timestamp
+            .add(Duration(seconds: point.durationSeconds ?? 0)),
+        sizeLimitJustHit:
+            !wasLimitKnown && LocalStorageService.isLocationSizeLimitHit(),
       );
     } finally {
       if (!alreadyHeld) {
@@ -237,22 +278,30 @@ class LocationSyncService {
     }
   }
 
-  /// Picks the freshest known position, in strict recency order:
+  /// Picks the freshest known point, in strict recency order:
   /// currentBatch.last (newest raw sample the isolate has) → lastConfirmedPoint
   /// (the isolate's anchor — its durationSeconds can be fresher than
   /// finalLocations.last even with an unchanged position, from a pure
   /// stationary tick) → finalLocations.last (last Firestore-synced point).
-  /// Shared by every caller that maps a snapshot to UI state — HomeBloc's
-  /// per-sample live update and this service's own sync paths — so they
-  /// can't drift on which point they trust first.
-  static LatLng? resolveLastKnownLocation({
+  /// Returns the full point, not just its position — durationSeconds
+  /// matters too: callers derive both the pin's location AND its "last
+  /// active" time label from the SAME resolved point (see
+  /// LocationSyncResult.lastActiveAt), so the two can never disagree the
+  /// way they used to when time was computed separately from
+  /// finalLocations.last alone — that goes stale during a stationary run
+  /// after a sync trims currentBatch to empty, since duration keeps
+  /// climbing on the anchor, which finalLocations doesn't see until the
+  /// next sync commits it. Shared by every caller that maps a snapshot to
+  /// UI state — HomeBloc's per-sample live update and this service's own
+  /// sync paths — so they can't drift on which point they trust first.
+  static LocationPoint? resolveLastKnownLocationWithTimestamp({
     required List<LocationPoint> currentBatch,
     required LocationPoint? lastConfirmedPoint,
     required List<LocationPoint> finalLocations,
   }) {
-    if (currentBatch.isNotEmpty) return currentBatch.last.position;
-    if (lastConfirmedPoint != null) return lastConfirmedPoint.position;
-    if (finalLocations.isNotEmpty) return finalLocations.last.position;
+    if (currentBatch.isNotEmpty) return currentBatch.last;
+    if (lastConfirmedPoint != null) return lastConfirmedPoint;
+    if (finalLocations.isNotEmpty) return finalLocations.last;
     return null;
   }
 

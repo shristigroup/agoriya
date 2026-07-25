@@ -254,40 +254,26 @@ class _HomeScreenState extends State<HomeScreen>
     return false;
   }
 
-  /// Requests exemption from Android battery optimization so OEM battery
-  /// managers (Xiaomi, Vivo, Oppo, OnePlus, etc.) are less likely to kill
-  /// the location-tracking foreground service outright. Not blocking —
-  /// tracking still works, just less reliably in the background, without it.
-  Future<void> _ensureBatteryOptimizationExemption() async {
-    final status = await Permission.ignoreBatteryOptimizations.status;
-    if (status.isGranted) return;
-    if (!mounted) return;
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Keep Tracking Reliable'),
-        content: const Text(
-          'Some phones aggressively stop background apps to save battery, '
-          'which can interrupt location tracking.\n\n'
-          'Allow TrackFolks to run without battery restrictions for '
-          'reliable tracking while punched in.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Later'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Allow'),
-          ),
-        ],
-      ),
-    );
-    if (proceed == true) {
-      await Permission.ignoreBatteryOptimizations.request();
-    }
-  }
+  /// Exemption from Android battery optimization, so OEM battery managers
+  /// (Xiaomi, Vivo, Oppo, OnePlus, etc.) are less likely to kill the
+  /// location-tracking foreground service outright. Mandatory, same as
+  /// location/notification — see HomeBloc._hasRequiredPermissions, which
+  /// re-checks this on every _onInit/_onAppResumed. Android-only; callers
+  /// must gate with Platform.isAndroid, since permission_handler treats
+  /// this permission as a no-op on iOS.
+  Future<bool> _ensureBatteryOptimizationExemption() => _ensureSimplePermission(
+        permission: Permission.ignoreBatteryOptimizations,
+        title: 'Battery Optimization Exemption Required',
+        permanentlyDeniedMessage:
+            'Battery optimization exemption has been permanently denied.\n\n'
+            'Please go to Settings → TrackFolks → Battery and allow '
+            'unrestricted background activity.',
+        deniedMessage:
+            'Some phones aggressively stop background apps to save battery, '
+            'which can interrupt location tracking.\n\n'
+            'TrackFolks needs to run without battery restrictions for '
+            'reliable tracking while punched in. Please allow this in Settings.',
+      );
 
   Future<bool> _ensureNotificationPermission() => _ensureSimplePermission(
         permission: Permission.notification,
@@ -305,7 +291,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (!await _ensureLocationPermission()) return;
     if (!await _ensureCameraPermission()) return;
     if (!await _ensureNotificationPermission()) return;
-    if (Platform.isAndroid) await _ensureBatteryOptimizationExemption();
+    if (Platform.isAndroid && !await _ensureBatteryOptimizationExemption()) return;
 
     final file = await Navigator.of(context).push<File>(
       MaterialPageRoute(builder: (_) => const PunchInCameraScreen()),
@@ -553,11 +539,12 @@ class _HomeScreenState extends State<HomeScreen>
               ),
               const SizedBox(height: 12),
               Text(
-                'TrackFolks needs both of these to keep tracking your attendance '
+                'TrackFolks needs these to keep tracking your attendance '
                 'and to notify your manager:\n\n'
                 '• Location set to "Allow all the time"\n'
-                '• Notifications enabled\n\n'
-                'Open Settings, enable both, then return to TrackFolks.',
+                '• Notifications enabled\n'
+                '${Platform.isAndroid ? '• Battery optimization disabled for TrackFolks\n' : ''}'
+                '\nOpen Settings, enable ${Platform.isAndroid ? 'all of these' : 'both'}, then return to TrackFolks.',
                 style: AppTheme.sora(14, color: Colors.white70),
                 textAlign: TextAlign.center,
               ),

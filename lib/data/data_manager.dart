@@ -178,15 +178,10 @@ class DataManager {
   // isolate's own Hive box now (see AppConstants.trackingCursorBox) — never
   // read directly here. HomeBloc reaches them exclusively via
   // LocationTrackingService.requestSnapshot()/the newPoint event payload.
-
-  static List<LocationPoint> getFinalLocations() =>
-      LocalStorageService.getFinalLocations();
-
-  static double getFinalLocationsDistance() =>
-      LocalStorageService.getFinalLocationsDistance();
-
-  static Future<void> saveFinalLocations(List<LocationPoint> points) =>
-      LocalStorageService.saveFinalLocations(points);
+  //
+  // finalLocations/finalLocationsDistance are read/written directly via
+  // LocalStorageService by LocationSyncService (which is lock-aware —
+  // see LocationsBoxLock) — not through DataManager passthroughs here.
 
   /// Writes the complete locations array to Firestore and saves to Hive.
   /// allLocations = finalLocations + snappedBatch, or just finalLocations on

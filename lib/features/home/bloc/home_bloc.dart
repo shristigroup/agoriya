@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart' show AuthorizationStatus;
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'home_event.dart';
 import 'home_state.dart';
 import '../../../data/data_manager.dart';
@@ -260,7 +262,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final locationPermission = await Geolocator.checkPermission();
     if (locationPermission != LocationPermission.always) return false;
     final notificationStatus = await NotificationService.getPermissionStatus();
-    return notificationStatus == AuthorizationStatus.authorized;
+    if (notificationStatus != AuthorizationStatus.authorized) return false;
+    // Android-only — permission_handler has no concept of battery
+    // optimization on iOS, so there's nothing to check there.
+    if (Platform.isAndroid) {
+      final batteryStatus = await Permission.ignoreBatteryOptimizations.status;
+      if (!batteryStatus.isGranted) return false;
+    }
+    return true;
   }
 
   // ── New Location Point ────────────────────────────────────────────────────
@@ -276,17 +285,20 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final current = state as HomeLoaded;
     if (current.tracking?.isPunchedIn != true) return;
 
+    final point = LocationSyncService.resolveLastKnownLocationWithTimestamp(
+      currentBatch: event.currentBatch,
+      lastConfirmedPoint: event.lastConfirmedPoint,
+      finalLocations: current.finalLocations,
+    );
+
     emit(current.copyWith(
       currentBatch: event.currentBatch,
       currentBatchDistance: LocationSyncService.batchDistanceKm(
           event.currentBatch, current.finalLocations),
-      lastKnownLocation: LocationSyncService.resolveLastKnownLocation(
-            currentBatch: event.currentBatch,
-            lastConfirmedPoint: event.lastConfirmedPoint,
-            finalLocations: current.finalLocations,
-          ) ??
-          current.lastKnownLocation,
-      lastGpsUpdateTime: DateTime.now(),
+      lastKnownLocation: point?.position ?? current.lastKnownLocation,
+      lastGpsUpdateTime: point != null
+          ? point.timestamp.add(Duration(seconds: point.durationSeconds ?? 0))
+          : current.lastGpsUpdateTime,
     ));
 
     if (event.processBatch) await _processBatch(emit);
@@ -311,7 +323,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     _snapping = true;
     emit(current.copyWith(isSnapping: true));
 
-    final wasLimitKnown = LocalStorageService.isLocationSizeLimitHit();
+    bool sizeLimitJustHit = false;
 
     try {
       final result =
@@ -320,6 +332,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         trackingId: current.tracking!.id,
         forceSync: forceSync,
       );
+      sizeLimitJustHit = result?.sizeLimitJustHit ?? false;
 
       if (state is HomeLoaded) {
         final latest = state as HomeLoaded;
@@ -332,25 +345,31 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
                 currentBatch: result.currentBatch,
                 currentBatchDistance: result.currentBatchDistance,
                 lastKnownLocation: result.lastKnownLocation,
+                lastGpsUpdateTime: result.lastActiveAt,
               ));
       }
     } catch (e) {
-      // The service already catches its own errors and returns null — this
-      // is a backstop for anything else, so isSnapping never gets stuck true.
+      // The service already catches its own errors and returns null for
+      // expected sync failures — this is a backstop for anything else (e.g.
+      // a LocationsBoxLock violation, which should never happen in correct
+      // code), so isSnapping never gets stuck true. Surfaced via HomeError
+      // since this class of error is worth the user seeing and reporting,
+      // unlike an expected/retryable sync failure.
       print('[HomeBloc] processBatch error: $e');
       if (state is HomeLoaded) {
-        emit((state as HomeLoaded).copyWith(isSnapping: false));
+        final restored = (state as HomeLoaded).copyWith(isSnapping: false);
+        emit(HomeError(e.toString()));
+        emit(restored);
       }
     } finally {
       _snapping = false;
     }
 
-    // DataManager.persistLocations marks the size-limit flag internally on
-    // the relevant failure — this just decides whether to show the
-    // one-time toast, then restores the tracking UI (HomeError isn't a
-    // HomeLoaded subtype, so the map/tracking view would otherwise
-    // disappear until the next event).
-    if (!wasLimitKnown && LocalStorageService.isLocationSizeLimitHit()) {
+    // sizeLimitJustHit comes from LocationSyncService, which computed it
+    // safely while the lock was held — never read LocalStorageService
+    // directly here, since by this point the box may have already been
+    // closed again (the backgrounded case) and a direct read would throw.
+    if (sizeLimitJustHit) {
       final latestLoaded = state is HomeLoaded ? state as HomeLoaded : current;
       emit(HomeError(_sizeLimitMessage));
       emit(latestLoaded.copyWith());

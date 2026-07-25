@@ -221,13 +221,36 @@ class LocalStorageService {
   // live in the isolate-owned cursor box below. HomeBloc reaches them only
   // via LocationTrackingService messages, never directly.
 
+  /// Every method below touches locationsBox/settingsBox and must only ever
+  /// run while [LocationsBoxLock] is held by this isolate — see
+  /// LocationSyncService.processBatchAndEmitLatestLocationData, the sole
+  /// intended gateway. Throws (a real runtime check, not [assert] — this
+  /// must still protect release builds) rather than silently returning a
+  /// default or no-op-ing: a caller reaching these without the lock is a
+  /// programming error, and a fake "empty" result or a silently dropped
+  /// write would be indistinguishable from success, hiding exactly the
+  /// data loss this exists to prevent. Callers already wrap this in a
+  /// try/catch (see HomeBloc._processBatch), so it fails loudly — visible
+  /// in logs, surfaced to the user via HomeError where there's a UI to show
+  /// it in — without crashing the app or corrupting local state.
+  static void _assertLocationsBoxLockHeld() {
+    if (!LocationsBoxLock.isHeldByThisIsolate) {
+      throw StateError(
+          'locationsBox/settingsBox touched without holding LocationsBoxLock — '
+          'this data must only be accessed via LocationSyncService, which '
+          'acquires the lock first.');
+    }
+  }
+
   static Future<void> saveFinalLocations(List<LocationPoint> points) async {
+    _assertLocationsBoxLockHeld();
     await _locationsBox.put(
         AppConstants.finalLocationsKey,
         jsonEncode(points.map((p) => p.toJson()).toList()));
   }
 
   static List<LocationPoint> getFinalLocations() {
+    _assertLocationsBoxLockHeld();
     final raw = _locationsBox.get(AppConstants.finalLocationsKey);
     if (raw == null) return [];
     return (jsonDecode(raw) as List<dynamic>)
@@ -235,16 +258,22 @@ class LocalStorageService {
         .toList();
   }
 
-  static Future<void> saveFinalLocationsDistance(double km) async =>
-      _settingsBox.put(AppConstants.finalLocationsDistanceKey, km);
+  static Future<void> saveFinalLocationsDistance(double km) async {
+    _assertLocationsBoxLockHeld();
+    await _settingsBox.put(AppConstants.finalLocationsDistanceKey, km);
+  }
 
-  static double getFinalLocationsDistance() =>
-      (_settingsBox.get(AppConstants.finalLocationsDistanceKey) as num?)
-          ?.toDouble() ??
-      0.0;
+  static double getFinalLocationsDistance() {
+    _assertLocationsBoxLockHeld();
+    return (_settingsBox.get(AppConstants.finalLocationsDistanceKey) as num?)
+            ?.toDouble() ??
+        0.0;
+  }
 
-  static bool isLocationSizeLimitHit() =>
-      _settingsBox.get(AppConstants.locationSizeLimitHitKey) == true;
+  static bool isLocationSizeLimitHit() {
+    _assertLocationsBoxLockHeld();
+    return _settingsBox.get(AppConstants.locationSizeLimitHitKey) == true;
+  }
 
   /// Records that today's Tracking doc hit Firestore's size limit —
   /// idempotent: only actually writes (and returns true) the first time.
@@ -252,6 +281,7 @@ class LocalStorageService {
   /// is what just discovered it" (worth notifying the user) apart from
   /// "already knew, nothing new to say."
   static Future<bool> markLocationSizeLimitHitIfNew() async {
+    _assertLocationsBoxLockHeld();
     if (isLocationSizeLimitHit()) return false;
     await _settingsBox.put(AppConstants.locationSizeLimitHitKey, true);
     return true;
