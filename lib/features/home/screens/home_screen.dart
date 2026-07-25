@@ -397,6 +397,54 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  /// Deletes the signed-in user's account and all their data, server-side,
+  /// via FirestoreRepository.deleteMyAccount(). Only signs out and clears
+  /// local state — via the existing LogoutEvent, which already does exactly
+  /// that — once the server confirms success; on failure the user stays
+  /// signed in with their data intact, so they can see the error and retry.
+  Future<void> _handleDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text(
+          'This permanently deletes your account, attendance history, '
+          'visit records, and photos. This cannot be undone.\n\n'
+          'Are you sure you want to continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    _showLoadingDialog('Deleting your account...');
+    try {
+      await FirestoreRepository().deleteMyAccount();
+      if (mounted) _dismissLoadingDialog();
+      if (mounted) context.read<AuthBloc>().add(LogoutEvent());
+    } catch (e) {
+      if (mounted) _dismissLoadingDialog();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not delete account: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   /// Bottom sheet shown when the user taps "Punch In" after already being
   /// punched out today. Offers "Resume Session" (undo punch-out) or
   /// "Fresh Punch In" (start a brand-new session, overwriting today's data).
@@ -638,6 +686,8 @@ class _HomeScreenState extends State<HomeScreen>
                     ));
                   } else if (val == 'logout') {
                     context.read<AuthBloc>().add(LogoutEvent());
+                  } else if (val == 'delete_account') {
+                    _handleDeleteAccount();
                   }
                 },
                 itemBuilder: (_) => [
@@ -664,6 +714,14 @@ class _HomeScreenState extends State<HomeScreen>
                         Icon(Icons.logout_rounded, size: 18, color: AppTheme.error),
                         SizedBox(width: 10),
                         Text('Logout', style: TextStyle(color: AppTheme.error)),
+                      ]),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete_account',
+                      child: Row(children: [
+                        Icon(Icons.delete_forever_rounded, size: 18, color: AppTheme.error),
+                        SizedBox(width: 10),
+                        Text('Delete Account', style: TextStyle(color: AppTheme.error)),
                       ]),
                     ),
                   ],

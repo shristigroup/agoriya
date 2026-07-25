@@ -542,6 +542,59 @@ exports.setUserClaim = onRequest(
   }
 );
 
+// ─── 8b. deleteMyAccount — account & data deletion (self only) ──────────────
+// userId is taken from the caller's OWN verified token claim (set by
+// setUserClaim), never from the request body — a caller can only ever
+// delete their own account this way. Firestore data is wiped before the
+// Auth credential, not after: if recursiveDelete throws, the whole request
+// fails before deleteUser runs, so a partial failure never leaves someone
+// unable to sign back in with data still attached to their account — the
+// only bad partial state possible is "data gone, auth still valid", which
+// leaves them able to retry.
+exports.deleteMyAccount = onRequest(
+  { region: "asia-south1", cors: true },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) { res.status(401).json({ error: "Unauthenticated" }); return; }
+
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const userId = decoded.userId;
+    if (!userId) {
+      res.status(400).json({ error: "No userId claim on this account" });
+      return;
+    }
+
+    console.log(`[deleteMyAccount] starting deletion for ${userId} (uid=${decoded.uid})`);
+
+    // Wipes Users/{userId} and every nested subcollection (Tracking, Visits,
+    // Visits/{visitId}/Comments) in one call. onTrackingWrite doesn't apply
+    // here, but updateReportsHierarchy and syncOrgCodeCount both already
+    // react correctly to this delete (after.exists becomes false), so the
+    // manager-hierarchy tree and the org code's currentUserCount clean
+    // themselves up automatically — no extra code needed for those.
+    await db.recursiveDelete(db.collection("Users").doc(userId));
+
+    // Punch-in selfies and visit bill/receipt photos, both stored under a
+    // userId/ prefix (see AppConstants.punchInImagePath / billCopyPath in
+    // the Flutter app). Best-effort — Firestore data and the auth account
+    // are what matter most for "account deleted", and are already gone by
+    // this point regardless of whether Storage cleanup succeeds.
+    try {
+      await admin.storage().bucket().deleteFiles({ prefix: `${userId}/` });
+    } catch (err) {
+      console.error(`[deleteMyAccount] storage cleanup failed for ${userId}:`, err.message);
+    }
+
+    await admin.auth().deleteUser(decoded.uid);
+
+    console.log(`[deleteMyAccount] completed for ${userId}`);
+    res.status(200).json({ success: true });
+  }
+);
+
 // ─── 8. getUserByPhone — authenticated HTTP endpoint ─────────────────────────
 // Used during login to look up a user doc by phone number server-side,
 // bypassing Firestore client rules cleanly via Admin SDK.

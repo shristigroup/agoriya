@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — TrackFolks</title>
+  <meta name="description" content="TrackFolks privacy policy — how we collect, use, and protect location, attendance, and visit data for field teams." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red:         #8B1A1A;
+      --red-dark:    #5C0F0F;
+      --red-light:   #fbeaea;
+      --gold:        #F5A623;
+      --text:        #1A0A0A;
+      --muted:       #6B5050;
+      --hint:        #B09090;
+      --surface:     #ffffff;
+      --bg:          #F9F7F7;
+      --divider:     #EDE0E0;
+    }
+
+    body {
+      font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      background: var(--red-dark);
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo {
+      width: 42px; height: 42px;
+      border-radius: 11px;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .brand { display: flex; flex-direction: column; gap: 1px; }
+    .brand-name { color: white; font-size: 20px; font-weight: 800; letter-spacing: -0.4px; line-height: 1; }
+    .brand-tag  { color: rgba(255,255,255,0.55); font-size: 12px; font-weight: 400; }
+    header a.back { margin-left: auto; color: rgba(255,255,255,0.75); font-size: 14px; text-decoration: none; }
+    header a.back:hover { color: white; }
+
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    .doc-header { margin-bottom: 32px; }
+    .doc-header h1 {
+      font-size: clamp(26px, 4vw, 34px);
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    .doc-header p { color: var(--muted); font-size: 14px; }
+
+    .card {
+      background: var(--surface);
+      border-radius: 18px;
+      padding: 8px 28px 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.06);
+    }
+
+    section { padding: 20px 0; border-bottom: 1px solid var(--divider); }
+    section:last-child { border-bottom: none; }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--red-dark);
+    }
+    h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 14px 0 6px;
+    }
+    p, li { font-size: 14.5px; line-height: 1.7; color: var(--text); }
+    p + p { margin-top: 10px; }
+    ul { padding-left: 20px; margin: 8px 0; }
+    li { margin-bottom: 6px; }
+    li::marker { color: var(--gold); }
+    strong { font-weight: 700; }
+    a { color: var(--red); }
+
+    .note {
+      background: var(--red-light);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 13.5px;
+      color: var(--red-dark);
+      margin-top: 10px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 32px 24px;
+      color: var(--hint);
+      font-size: 13px;
+    }
+    footer a { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo">
+      <img src="/assets/logo/tf-logo.png" alt="TrackFolks logo" />
+    </div>
+    <div class="brand">
+      <span class="brand-name">TrackFolks</span>
+      <span class="brand-tag">Field Force Tracker</span>
+    </div>
+    <a class="back" href="/">&larr; Back to TrackFolks</a>
+  </header>
+
+  <main>
+    <div class="doc-header">
+      <h1>Privacy Policy</h1>
+      <p>Last updated: <span id="updated"></span> · Effective for all TrackFolks apps and services</p>
+    </div>
+
+    <div class="card">
+
+      <section>
+        <h2>Overview</h2>
+        <p>
+          TrackFolks is a field-force attendance and location-tracking app built by
+          Shrishti Group ("we", "us", "our") for organizations to manage their field
+          teams' attendance, visits, and live location while employees are punched in
+          for work. This policy explains what data TrackFolks collects, why, how it's
+          used, and who it's shared with.
+        </p>
+        <p>
+          TrackFolks is deployed by your employer or organization ("the Organization")
+          for its workforce. The Organization controls who has access to your data
+          within the app (typically your direct manager and their reporting chain).
+          If you have questions about your organization's specific data policies,
+          please also contact your organization's administrator.
+        </p>
+      </section>
+
+      <section>
+        <h2>Information We Collect</h2>
+
+        <h3>Account information</h3>
+        <p>
+          Phone number (used for sign-in), first and last name, your organization
+          code, and your position in the organization's manager hierarchy.
+        </p>
+
+        <h3>Location information</h3>
+        <p>
+          While you are punched in, TrackFolks collects your device's precise GPS
+          location at regular intervals (approximately once per minute) — including
+          while the app is running in the background — so your attendance and
+          movement during work hours can be recorded and shared with your manager.
+          Location collection stops automatically when you punch out.
+        </p>
+        <p>
+          Recorded location points are periodically matched to road geometry using a
+          routing service so that your path is displayed accurately on a map (see
+          "Third-Party Services" below).
+        </p>
+
+        <h3>Photos</h3>
+        <p>
+          A selfie photo taken at punch-in, and, if your organization uses it, receipt
+          or bill photos attached to client visits.
+        </p>
+
+        <h3>Visit and attendance records</h3>
+        <p>
+          Punch-in/punch-out times, client visit check-in/check-out times, client
+          name and visit location, and any comments added by you or your manager on a
+          visit.
+        </p>
+
+        <h3>Device and notification information</h3>
+        <p>
+          A push-notification token used to deliver attendance and visit alerts to
+          you and your manager, and the permission states (location, camera,
+          notifications, battery-optimization exemption) TrackFolks needs to function.
+        </p>
+      </section>
+
+      <section>
+        <h2>How We Use This Information</h2>
+        <ul>
+          <li>To record attendance — punch-in/out times and duration of work sessions.</li>
+          <li>To show your live and historical location and route to your manager while punched in, for field-team coordination and safety.</li>
+          <li>To record client visits, including location and any attached notes or receipts.</li>
+          <li>To notify you and your manager of relevant attendance and visit events.</li>
+          <li>To automatically close out a session and notify you if location data stops being received for an extended period (e.g. connectivity loss), so attendance records stay accurate.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Third-Party Services</h2>
+        <p>TrackFolks relies on the following third-party services to operate:</p>
+        <ul>
+          <li><strong>Google Firebase / Google Cloud</strong> — authentication, database (Firestore), file storage, push notifications, and server-side logic. Firebase infrastructure for TrackFolks is hosted in Google Cloud's Mumbai (India) region.</li>
+          <li><strong>OSRM (Open Source Routing Machine)</strong> — recorded GPS coordinates are sent to the public OSRM routing service to snap raw location points to roads for accurate map display. This request contains coordinates and timestamps only — no name, phone number, or other identifying account information is included in these requests.</li>
+        </ul>
+        <div class="note">
+          We do not sell your data, and we do not share it with advertisers or data
+          brokers. Data collected by TrackFolks is visible only to your organization
+          (your manager and their reporting chain) and to the third-party service
+          providers above, strictly to operate the app.
+        </div>
+      </section>
+
+      <section id="account-deletion">
+        <h2>Account &amp; Data Deletion</h2>
+        <p>
+          You can permanently delete your TrackFolks account and all associated data
+          at any time.
+        </p>
+
+        <h3>From the app</h3>
+        <p>
+          Open the menu (&#9776;) in the top-right corner of the home screen and
+          select <strong>Delete Account</strong>. After you confirm, your account is
+          deleted immediately — this cannot be undone.
+        </p>
+
+        <h3>Without the app</h3>
+        <p>
+          If you no longer have the app installed, email
+          <a href="mailto:developer@shristigroup.com">developer@shristigroup.com</a>
+          from the phone number registered on your account, requesting account
+          deletion. We will process the request and confirm once it's complete.
+        </p>
+
+        <h3>What gets deleted</h3>
+        <ul>
+          <li>Your account (phone number, name, and organization membership).</li>
+          <li>Your attendance and location history.</li>
+          <li>Your visit records and any comments on them.</li>
+          <li>Your punch-in and visit photos.</li>
+          <li>Your sign-in credential — you won't be able to sign back in with the same account.</li>
+        </ul>
+        <div class="note">
+          Deletion is permanent and cannot be reversed. If you'd like to keep using
+          TrackFolks but just stop location tracking, punching out (rather than
+          deleting your account) is enough — see "Your Choices" below.
+        </div>
+      </section>
+
+      <section>
+        <h2>Data Retention</h2>
+        <p>
+          Attendance, visit, and location records are retained for as long as your
+          account remains part of an active organization on TrackFolks, so historical
+          attendance and visit reports remain available. See
+          <a href="#account-deletion">Account &amp; Data Deletion</a> above for how
+          to delete your account and data at any time.
+        </p>
+      </section>
+
+      <section>
+        <h2>Data Security</h2>
+        <p>
+          Data is transmitted over encrypted connections (HTTPS/TLS) and stored using
+          Firebase's access-controlled infrastructure. Access within the app is
+          restricted by your organization's manager hierarchy — field employees can
+          only see their own data, and managers can only see data for people who
+          report to them.
+        </p>
+      </section>
+
+      <section>
+        <h2>Your Choices</h2>
+        <ul>
+          <li>Location is only collected while you are punched in — punching out stops collection immediately.</li>
+          <li>Location, camera, and notification permissions can be managed at any time from your device's Settings, though declining permissions required for tracking will limit the app's core functionality.</li>
+          <li>To request access to, correction of, or deletion of your data, contact us using the details below, or reach out to your organization's administrator.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Children's Privacy</h2>
+        <p>
+          TrackFolks is a workplace tool intended for use by employed adults and is
+          not directed at children. We do not knowingly collect data from anyone
+          under the age of 18.
+        </p>
+      </section>
+
+      <section>
+        <h2>Changes to This Policy</h2>
+        <p>
+          We may update this policy from time to time to reflect changes to the app
+          or applicable law. The "Last updated" date at the top of this page will
+          change whenever we do. Continued use of TrackFolks after an update means
+          you accept the revised policy.
+        </p>
+      </section>
+
+      <section>
+        <h2>Contact Us</h2>
+        <p>
+          Questions about this policy or your data? Reach us at
+          <a href="mailto:gardeniavidesi@gmail.com">gardeniavidesi@gmail.com</a>
+          or +91 95 3838 4545.
+        </p>
+      </section>
+
+    </div>
+  </main>
+
+  <footer>
+    <p>TrackFolks &copy; <span id="year"></span> Shrishti Group</p>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    document.getElementById('updated').textContent = new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+  </script>
+
+</body>
+</html>

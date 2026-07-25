@@ -429,6 +429,33 @@ class FirestoreRepository {
     return members;
   }
 
+  /// Deletes the signed-in user's own account: their Firestore User doc and
+  /// every nested subcollection (Tracking, Visits, Visits/*/Comments),
+  /// Storage files (punch-in selfies, visit bill photos), and the Auth
+  /// credential itself — all server-side via the deleteMyAccount Cloud
+  /// Function, using the Admin SDK (see functions/index.js). Irreversible.
+  /// Throws on any failure; the caller should NOT sign out or clear local
+  /// state unless this completes successfully.
+  Future<void> deleteMyAccount() async {
+    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (idToken == null) {
+      throw Exception('Not signed in');
+    }
+    final uri = Uri.parse(
+      'https://asia-south1-agoriya-app.cloudfunctions.net/deleteMyAccount',
+    );
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete account: ${response.body}');
+    }
+  }
+
   /// Removes [userId] from the org:
   ///  - clears their managerId and code
   ///  - removes them from their manager's reports map
