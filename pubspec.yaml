@@ -1,7 +1,7 @@
 name: agoriya
 description: Agoriya v1.0 - Field Force Tracking App
 publish_to: 'none'
-version: 1.0.2
+version: 2.0.0
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -14,7 +14,7 @@ dependencies:
   firebase_core: ^4.6.0
   firebase_auth: ^6.3.0
   cloud_firestore: ^6.2.0
-  firebase_storage: ^13.2.0
+  firebase_storage: ^13.4.5
   firebase_messaging: ^16.1.3
 
   # Maps
@@ -30,7 +30,7 @@ dependencies:
   flutter_local_notifications: ^18.0.0
 
   # Camera
-  camera: ^0.12.0+1
+  camera: ^0.12.0+2
   image_picker: ^1.1.2
 
   # Local storage
@@ -49,7 +49,7 @@ dependencies:
   google_fonts: ^8.0.2
 
   # App info
-  package_info_plus: ^8.0.0
+  package_info_plus: ^10.2.1
 
   # Utilities
   intl: ^0.20.2
@@ -61,7 +61,7 @@ dependencies:
   lottie: ^3.1.2
   shimmer: ^3.0.0
   badges: ^3.1.2
-  share_plus: ^12.0.2
+  share_plus: ^13.2.1
 
 dev_dependencies:
   flutter_test:
@@ -77,19 +77,19 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/logo/tf-logo.png"
   min_sdk_android: 21
-  adaptive_icon_background: "#141414"
+  adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/logo/tf-logo.png"
   remove_alpha_ios: true
   web:
     generate: false
 
 flutter_native_splash:
-  color: "#141414"
+  color: "#FFFFFF"
   image: assets/logo/tf-logo-with-name.png
   android: true
   ios: true
   android_12:
-    color: "#141414"
+    color: "#FFFFFF"
     image: assets/logo/tf-logo-with-name.png
 
 flutter:

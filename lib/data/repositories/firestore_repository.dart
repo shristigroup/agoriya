@@ -13,6 +13,24 @@ import '../models/visit_model.dart';
 import '../models/location_model.dart';
 import '../models/monthly_summary_model.dart';
 
+/// Thrown when a Firestore document write fails because the document
+/// exceeded the 1 MiB size limit. Firestore itself only surfaces this as a
+/// generic `invalid-argument` FirebaseException — this wraps that specific
+/// case (detected via [_isDocumentSizeLimitError]) so callers can catch it
+/// distinctly instead of string-matching error messages themselves.
+class FirestoreDocumentSizeLimitException implements Exception {
+  final String message;
+  FirestoreDocumentSizeLimitException(this.message);
+  @override
+  String toString() => 'FirestoreDocumentSizeLimitException: $message';
+}
+
+bool _isDocumentSizeLimitError(FirebaseException e) {
+  final msg = e.message?.toLowerCase() ?? '';
+  return e.code == 'invalid-argument' &&
+      (msg.contains('size') || msg.contains('byte') || msg.contains('exceeds'));
+}
+
 class FirestoreRepository {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -115,6 +133,7 @@ class FirestoreRepository {
     if (latest != null && latest.isActive && latest.id != tracking.id) {
       await _trackingDoc(userId, latest.id).update({
         'stopTime': Timestamp.fromDate(DateTime.now()),
+        'isPunchedIn': false,
       });
     }
     await _trackingDoc(userId, tracking.id).set(tracking.toFirestore());
@@ -123,8 +142,36 @@ class FirestoreRepository {
   /// Sets stopTime on the Tracking doc (punch-out).
   Future<void> closeTracking(
       String userId, String trackingId, DateTime stopTime) async {
+    try {
+      await _trackingDoc(userId, trackingId).update({
+        'stopTime': Timestamp.fromDate(stopTime),
+        'isPunchedIn': false,
+      });
+    } on FirebaseException catch (e) {
+      if (_isDocumentSizeLimitError(e)) {
+        throw FirestoreDocumentSizeLimitException(
+            e.message ?? 'Document size limit exceeded');
+      }
+      rethrow;
+    }
+  }
+
+  /// Punch-out write for when the doc has already hit (or just hit) the
+  /// size limit: reads the doc, drops the last location entry to free up
+  /// space, then writes stopTime in the same update — so punch-out can
+  /// still succeed even though the locations array is at capacity.
+  Future<void> closeTrackingFreeingSpace(
+      String userId, String trackingId, DateTime stopTime) async {
+    final doc = await _trackingDoc(userId, trackingId).get();
+    final data = doc.data() as Map<String, dynamic>?;
+    final locations =
+        List<Map<String, dynamic>>.from(data?['locations'] as List? ?? []);
+    if (locations.isNotEmpty) locations.removeLast();
+
     await _trackingDoc(userId, trackingId).update({
+      'locations': locations,
       'stopTime': Timestamp.fromDate(stopTime),
+      'isPunchedIn': false,
     });
   }
 
@@ -132,6 +179,7 @@ class FirestoreRepository {
   Future<void> resumeTracking(String userId, String trackingId) async {
     await _trackingDoc(userId, trackingId).update({
       'stopTime': FieldValue.delete(),
+      'isPunchedIn': true,
     });
   }
 
@@ -144,11 +192,22 @@ class FirestoreRepository {
     List<LocationPoint> allLocations,
     double distanceKm,
   ) async {
-    await _trackingDoc(userId, trackingId).update({
-      'locations': allLocations.map((p) => p.toFirestore()).toList(),
-      'distance': distanceKm,
-      'lastUpdatedAt': FieldValue.serverTimestamp(),
-    });
+    print('[FirestoreRepo] writeLocations → ${allLocations.length} points, '
+        '${distanceKm.toStringAsFixed(3)} km | trackingId=$trackingId');
+    try {
+      await _trackingDoc(userId, trackingId).update({
+        'locations': allLocations.map((p) => p.toFirestore()).toList(),
+        'distance': distanceKm,
+        'lastUpdatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      if (_isDocumentSizeLimitError(e)) {
+        throw FirestoreDocumentSizeLimitException(
+            e.message ?? 'Document size limit exceeded');
+      }
+      rethrow;
+    }
+    print('[FirestoreRepo] writeLocations OK → trackingId=$trackingId');
   }
 
   /// Increments visitCount on the active Tracking doc.
@@ -368,6 +427,33 @@ class FirestoreRepository {
       );
     }).toList();
     return members;
+  }
+
+  /// Deletes the signed-in user's own account: their Firestore User doc and
+  /// every nested subcollection (Tracking, Visits, Visits/*/Comments),
+  /// Storage files (punch-in selfies, visit bill photos), and the Auth
+  /// credential itself — all server-side via the deleteMyAccount Cloud
+  /// Function, using the Admin SDK (see functions/index.js). Irreversible.
+  /// Throws on any failure; the caller should NOT sign out or clear local
+  /// state unless this completes successfully.
+  Future<void> deleteMyAccount() async {
+    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (idToken == null) {
+      throw Exception('Not signed in');
+    }
+    final uri = Uri.parse(
+      'https://asia-south1-agoriya-app.cloudfunctions.net/deleteMyAccount',
+    );
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete account: ${response.body}');
+    }
   }
 
   /// Removes [userId] from the org:

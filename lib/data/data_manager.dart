@@ -174,49 +174,36 @@ class DataManager {
 
   // ─── Today's tracking state (own user only) ────────────────────────────────
 
-  static List<LocationPoint> getFinalLocations() =>
-      LocalStorageService.getFinalLocations();
-
-  static List<LocationPoint> getCurrentBatch() =>
-      LocalStorageService.getCurrentBatch();
-
-  static double getFinalLocationsDistance() =>
-      LocalStorageService.getFinalLocationsDistance();
-
-  static double getCurrentBatchDistance() =>
-      LocalStorageService.getCurrentBatchDistance();
-
-  /// Returns the display distance: OSRM total + live haversine for currentBatch.
-  static double getDisplayDistance(String userId, TrackingModel? tracking) {
-    if (isOwner(userId)) {
-      return LocalStorageService.getFinalLocationsDistance() +
-          LocalStorageService.getCurrentBatchDistance();
-    }
-    return tracking?.distance ?? 0.0;
-  }
-
-  /// Persists a new point into currentBatch + updates currentBatchDistance.
-  static Future<void> saveCurrentBatch(
-    List<LocationPoint> updatedBatch,
-    double newBatchDistance,
-  ) async {
-    await LocalStorageService.saveCurrentBatch(updatedBatch);
-    await LocalStorageService.saveCurrentBatchDistance(newBatchDistance);
-  }
-
-  static Future<void> saveFinalLocations(List<LocationPoint> points) =>
-      LocalStorageService.saveFinalLocations(points);
+  // currentBatch/pendingSampleCount live in the location-tracking background
+  // isolate's own Hive box now (see AppConstants.trackingCursorBox) — never
+  // read directly here. HomeBloc reaches them exclusively via
+  // LocationTrackingService.requestSnapshot()/the newPoint event payload.
+  //
+  // finalLocations/finalLocationsDistance are read/written directly via
+  // LocalStorageService by LocationSyncService (which is lock-aware —
+  // see LocationsBoxLock) — not through DataManager passthroughs here.
 
   /// Writes the complete locations array to Firestore and saves to Hive.
   /// allLocations = finalLocations + snappedBatch, or just finalLocations on
   /// a stationary-only flush (empty batch, updated last-point durationSeconds).
+  ///
+  /// If the write fails because the doc hit Firestore's 1 MiB size limit,
+  /// records that (idempotent — see [LocalStorageService.markLocationSizeLimitHitIfNew])
+  /// and rethrows without touching local Hive state, so the caller's own
+  /// failure handling (retry next sync, don't confirm to the tracking
+  /// isolate) applies exactly as it would for any other write failure.
   static Future<void> persistLocations({
     required String userId,
     required String trackingId,
     required List<LocationPoint> allLocations,
     required double distanceKm,
   }) async {
-    await _repo.writeLocations(userId, trackingId, allLocations, distanceKm);
+    try {
+      await _repo.writeLocations(userId, trackingId, allLocations, distanceKm);
+    } on FirestoreDocumentSizeLimitException {
+      await LocalStorageService.markLocationSizeLimitHitIfNew();
+      rethrow;
+    }
     await LocalStorageService.saveFinalLocations(allLocations);
     await LocalStorageService.saveFinalLocationsDistance(distanceKm);
   }
@@ -252,7 +239,22 @@ class DataManager {
     required TrackingModel currentTracking,
     required DateTime timestamp,
   }) async {
-    await _repo.closeTracking(userId, currentTracking.id, timestamp);
+    // If the doc is already known to be at the size limit, go straight to
+    // the space-freeing write — no point attempting the plain one first.
+    // Otherwise attempt normally, and fall back to freeing space if THIS
+    // write is what first hits the limit (e.g. the locations array was
+    // right at the edge and stopTime tipped it over).
+    if (LocalStorageService.isLocationSizeLimitHit()) {
+      await _repo.closeTrackingFreeingSpace(userId, currentTracking.id, timestamp);
+    } else {
+      try {
+        await _repo.closeTracking(userId, currentTracking.id, timestamp);
+      } on FirestoreDocumentSizeLimitException {
+        await LocalStorageService.markLocationSizeLimitHitIfNew();
+        await _repo.closeTrackingFreeingSpace(
+            userId, currentTracking.id, timestamp);
+      }
+    }
     final updated = currentTracking.copyWith(stopTime: timestamp);
     // Keep the tracking ID in Hive so HomeBloc can see isPunchedOut = true
     // on the next init and offer the "Resume Session" option. The ID is

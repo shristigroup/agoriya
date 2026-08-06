@@ -6,6 +6,7 @@ import '../models/tracking_model.dart';
 import '../models/visit_model.dart';
 import '../models/location_model.dart';
 import '../models/monthly_summary_model.dart';
+import 'locations_box_lock.dart';
 
 class LocalStorageService {
   static late Box _userBox;
@@ -15,14 +16,84 @@ class LocalStorageService {
   static late Box _reportsBox;
   static late Box _settingsBox;
 
+  // Owned EXCLUSIVELY by the location-tracking background isolate — see
+  // AppConstants.trackingCursorBox. Only ever assigned by [openCursorBoxOnly],
+  // which only that isolate calls; the main isolate's [init] never opens it.
+  static late Box _cursorBox;
+
   static Future<void> init() async {
     await Hive.initFlutter();
+    // Hold this for the app's entire process lifetime, before opening
+    // locationsBox/settingsBox — see LocationsBoxLock for the protocol this
+    // implements. Bounded so a stuck lock can never block app startup.
+    try {
+      await LocationsBoxLock.acquireForSession()
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      print('[LocalStorageService] Could not acquire locations_box lock at '
+          'startup within 10s ($e) — proceeding without it. The FCM sync '
+          "path's cross-isolate guard will be weaker this session.");
+    }
     _userBox = await Hive.openBox(AppConstants.userBox);
     _trackingBox = await Hive.openBox(AppConstants.attendanceBox); // same box, new purpose
     _visitsBox = await Hive.openBox(AppConstants.visitsBox);
     _locationsBox = await Hive.openBox(AppConstants.locationsBox);
     _reportsBox = await Hive.openBox(AppConstants.reportsBox);
     _settingsBox = await Hive.openBox(AppConstants.settingsBox);
+  }
+
+  /// Opens locationsBox + settingsBox fresh — for any caller that doesn't
+  /// already hold them open for a foreground session (the FCM watchdog's
+  /// isolate, or the main isolate transiently re-acquiring the lock while
+  /// backgrounded — see
+  /// LocationSyncService.processBatchAndEmitLatestLocationData). The caller
+  /// must already hold [LocationsBoxLock] before calling this.
+  static Future<void> openLocationsBoxForSync() async {
+    await Hive.initFlutter();
+    _locationsBox = await Hive.openBox(AppConstants.locationsBox);
+    _settingsBox = await Hive.openBox(AppConstants.settingsBox);
+  }
+
+  /// Closes locationsBox + settingsBox and releases the cross-isolate lock —
+  /// call when the app is backgrounded during an active tracking session
+  /// (see HomeBloc's AppPausedEvent), so the FCM watchdog (or a future
+  /// boot/update-triggered recovery) can safely sync while this session
+  /// isn't using these boxes. Pairs with [reopenLocationsBoxForForeground].
+  static Future<void> closeLocationsBoxForBackground() async {
+    await _locationsBox.close();
+    await _settingsBox.close();
+    await LocationsBoxLock.releaseHeld();
+  }
+
+  /// Reacquires the lock and reopens locationsBox + settingsBox — call when
+  /// the app returns to foreground (see HomeBloc's AppResumedEvent). Blocks
+  /// briefly if another isolate is mid-sync; bounded so a stuck lock can
+  /// never prevent the app from resuming normal operation.
+  static Future<void> reopenLocationsBoxForForeground() async {
+    try {
+      await LocationsBoxLock.acquireForSession()
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      print('[LocalStorageService] Could not reacquire locations_box lock '
+          'on resume within 10s ($e) — proceeding without it. The FCM sync '
+          "path's cross-isolate guard will be weaker until next background/"
+          'foreground cycle.');
+    }
+    _locationsBox = await Hive.openBox(AppConstants.locationsBox);
+    _settingsBox = await Hive.openBox(AppConstants.settingsBox);
+  }
+
+  /// Opens the tracking-cursor box. Called ONLY by the location-tracking
+  /// background isolate (`location_tracking_service.dart`) — never by the
+  /// main isolate. Hive does not support one box being opened by two
+  /// isolates concurrently (separate isolates get separate in-memory box
+  /// instances over the same file, and concurrent writes can corrupt it) —
+  /// keeping this box's ownership strictly single-isolate is what makes
+  /// [getCurrentBatch]/[getPendingSampleCount]/[getLastConfirmedPoint]/etc.
+  /// below safe to call without any reload/close-reopen dance.
+  static Future<void> openCursorBoxOnly() async {
+    await Hive.initFlutter();
+    _cursorBox = await Hive.openBox(AppConstants.trackingCursorBox);
   }
 
   // ─── User ────────────────────────────────────────────────────────────────
@@ -141,23 +212,45 @@ class LocalStorageService {
   static Future<void> sealVisits(String userId, String date) async =>
       _settingsBox.put('vseal_${userId}_$date', true);
 
-  // ─── Today's tracking state ───────────────────────────────────────────────
+  // ─── Today's tracking state — HomeBloc/main isolate (locationsBox) ────────
   //
-  // Two arrays:
-  //   finalLocations  — OSRM-snapped, exactly mirrors the Firestore locations doc
-  //   currentBatch    — raw GPS since the last committed batch, not yet in Firestore
+  // finalLocations — OSRM-snapped, exactly mirrors the Firestore locations doc.
+  // finalLocationsDistance — OSRM total for all committed batches.
   //
-  // Two distances:
-  //   finalLocationsDistance  — OSRM total for all committed batches
-  //   currentBatchDistance    — live haversine estimate for currentBatch points
+  // currentBatch/pendingSampleCount/lastConfirmedPoint are NOT here — they
+  // live in the isolate-owned cursor box below. HomeBloc reaches them only
+  // via LocationTrackingService messages, never directly.
+
+  /// Every method below touches locationsBox/settingsBox and must only ever
+  /// run while [LocationsBoxLock] is held by this isolate — see
+  /// LocationSyncService.processBatchAndEmitLatestLocationData, the sole
+  /// intended gateway. Throws (a real runtime check, not [assert] — this
+  /// must still protect release builds) rather than silently returning a
+  /// default or no-op-ing: a caller reaching these without the lock is a
+  /// programming error, and a fake "empty" result or a silently dropped
+  /// write would be indistinguishable from success, hiding exactly the
+  /// data loss this exists to prevent. Callers already wrap this in a
+  /// try/catch (see HomeBloc._processBatch), so it fails loudly — visible
+  /// in logs, surfaced to the user via HomeError where there's a UI to show
+  /// it in — without crashing the app or corrupting local state.
+  static void _assertLocationsBoxLockHeld() {
+    if (!LocationsBoxLock.isHeldByThisIsolate) {
+      throw StateError(
+          'locationsBox/settingsBox touched without holding LocationsBoxLock — '
+          'this data must only be accessed via LocationSyncService, which '
+          'acquires the lock first.');
+    }
+  }
 
   static Future<void> saveFinalLocations(List<LocationPoint> points) async {
+    _assertLocationsBoxLockHeld();
     await _locationsBox.put(
         AppConstants.finalLocationsKey,
         jsonEncode(points.map((p) => p.toJson()).toList()));
   }
 
   static List<LocationPoint> getFinalLocations() {
+    _assertLocationsBoxLockHeld();
     final raw = _locationsBox.get(AppConstants.finalLocationsKey);
     if (raw == null) return [];
     return (jsonDecode(raw) as List<dynamic>)
@@ -165,43 +258,94 @@ class LocalStorageService {
         .toList();
   }
 
+  static Future<void> saveFinalLocationsDistance(double km) async {
+    _assertLocationsBoxLockHeld();
+    await _settingsBox.put(AppConstants.finalLocationsDistanceKey, km);
+  }
+
+  static double getFinalLocationsDistance() {
+    _assertLocationsBoxLockHeld();
+    return (_settingsBox.get(AppConstants.finalLocationsDistanceKey) as num?)
+            ?.toDouble() ??
+        0.0;
+  }
+
+  static bool isLocationSizeLimitHit() {
+    _assertLocationsBoxLockHeld();
+    return _settingsBox.get(AppConstants.locationSizeLimitHitKey) == true;
+  }
+
+  /// Records that today's Tracking doc hit Firestore's size limit —
+  /// idempotent: only actually writes (and returns true) the first time.
+  /// Returns false if it was already known, so callers can tell "this call
+  /// is what just discovered it" (worth notifying the user) apart from
+  /// "already knew, nothing new to say."
+  static Future<bool> markLocationSizeLimitHitIfNew() async {
+    _assertLocationsBoxLockHeld();
+    if (isLocationSizeLimitHit()) return false;
+    await _settingsBox.put(AppConstants.locationSizeLimitHitKey, true);
+    return true;
+  }
+
+  /// Clears HomeBloc's own tracking-state keys. Called on fresh punch-in to
+  /// start clean. Does NOT touch the isolate's cursor box — that's cleared
+  /// by the isolate itself when it receives a `fresh: true` setParams (see
+  /// LocationTrackingService.start).
+  static Future<void> clearTodayTrackingState() async {
+    await _locationsBox.delete(AppConstants.finalLocationsKey);
+    await _settingsBox.delete(AppConstants.finalLocationsDistanceKey);
+    await _settingsBox.delete(AppConstants.currentTrackingIdKey);
+    await _settingsBox.delete(AppConstants.locationSizeLimitHitKey);
+  }
+
+  // ─── Tracking cursor state — background isolate ONLY (trackingCursorBox) ──
+  // See AppConstants.trackingCursorBox for why this box is isolate-exclusive.
+
   static Future<void> saveCurrentBatch(List<LocationPoint> points) async {
-    await _locationsBox.put(
+    await _cursorBox.put(
         AppConstants.currentBatchKey,
         jsonEncode(points.map((p) => p.toJson()).toList()));
   }
 
   static List<LocationPoint> getCurrentBatch() {
-    final raw = _locationsBox.get(AppConstants.currentBatchKey);
+    final raw = _cursorBox.get(AppConstants.currentBatchKey);
     if (raw == null) return [];
     return (jsonDecode(raw) as List<dynamic>)
         .map((e) => LocationPoint.fromJson(Map<String, dynamic>.from(e)))
         .toList();
   }
 
-  static Future<void> saveFinalLocationsDistance(double km) async =>
-      _settingsBox.put(AppConstants.finalLocationsDistanceKey, km);
+  static Future<void> savePendingSampleCount(int count) async {
+    await _cursorBox.put(AppConstants.pendingSampleCountKey, count);
+  }
 
-  static double getFinalLocationsDistance() =>
-      (_settingsBox.get(AppConstants.finalLocationsDistanceKey) as num?)
-          ?.toDouble() ??
-      0.0;
+  static int getPendingSampleCount() =>
+      (_cursorBox.get(AppConstants.pendingSampleCountKey) as num?)
+          ?.toInt() ??
+      0;
 
-  static Future<void> saveCurrentBatchDistance(double km) async =>
-      _settingsBox.put(AppConstants.currentBatchDistanceKey, km);
+  static Future<void> saveLastConfirmedPoint(LocationPoint? point) async {
+    if (point == null) {
+      await _cursorBox.delete(AppConstants.lastConfirmedPointKey);
+    } else {
+      await _cursorBox.put(
+          AppConstants.lastConfirmedPointKey, jsonEncode(point.toJson()));
+    }
+  }
 
-  static double getCurrentBatchDistance() =>
-      (_settingsBox.get(AppConstants.currentBatchDistanceKey) as num?)
-          ?.toDouble() ??
-      0.0;
+  static LocationPoint? getLastConfirmedPoint() {
+    final raw = _cursorBox.get(AppConstants.lastConfirmedPointKey);
+    if (raw == null) return null;
+    return LocationPoint.fromJson(Map<String, dynamic>.from(jsonDecode(raw)));
+  }
 
-  /// Clears all tracking-state keys. Called on fresh punch-in to start clean.
-  static Future<void> clearTodayTrackingState() async {
-    await _locationsBox.delete(AppConstants.finalLocationsKey);
-    await _locationsBox.delete(AppConstants.currentBatchKey);
-    await _settingsBox.delete(AppConstants.finalLocationsDistanceKey);
-    await _settingsBox.delete(AppConstants.currentBatchDistanceKey);
-    await _settingsBox.delete(AppConstants.currentTrackingIdKey);
+  /// Clears all cursor-box keys. Called by the isolate on a fresh punch-in
+  /// (`fresh: true` setParams) so a new session starts with no leftover
+  /// state from a previous day/session.
+  static Future<void> clearCursorState() async {
+    await _cursorBox.delete(AppConstants.currentBatchKey);
+    await _cursorBox.delete(AppConstants.pendingSampleCountKey);
+    await _cursorBox.delete(AppConstants.lastConfirmedPointKey);
   }
 
   // ─── Persisted locations for any user+date ────────────────────────────────

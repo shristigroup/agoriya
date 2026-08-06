@@ -67,8 +67,11 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && !_isReadOnly && mounted) {
+    if (_isReadOnly || !mounted) return;
+    if (state == AppLifecycleState.resumed) {
       context.read<HomeBloc>().add(AppResumedEvent());
+    } else if (state == AppLifecycleState.paused) {
+      context.read<HomeBloc>().add(AppPausedEvent());
     }
   }
 
@@ -251,12 +254,44 @@ class _HomeScreenState extends State<HomeScreen>
     return false;
   }
 
+  /// Exemption from Android battery optimization, so OEM battery managers
+  /// (Xiaomi, Vivo, Oppo, OnePlus, etc.) are less likely to kill the
+  /// location-tracking foreground service outright. Mandatory, same as
+  /// location/notification — see HomeBloc._hasRequiredPermissions, which
+  /// re-checks this on every _onInit/_onAppResumed. Android-only; callers
+  /// must gate with Platform.isAndroid, since permission_handler treats
+  /// this permission as a no-op on iOS.
+  Future<bool> _ensureBatteryOptimizationExemption() => _ensureSimplePermission(
+        permission: Permission.ignoreBatteryOptimizations,
+        title: 'Battery Optimization Exemption Required',
+        permanentlyDeniedMessage:
+            'Battery optimization exemption has been permanently denied.\n\n'
+            'Please go to Settings → TrackFolks → Battery and allow '
+            'unrestricted background activity.',
+        deniedMessage:
+            'Some phones aggressively stop background apps to save battery, '
+            'which can interrupt location tracking.\n\n'
+            'TrackFolks needs to run without battery restrictions for '
+            'reliable tracking while punched in. Please allow this in Settings.',
+      );
+
+  Future<bool> _ensureNotificationPermission() => _ensureSimplePermission(
+        permission: Permission.notification,
+        title: 'Notification Permission Required',
+        permanentlyDeniedMessage:
+            'Notification access has been permanently denied.\n\n'
+            'Please go to Settings → TrackFolks → Notifications and enable it.',
+        deniedMessage:
+            'TrackFolks needs notification access so your manager is notified '
+            'when you punch in/out or check in/out of a visit.\n\n'
+            'Please enable notification permission in Settings.',
+      );
+
   Future<void> _handlePunchIn(HomeLoaded state) async {
     if (!await _ensureLocationPermission()) return;
     if (!await _ensureCameraPermission()) return;
-    // Request POST_NOTIFICATIONS so the foreground tracking notification
-    // shows on Android 13+. Not blocking — tracking works without it.
-    if (Platform.isAndroid) await Permission.notification.request();
+    if (!await _ensureNotificationPermission()) return;
+    if (Platform.isAndroid && !await _ensureBatteryOptimizationExemption()) return;
 
     final file = await Navigator.of(context).push<File>(
       MaterialPageRoute(builder: (_) => const PunchInCameraScreen()),
@@ -359,6 +394,54 @@ class _HomeScreenState extends State<HomeScreen>
   void _dismissLoadingDialog() {
     if (_loadingDialogOpen && mounted) {
       Navigator.of(context, rootNavigator: true).pop();
+    }
+  }
+
+  /// Deletes the signed-in user's account and all their data, server-side,
+  /// via FirestoreRepository.deleteMyAccount(). Only signs out and clears
+  /// local state — via the existing LogoutEvent, which already does exactly
+  /// that — once the server confirms success; on failure the user stays
+  /// signed in with their data intact, so they can see the error and retry.
+  Future<void> _handleDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text(
+          'This permanently deletes your account, attendance history, '
+          'visit records, and photos. This cannot be undone.\n\n'
+          'Are you sure you want to continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    _showLoadingDialog('Deleting your account...');
+    try {
+      await FirestoreRepository().deleteMyAccount();
+      if (mounted) _dismissLoadingDialog();
+      if (mounted) context.read<AuthBloc>().add(LogoutEvent());
+    } catch (e) {
+      if (mounted) _dismissLoadingDialog();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not delete account: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
     }
   }
 
@@ -477,6 +560,61 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  /// Opaque, non-dismissable overlay shown whenever HomeBloc reports
+  /// permissionsRequired (location "Allow all the time" and/or notification
+  /// permission missing while punched in). Guides the user to Settings
+  /// rather than firing another in-app request dialog, since both of these
+  /// permissions typically require a Settings visit to grant/upgrade anyway
+  /// (background location) or are already past their one-shot request
+  /// (previously denied). Retry re-runs HomeBloc's check immediately;
+  /// returning from Settings also clears it automatically via
+  /// AppResumedEvent.
+  Widget _buildPermissionRequiredOverlay() {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black87,
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_outline, color: Colors.white, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                'Permissions Required',
+                style: AppTheme.sora(20, weight: FontWeight.w700, color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'TrackFolks needs these to keep tracking your attendance '
+                'and to notify your manager:\n\n'
+                '• Location set to "Allow all the time"\n'
+                '• Notifications enabled\n'
+                '${Platform.isAndroid ? '• Battery optimization disabled for TrackFolks\n' : ''}'
+                '\nOpen Settings, enable ${Platform.isAndroid ? 'all of these' : 'both'}, then return to TrackFolks.',
+                style: AppTheme.sora(14, color: Colors.white70),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: openAppSettings,
+                child: const Text('Open Settings'),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () =>
+                    context.read<HomeBloc>().add(HomeInitEvent(_targetUserId)),
+                child: const Text("I've enabled it — Retry",
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<HomeBloc, HomeState>(
@@ -548,6 +686,8 @@ class _HomeScreenState extends State<HomeScreen>
                     ));
                   } else if (val == 'logout') {
                     context.read<AuthBloc>().add(LogoutEvent());
+                  } else if (val == 'delete_account') {
+                    _handleDeleteAccount();
                   }
                 },
                 itemBuilder: (_) => [
@@ -574,6 +714,14 @@ class _HomeScreenState extends State<HomeScreen>
                         Icon(Icons.logout_rounded, size: 18, color: AppTheme.error),
                         SizedBox(width: 10),
                         Text('Logout', style: TextStyle(color: AppTheme.error)),
+                      ]),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete_account',
+                      child: Row(children: [
+                        Icon(Icons.delete_forever_rounded, size: 18, color: AppTheme.error),
+                        SizedBox(width: 10),
+                        Text('Delete Account', style: TextStyle(color: AppTheme.error)),
                       ]),
                     ),
                   ],
@@ -661,6 +809,15 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ),
               ),
+            // Full-screen permission-required overlay — location ("Allow all
+            // the time") and notification permission are both mandatory
+            // while punched in (without notification permission the manager
+            // never gets punch/visit notifications). Blocks all interaction
+            // until fixed; clears automatically once HomeBloc re-checks and
+            // finds both granted (e.g. on returning from Settings, which
+            // triggers AppResumedEvent).
+            if (loaded != null && loaded.permissionsRequired)
+              _buildPermissionRequiredOverlay(),
           ],
         );
       },

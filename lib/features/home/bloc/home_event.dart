@@ -1,3 +1,4 @@
+import '../../../data/models/location_model.dart';
 import '../../../data/models/visit_model.dart';
 
 abstract class HomeEvent {}
@@ -14,16 +15,19 @@ class PunchInEvent extends HomeEvent {
 
 class PunchOutEvent extends HomeEvent {}
 
+/// The location-tracking background isolate is the sole owner of the
+/// tracking-cursor state (currentBatch/lastConfirmedPoint) — it pushes the
+/// current values along with every sample so HomeBloc doesn't need a
+/// round-trip request just to refresh the live map/UI. processBatch signals
+/// that a full sync (OSRM + Firestore) is due.
 class NewLocationPointEvent extends HomeEvent {
-  final double lat;
-  final double lng;
-  final DateTime timestamp;
   final bool processBatch;
+  final List<LocationPoint> currentBatch;
+  final LocationPoint? lastConfirmedPoint;
   NewLocationPointEvent({
-    required this.lat,
-    required this.lng,
-    required this.timestamp,
     this.processBatch = false,
+    this.currentBatch = const [],
+    this.lastConfirmedPoint,
   });
 }
 
@@ -60,8 +64,15 @@ class AddCommentEvent extends HomeEvent {
 class ResumeSessionEvent extends HomeEvent {}
 
 /// Fired when the app returns to the foreground (AppLifecycleState.resumed).
-/// If a session is active and currentBatch is non-empty, snaps the raw batch
-/// to roads for display and writes the snapped result to Hive — so the map
-/// shows a clean route immediately without waiting for the next batchFlushed.
-/// Does NOT write to Firestore; that still happens on batchFlushed.
+/// Ensures the background isolate is running (restarting it if the OS
+/// killed it) and requests its current cursor state; if the pending-sample
+/// count is already at/past the flush threshold — meaning a processBatch
+/// signal was missed while backgrounded — triggers a sync immediately
+/// rather than waiting for the next sample.
 class AppResumedEvent extends HomeEvent {}
+
+/// Fired when the app leaves the foreground (AppLifecycleState.paused).
+/// Closes locationsBox/settingsBox and releases the cross-isolate lock (see
+/// LocationsBoxLock) so the FCM watchdog can safely sync while the app is
+/// backgrounded — the window it's most likely to be needed.
+class AppPausedEvent extends HomeEvent {}

@@ -73,6 +73,9 @@ class TrackingModel {
       'startTime': Timestamp.fromDate(startTime),
       'distance': distance,
       'visitCount': visitCount,
+      // Explicit (not derived from stopTime being absent) so the FCM
+      // watchdog's collectionGroup query can filter on it directly.
+      'isPunchedIn': stopTime == null,
     };
     if (stopTime != null) map['stopTime'] = Timestamp.fromDate(stopTime!);
     if (punchInImage != null) map['punchInImage'] = punchInImage;
