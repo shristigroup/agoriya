@@ -77,19 +77,19 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/logo/tf-logo.png"
   min_sdk_android: 21
-  adaptive_icon_background: "#141414"
+  adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/logo/tf-logo.png"
   remove_alpha_ios: true
   web:
     generate: false
 
 flutter_native_splash:
-  color: "#141414"
+  color: "#FFFFFF"
   image: assets/logo/tf-logo-with-name.png
   android: true
   ios: true
   android_12:
-    color: "#141414"
+    color: "#FFFFFF"
     image: assets/logo/tf-logo-with-name.png
 
 flutter:
