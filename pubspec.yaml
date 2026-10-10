@@ -90,7 +90,7 @@ flutter_native_splash:
   ios: true
   android_12:
     color: "#FFFFFF"
-    image: assets/logo/tf-logo-with-name.png
+    image: assets/logo/tf-logo-splash.png
 
 flutter:
   uses-material-design: true
