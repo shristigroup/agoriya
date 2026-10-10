@@ -71,7 +71,7 @@ done
 # Set these in your shell profile (~/.zshrc or ~/.bash_profile):
 #   export ASC_KEY_ID="XXXXXXXXXX"
 #   export ASC_ISSUER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-#   export ASC_KEY_PATH="$HOME/.appstoreconnect/AuthKey_XXXXXXXXXX.p8"
+#   export ASC_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8"
 if [[ "$UPLOAD_IOS" == true ]]; then
   if [[ "$(uname)" != "Darwin" ]]; then
     error "--upload is only supported on macOS."
@@ -83,7 +83,7 @@ if [[ "$UPLOAD_IOS" == true ]]; then
     error "ASC_ISSUER_ID is not set. Export it in your shell profile.\n  export ASC_ISSUER_ID=\"YOUR_ISSUER_ID\""
   fi
   if [[ -z "${ASC_KEY_PATH:-}" ]]; then
-    error "ASC_KEY_PATH is not set. Export it in your shell profile.\n  export ASC_KEY_PATH=\"\$HOME/.appstoreconnect/AuthKey_XXXXXXXXXX.p8\""
+    error "ASC_KEY_PATH is not set. Export it in your shell profile.\n  export ASC_KEY_PATH=\"\$HOME/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8\""
   fi
   if [[ ! -f "$ASC_KEY_PATH" ]]; then
     error "ASC_KEY_PATH file not found: $ASC_KEY_PATH"
@@ -237,13 +237,20 @@ if [[ "$UPLOAD_IOS" == true ]]; then
     error "No IPA to upload. Run with --upload alongside an iOS build (not --android-only)."
   fi
 
+  # altool has no --private-key option: it looks for AuthKey_<ASC_KEY_ID>.p8 in
+  # $API_PRIVATE_KEYS_DIR (or ./private_keys, ~/private_keys, ~/.private_keys,
+  # ~/.appstoreconnect/private_keys). Point it at the key file's directory.
+  if [[ "$(basename "$ASC_KEY_PATH")" != "AuthKey_${ASC_KEY_ID}.p8" ]]; then
+    error "ASC_KEY_PATH must be named AuthKey_${ASC_KEY_ID}.p8 (altool looks the key up by that name). Got: $(basename "$ASC_KEY_PATH")"
+  fi
+  export API_PRIVATE_KEYS_DIR="$(dirname "$ASC_KEY_PATH")"
+
   info "Validating IPA before upload..."
   xcrun altool --validate-app \
     -f "$IPA_DEST" \
     -t ios \
     --apiKey "$ASC_KEY_ID" \
     --apiIssuer "$ASC_ISSUER_ID" \
-    --private-key "$ASC_KEY_PATH" \
     2>&1 | grep -v "^$" || true
 
   info "Uploading IPA to App Store Connect..."
@@ -252,7 +259,6 @@ if [[ "$UPLOAD_IOS" == true ]]; then
     -t ios \
     --apiKey "$ASC_KEY_ID" \
     --apiIssuer "$ASC_ISSUER_ID" \
-    --private-key "$ASC_KEY_PATH" \
     2>&1 | grep -v "^$"
 
   success "Upload complete — check TestFlight in App Store Connect for processing status."
