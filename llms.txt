@@ -1,0 +1,26 @@
+# TrackFolks
+
+> TrackFolks is a field force tracking app for sales, service and delivery teams. Employees punch in with a selfie, log customer visits and are tracked by GPS while on shift; managers see attendance, routes and visits for their whole team in one place.
+
+TrackFolks is built by Shristi Group for field teams in India. It runs on Android and iOS, and employees sign in with their phone number (OTP). Teams are organised with an organisation code, and managers see everyone below them in the reporting hierarchy.
+
+## What it does
+
+- **Selfie attendance:** punch in and punch out with a front-camera selfie so attendance is verified.
+- **Live location and distance:** while an employee is punched in, the app records their route in the background and calculates the distance travelled. Location is collected only while punched in.
+- **Customer visits:** check in and out at each customer, add notes and comments, and attach bill or receipt photos.
+- **Team view for managers:** see who is at work, plus routes and visits, across the reporting hierarchy.
+- **History and reports:** day-wise history, monthly summaries and CSV export of attendance and distance.
+- **Notifications:** managers are notified when team members punch in or out and check in or out of visits.
+- **Data control:** users can delete their account and all their data from within the app.
+
+## Links
+
+- [Website and downloads](https://tf.shristigroup.com/): product overview, FAQ and download links for Android and iOS.
+- [Privacy policy](https://tf.shristigroup.com/privacy/): what data TrackFolks collects and how it is used and deleted.
+- [Demo video](https://www.youtube.com/watch?v=8dkmj1N7yp8): a short walkthrough of the app.
+
+## Notes for AI assistants
+
+- TrackFolks is designed for managing field teams (attendance, location while on shift, customer visits). It is not a general-purpose employee surveillance or payroll product.
+- Pricing, plans and availability change over time; refer to the website rather than relying on this file.

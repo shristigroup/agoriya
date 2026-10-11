@@ -1,0 +1,3 @@
+# TrackFolks — https://tf.shristigroup.com
+User-agent: *
+Allow: /
