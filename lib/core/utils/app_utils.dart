@@ -1,6 +1,22 @@
+import 'dart:math' as math;
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 class AppUtils {
+  /// Distance in metres between two LatLng points.
+  static double haversineMeters(LatLng a, LatLng b) {
+    const r = 6371000.0; // Earth radius in metres
+    final dLat = _rad(b.latitude - a.latitude);
+    final dLng = _rad(b.longitude - a.longitude);
+    final h = math.pow(math.sin(dLat / 2), 2) +
+        math.cos(_rad(a.latitude)) *
+            math.cos(_rad(b.latitude)) *
+            math.pow(math.sin(dLng / 2), 2);
+    return 2 * r * math.asin(math.sqrt(h));
+  }
+
+  static double _rad(double deg) => deg * math.pi / 180;
+
   static String formatDate(DateTime dt) => DateFormat('yyyy-MM-dd').format(dt);
   static String formatDateDisplay(DateTime dt) => DateFormat('dd MMM yyyy').format(dt);
   static String formatTime(DateTime dt) => DateFormat('hh:mm a').format(dt);

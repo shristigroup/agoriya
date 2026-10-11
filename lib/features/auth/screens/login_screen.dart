@@ -19,11 +19,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _countryCodeController = TextEditingController(text: '91');
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _codeController = TextEditingController();
+  final _countryCodeKey = GlobalKey<FormFieldState>();
   final _phoneKey = GlobalKey<FormFieldState>();
   final _otpKey = GlobalKey<FormFieldState>();
   final _profileFormKey = GlobalKey<FormState>();
@@ -39,6 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _selectedManagerId;
   String? _selfId; // current user's doc ID — excluded from manager dropdown
   String _appVersion = '';
+  bool _prefillingUser = false;
 
   @override
   void initState() {
@@ -50,6 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _countryCodeController.dispose();
     _phoneController.dispose();
     _otpController.dispose();
     _firstNameController.dispose();
@@ -58,10 +62,15 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  /// Full E.164 number: '+' + country code (default 91) + national digits.
+  String get _fullPhone =>
+      '+${_countryCodeController.text.trim()}${_phoneController.text.trim()}';
+
   Future<void> _prefillExistingUser() async {
+    setState(() => _prefillingUser = true);
     try {
       final existing = await FirestoreRepository()
-          .getUserByPhone('+91${_phoneController.text}');
+          .getUserByPhone(_fullPhone);
       if (existing != null && mounted) {
         setState(() {
           _firstNameController.text = existing.firstName;
@@ -75,6 +84,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (_) {
       // proceed without prefill
+    } finally {
+      if (mounted) setState(() => _prefillingUser = false);
     }
   }
 
@@ -115,8 +126,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _sendOtp(BuildContext context) {
-    if (!(_phoneKey.currentState?.validate() ?? false)) return;
-    context.read<AuthBloc>().add(SendOtpEvent('+91${_phoneController.text}'));
+    final ccValid = _countryCodeKey.currentState?.validate() ?? false;
+    final phoneValid = _phoneKey.currentState?.validate() ?? false;
+    if (!ccValid || !phoneValid) return;
+    context.read<AuthBloc>().add(SendOtpEvent(_fullPhone));
   }
 
   void _confirmOtp(BuildContext context) {
@@ -149,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF141414),
+      backgroundColor: AppTheme.primaryDark,
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is OtpSent) {
@@ -187,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Text.rich(
                         TextSpan(
                           text: 'TrackFolks',
-                          style: AppTheme.sora(36, weight: FontWeight.w800, color: AppTheme.primary, letterSpacing: -1),
+                          style: AppTheme.sora(36, weight: FontWeight.w800, color: Colors.white, letterSpacing: -1),
                           children: _appVersion.isNotEmpty
                               ? [
                                   WidgetSpan(
@@ -195,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       offset: const Offset(3, -14),
                                       child: Text(
                                         'v$_appVersion',
-                                        style: AppTheme.sora(11, color: AppTheme.primary.withValues(alpha: 0.75)),
+                                        style: AppTheme.sora(11, color: Colors.white.withValues(alpha: 0.75)),
                                       ),
                                     ),
                                   ),
@@ -205,7 +218,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ).animate().fadeIn(duration: 600.ms).slideY(begin: -0.2),
                       const SizedBox(height: 4),
                       Text('Field Force Tracker',
-                        style: AppTheme.sora(15, color: AppTheme.primary.withValues(alpha: 0.75)),
+                        style: AppTheme.sora(15, color: Colors.white.withValues(alpha: 0.75)),
                       ).animate().fadeIn(delay: 200.ms),
                     ],
                   ),
@@ -230,6 +243,34 @@ class _LoginScreenState extends State<LoginScreen> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              SizedBox(
+                                width: 76,
+                                child: TextFormField(
+                                  key: _countryCodeKey,
+                                  controller: _countryCodeController,
+                                  enabled: !_otpSent,
+                                  keyboardType: TextInputType.phone,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(3),
+                                  ],
+                                  decoration: const InputDecoration(
+                                    prefixText: '+',
+                                    prefixStyle: TextStyle(
+                                      fontFamily: 'Sora',
+                                      color: AppTheme.textPrimary,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    hintText: '91',
+                                  ),
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty) return 'Code';
+                                    if (v.startsWith('0')) return 'Invalid';
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: TextFormField(
                                   key: _phoneKey,
@@ -238,17 +279,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                   keyboardType: TextInputType.phone,
                                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                   decoration: const InputDecoration(
-                                    prefixText: '+91 ',
-                                    prefixStyle: TextStyle(
-                                      fontFamily: 'Sora',
-                                      color: AppTheme.textPrimary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
                                     hintText: '9876543210',
                                   ),
                                   validator: (v) {
                                     if (v == null || v.isEmpty) return 'Required';
-                                    if (v.length < 10) return 'Enter valid number';
+                                    // India (+91) numbers are exactly 10 digits;
+                                    // other countries vary.
+                                    final isIndia = _countryCodeController.text == '91';
+                                    if (isIndia && v.length != 10) return 'Enter valid number';
+                                    if (!isIndia && (v.length < 6 || v.length > 12)) {
+                                      return 'Enter valid number';
+                                    }
                                     return null;
                                   },
                                 ),
@@ -316,9 +357,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Expanded(
                                       child: TextFormField(
                                         controller: _firstNameController,
-                                        enabled: _otpConfirmed && !submitting,
+                                        enabled: _otpConfirmed && !submitting && !_prefillingUser,
                                         textCapitalization: TextCapitalization.words,
-                                        decoration: const InputDecoration(hintText: 'First name'),
+                                        decoration: InputDecoration(
+                                          hintText: 'First name',
+                                          suffixIcon: _prefillingUser ? _fieldSpinner() : null,
+                                        ),
                                         validator: (v) =>
                                             (v == null || v.trim().isEmpty) ? 'Required' : null,
                                       ),
@@ -327,9 +371,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Expanded(
                                       child: TextFormField(
                                         controller: _lastNameController,
-                                        enabled: _otpConfirmed && !submitting,
+                                        enabled: _otpConfirmed && !submitting && !_prefillingUser,
                                         textCapitalization: TextCapitalization.words,
-                                        decoration: const InputDecoration(hintText: 'Last name'),
+                                        decoration: InputDecoration(
+                                          hintText: 'Last name',
+                                          suffixIcon: _prefillingUser ? _fieldSpinner() : null,
+                                        ),
                                         validator: (v) =>
                                             (v == null || v.trim().isEmpty) ? 'Required' : null,
                                       ),
@@ -353,13 +400,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                       Expanded(
                                         child: TextFormField(
                                           controller: _codeController,
-                                          enabled: _otpConfirmed && !submitting,
+                                          enabled: _otpConfirmed && !submitting && !_prefillingUser,
                                           textCapitalization: TextCapitalization.characters,
                                           maxLength: 6,
                                           decoration: InputDecoration(
                                             hintText: 'e.g. AB3X7K',
                                             counterText: '',
                                             errorText: _codeError,
+                                            suffixIcon: _prefillingUser ? _fieldSpinner() : null,
                                           ),
                                           onChanged: (_) {
                                             if (_codeState != _CodeState.idle) {
@@ -494,6 +542,15 @@ class _LoginScreenState extends State<LoginScreen> {
           weight: FontWeight.w600,
           color: AppTheme.textSecondary,
           letterSpacing: 0.5));
+
+  Widget _fieldSpinner() => const Padding(
+        padding: EdgeInsets.all(14),
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
+        ),
+      );
 }
 
 enum _CodeState { idle, loading, loaded }

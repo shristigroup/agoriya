@@ -1,9 +1,16 @@
 const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
+
+// ─── Location tracking tuning (see functions/.env.example) ──────────────────
+// Loaded automatically from functions/.env on deploy/emulate (functions v2).
+const LOCATION_SAMPLE_INTERVAL_MINUTE = Number(process.env.LOCATION_SAMPLE_INTERVAL_MINUTE || 1);
+const WATCHDOG_SCHEDULE_MINUTES = Number(process.env.WATCHDOG_SCHEDULE_MINUTES || 5);
+const WATCHDOG_PING_COUNT_THRESHOLD = Number(process.env.WATCHDOG_PING_COUNT_THRESHOLD || 2);
 
 // ─── Helper: get FCM token for a user ────────────────────────────────────────
 async function getUserToken(userId) {
@@ -219,13 +226,115 @@ exports.onCommentWrite = onDocumentCreated(
   }
 );
 
-// ─── 4. FCM token updater (no-op — token is written client-side) ─────────────
-// exports.updateFcmToken = onDocumentWritten(
-//   { document: "Users/{userId}", region: "asia-south1" },
-//   async (event) => {
-//     // Token updates are handled client-side; this function is intentionally empty.
-//   }
-// );
+// ─── Location tracking watchdog — recover tracking the OS killed ────────────
+// Runs every WATCHDOG_SCHEDULE_MINUTES. Finds punched-in users whose
+// locationHeartbeatTimestamp (written by the app on every GPS sample — much
+// more frequent than the actual Firestore location-batch sync) has gone
+// stale, and sends a silent, data-only FCM message that the app uses to
+// restart tracking in the background — without waiting for the user to
+// reopen the app. Reliable on Android unless the user has force-stopped the
+// app; on iOS this is a best-effort improvement since Apple can throttle
+// silent push delivery.
+//
+// If a doc keeps failing to recover after WATCHDOG_PING_COUNT_THRESHOLD
+// pings (e.g. FCM delivery itself is blocked — force-stopped app, or a
+// platform limitation), the watchdog gives up: auto punches the user out,
+// notifies them directly (so they can reopen the app and punch back in,
+// which restarts every service cleanly), and the existing onTrackingWrite
+// trigger above notifies the manager automatically since it reacts to the
+// stopTime write itself, regardless of who/what made it.
+const HEARTBEAT_STALE_THRESHOLD_MS = 2 * LOCATION_SAMPLE_INTERVAL_MINUTE * 60 * 1000;
+
+exports.locationTrackingWatchdog = onSchedule(
+  { schedule: `every ${WATCHDOG_SCHEDULE_MINUTES} minutes`, region: "asia-south1" },
+  async () => {
+    const now = Date.now();
+    const snap = await db
+      .collectionGroup("Tracking")
+      .where("isPunchedIn", "==", true)
+      .get();
+
+    await Promise.all(snap.docs.map(async (doc) => {
+      const data = doc.data();
+      const heartbeatAt = data.locationHeartbeatTimestamp
+        ? data.locationHeartbeatTimestamp.toMillis()
+        : (data.lastUpdatedAt
+          ? data.lastUpdatedAt.toMillis()
+          : (data.startTime ? data.startTime.toMillis() : now));
+
+      const userId = doc.ref.parent.parent.id;
+      const date = doc.id.substring(0, 10);
+      const trackingId = doc.id;
+
+      if (now - heartbeatAt < HEARTBEAT_STALE_THRESHOLD_MS) return;
+
+      const pingedAtMs = data.watchdogPingedAt ? data.watchdogPingedAt.toMillis() : null;
+
+      // Recovered since the last ping — fresh heartbeat arrived, clear
+      // episode state so the next unrelated stale spell starts clean.
+      if (pingedAtMs !== null && heartbeatAt >= pingedAtMs) {
+        await doc.ref.update({
+          watchdogPingedAt: admin.firestore.FieldValue.delete(),
+          watchdogPingCount: admin.firestore.FieldValue.delete(),
+        });
+        return;
+      }
+
+      // Increment before deciding, so a pingCount that's already at
+      // threshold is acted on THIS run — not one extra WATCHDOG_SCHEDULE_
+      // MINUTES cycle later, which sending-then-checking-next-time would
+      // otherwise waste. This means the ping numbered at the threshold is
+      // never actually sent — give-up takes its place once the last
+      // ACTUAL ping (pingCount - 1 sends) has had one full cycle to prove
+      // it worked.
+      const nextPingCount = (data.watchdogPingCount || 0) + 1;
+
+      if (pingedAtMs !== null && nextPingCount >= WATCHDOG_PING_COUNT_THRESHOLD) {
+        await doc.ref.update({
+          stopTime: admin.firestore.Timestamp.now(),
+          isPunchedIn: false,
+          watchdogPingedAt: admin.firestore.FieldValue.delete(),
+          watchdogPingCount: admin.firestore.FieldValue.delete(),
+          autoClosedReason: "no_location_data",
+        });
+        // Manager notification fires automatically via onTrackingWrite's
+        // stopTime branch above — this only needs to tell the worker.
+        const userToken = await getUserToken(userId);
+        await sendNotification(
+          userToken,
+          "Punched out automatically",
+          "You were punched out because your location data stopped syncing.",
+          { type: "auto_punch_out", trackingId }
+        );
+        console.log(`[locationTrackingWatchdog] auto punch-out → ${userId} (${doc.id})`);
+        return;
+      }
+
+      // Never pinged yet, or still under threshold — (re)ping.
+      const token = await getUserToken(userId);
+      if (!token) return;
+
+      try {
+        await messaging.send({
+          token,
+          data: { type: "location_wakeup", userId, date, trackingId },
+          android: { priority: "high" },
+          apns: {
+            headers: { "apns-priority": "5" },
+            payload: { aps: { "content-available": 1 } },
+          },
+        });
+        await doc.ref.update({
+          watchdogPingedAt: admin.firestore.FieldValue.serverTimestamp(),
+          watchdogPingCount: nextPingCount,
+        });
+        console.log(`[locationTrackingWatchdog] wakeup sent → ${userId} (${doc.id}), attempt ${nextPingCount}`);
+      } catch (err) {
+        console.error(`[locationTrackingWatchdog] send error for ${userId}:`, err.message);
+      }
+    }));
+  }
+);
 
 // ─── 5. Reports hierarchy updater ────────────────────────────────────────────
 exports.updateReportsHierarchy = onDocumentWritten(
@@ -422,6 +531,122 @@ exports.setUserClaim = onRequest(
     const decoded = await admin.auth().verifyIdToken(idToken);
     await admin.auth().setCustomUserClaims(decoded.uid, { userId });
     res.status(200).json({ success: true });
+  }
+);
+
+// ─── 8b. deleteMyAccount — account & data deletion ──────────────────────────
+// Two callers, one code path:
+//   - a user deleting their OWN account (no targetUserId in the body), and
+//   - a manager removing a member (targetUserId = the member), who must be
+//     above the target in the manager chain.
+// Both are refused while the target still has people reporting to them —
+// those reports would otherwise be left pointing at a deleted manager.
+//
+// Wipes Users/{userId} and every nested subcollection (Tracking, Visits,
+// Visits/{visitId}/Comments) in one call, then the target's Storage files
+// (punch-in selfies, visit bills — both under a userId/ prefix, see
+// AppConstants.punchInImagePath / billCopyPath), then their Auth credential.
+// Firestore goes first so a partial failure never leaves a signed-in user
+// whose data is gone but who can't retry: the only bad partial state is
+// "data gone, auth still valid", which still lets them retry. syncOrgCodeCount
+// and updateReportsHierarchy react to the doc delete on their own.
+exports.deleteMyAccount = onRequest(
+  { region: "asia-south1", cors: true },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) { res.status(401).json({ error: "Unauthenticated" }); return; }
+
+    let decoded;
+    try {
+      decoded = await admin.auth().verifyIdToken(idToken);
+    } catch (err) {
+      res.status(401).json({ error: "Invalid token" });
+      return;
+    }
+    const callerId = decoded.userId;
+    if (!callerId) {
+      res.status(400).json({ error: "No userId claim on this account" });
+      return;
+    }
+
+    const requested = req.body && req.body.targetUserId;
+    const targetId = (typeof requested === "string" && requested) ? requested : callerId;
+    const isSelf = targetId === callerId;
+
+    try {
+      const targetSnap = await db.collection("Users").doc(targetId).get();
+      if (!targetSnap.exists) { res.status(404).json({ error: "User not found" }); return; }
+      const target = targetSnap.data();
+
+      // Authorize: a manager may only act on someone below them in the chain.
+      // Walk managerId upward rather than trusting the maintained `managers`
+      // array, which can be stale.
+      if (!isSelf) {
+        let cursor = target.managerId || null;
+        const seen = new Set();
+        let isAbove = false;
+        while (cursor && !seen.has(cursor)) {
+          if (cursor === callerId) { isAbove = true; break; }
+          seen.add(cursor);
+          const m = await db.collection("Users").doc(cursor).get();
+          cursor = m.exists ? (m.data().managerId || null) : null;
+        }
+        if (!isAbove) { res.status(403).json({ error: "forbidden" }); return; }
+      }
+
+      // Refuse if anyone still reports to the target. Query the real
+      // managerId links, not the derived `reports` map.
+      const reportSnap = await db.collection("Users")
+        .where("managerId", "==", targetId).limit(1).get();
+      if (!reportSnap.empty) {
+        res.status(409).json({ error: "has_reports" });
+        return;
+      }
+
+      // Resolve the target's Auth uid before their doc is gone.
+      let targetAuthUid = isSelf ? decoded.uid : (target.uid || null);
+      if (!targetAuthUid && target.phoneNumber) {
+        try {
+          targetAuthUid = (await admin.auth().getUserByPhoneNumber(target.phoneNumber)).uid;
+        } catch (_) { /* no auth record; nothing to delete */ }
+      }
+
+      console.log(`[deleteMyAccount] ${callerId} deleting ${targetId}${isSelf ? " (self)" : ""}`);
+
+      await db.recursiveDelete(db.collection("Users").doc(targetId));
+
+      // Best-effort — Firestore data and the auth account are what matter
+      // most, and are already handled by this point.
+      try {
+        await admin.storage().bucket().deleteFiles({ prefix: `${targetId}/` });
+      } catch (err) {
+        console.error(`[deleteMyAccount] storage cleanup failed for ${targetId}:`, err.message);
+      }
+
+      // Update the manager's tree now so the caller's list is correct as soon
+      // as this returns (updateReportsHierarchy would do it a moment later).
+      if (target.managerId) {
+        try { await removeFromManagerTree(target.managerId, targetId); }
+        catch (err) { console.error("[deleteMyAccount] tree cleanup failed:", err.message); }
+      }
+
+      if (targetAuthUid) {
+        try {
+          await admin.auth().deleteUser(targetAuthUid);
+        } catch (err) {
+          if (err.code !== "auth/user-not-found") throw err;
+        }
+      }
+
+      console.log(`[deleteMyAccount] completed for ${targetId}`);
+      res.status(200).json({ success: true });
+    } catch (err) {
+      console.error("[deleteMyAccount] failed:", err);
+      res.status(500).json({ error: "internal" });
+    }
   }
 );
 

@@ -25,6 +25,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<VerifyOtpEvent>(_onVerifyOtp);
     on<CompleteProfileEvent>(_onCompleteProfile);
     on<LogoutEvent>(_onLogout);
+    on<AccountDeletedEvent>(_onAccountDeleted);
   }
 
   Future<void> _onCheckAuth(CheckAuthEvent event, Emitter<AuthState> emit) async {
@@ -189,5 +190,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await _auth.signOut();
     await LocalStorageService.clearAll();
     emit(AuthUnauthenticated());
+  }
+
+  Future<void> _onAccountDeleted(
+      AccountDeletedEvent event, Emitter<AuthState> emit) async {
+    // The Auth user no longer exists server-side, so signOut may throw.
+    try {
+      await _auth.signOut();
+    } catch (_) {}
+    await LocalStorageService.clearAll();
+    emit(AuthAccountDeleted());
   }
 }

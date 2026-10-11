@@ -13,6 +13,24 @@ import '../models/visit_model.dart';
 import '../models/location_model.dart';
 import '../models/monthly_summary_model.dart';
 
+/// Thrown when a Firestore document write fails because the document
+/// exceeded the 1 MiB size limit. Firestore itself only surfaces this as a
+/// generic `invalid-argument` FirebaseException — this wraps that specific
+/// case (detected via [_isDocumentSizeLimitError]) so callers can catch it
+/// distinctly instead of string-matching error messages themselves.
+class FirestoreDocumentSizeLimitException implements Exception {
+  final String message;
+  FirestoreDocumentSizeLimitException(this.message);
+  @override
+  String toString() => 'FirestoreDocumentSizeLimitException: $message';
+}
+
+bool _isDocumentSizeLimitError(FirebaseException e) {
+  final msg = e.message?.toLowerCase() ?? '';
+  return e.code == 'invalid-argument' &&
+      (msg.contains('size') || msg.contains('byte') || msg.contains('exceeds'));
+}
+
 class FirestoreRepository {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -115,6 +133,7 @@ class FirestoreRepository {
     if (latest != null && latest.isActive && latest.id != tracking.id) {
       await _trackingDoc(userId, latest.id).update({
         'stopTime': Timestamp.fromDate(DateTime.now()),
+        'isPunchedIn': false,
       });
     }
     await _trackingDoc(userId, tracking.id).set(tracking.toFirestore());
@@ -123,8 +142,36 @@ class FirestoreRepository {
   /// Sets stopTime on the Tracking doc (punch-out).
   Future<void> closeTracking(
       String userId, String trackingId, DateTime stopTime) async {
+    try {
+      await _trackingDoc(userId, trackingId).update({
+        'stopTime': Timestamp.fromDate(stopTime),
+        'isPunchedIn': false,
+      });
+    } on FirebaseException catch (e) {
+      if (_isDocumentSizeLimitError(e)) {
+        throw FirestoreDocumentSizeLimitException(
+            e.message ?? 'Document size limit exceeded');
+      }
+      rethrow;
+    }
+  }
+
+  /// Punch-out write for when the doc has already hit (or just hit) the
+  /// size limit: reads the doc, drops the last location entry to free up
+  /// space, then writes stopTime in the same update — so punch-out can
+  /// still succeed even though the locations array is at capacity.
+  Future<void> closeTrackingFreeingSpace(
+      String userId, String trackingId, DateTime stopTime) async {
+    final doc = await _trackingDoc(userId, trackingId).get();
+    final data = doc.data() as Map<String, dynamic>?;
+    final locations =
+        List<Map<String, dynamic>>.from(data?['locations'] as List? ?? []);
+    if (locations.isNotEmpty) locations.removeLast();
+
     await _trackingDoc(userId, trackingId).update({
+      'locations': locations,
       'stopTime': Timestamp.fromDate(stopTime),
+      'isPunchedIn': false,
     });
   }
 
@@ -132,6 +179,7 @@ class FirestoreRepository {
   Future<void> resumeTracking(String userId, String trackingId) async {
     await _trackingDoc(userId, trackingId).update({
       'stopTime': FieldValue.delete(),
+      'isPunchedIn': true,
     });
   }
 
@@ -144,11 +192,22 @@ class FirestoreRepository {
     List<LocationPoint> allLocations,
     double distanceKm,
   ) async {
-    await _trackingDoc(userId, trackingId).update({
-      'locations': allLocations.map((p) => p.toFirestore()).toList(),
-      'distance': distanceKm,
-      'lastUpdatedAt': FieldValue.serverTimestamp(),
-    });
+    print('[FirestoreRepo] writeLocations → ${allLocations.length} points, '
+        '${distanceKm.toStringAsFixed(3)} km | trackingId=$trackingId');
+    try {
+      await _trackingDoc(userId, trackingId).update({
+        'locations': allLocations.map((p) => p.toFirestore()).toList(),
+        'distance': distanceKm,
+        'lastUpdatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      if (_isDocumentSizeLimitError(e)) {
+        throw FirestoreDocumentSizeLimitException(
+            e.message ?? 'Document size limit exceeded');
+      }
+      rethrow;
+    }
+    print('[FirestoreRepo] writeLocations OK → trackingId=$trackingId');
   }
 
   /// Increments visitCount on the active Tracking doc.
@@ -370,47 +429,48 @@ class FirestoreRepository {
     return members;
   }
 
-  /// Removes [userId] from the org:
-  ///  - clears their managerId and code
-  ///  - removes them from their manager's reports map
-  ///  - decrements currentUserCount in Codes
-  Future<void> removeUserFromOrg(String userId) async {
-    final user = await getUserById(userId);
-    if (user == null) return;
-    if (user.reports.isNotEmpty) {
-      throw Exception('cannot_remove_has_reports');
+  /// Deletes an account and all its data, server-side, via the deleteMyAccount
+  /// Cloud Function (see functions/index.js): Firestore User doc and nested
+  /// subcollections, Storage files, and the Auth credential. Irreversible.
+  ///
+  /// With no [targetUserId] this deletes the signed-in user's own account.
+  /// With one, a manager removes that member — the server only allows it if
+  /// the caller is above them in the manager chain.
+  ///
+  /// Throws [AccountHasReportsException] if the account still has people
+  /// reporting to it, and a plain [Exception] on any other failure. The caller
+  /// should NOT sign out or clear local state unless this completes.
+  Future<void> deleteMyAccount({String? targetUserId}) async {
+    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (idToken == null) {
+      throw Exception('Not signed in');
     }
-    final batch = _db.batch();
+    final uri = Uri.parse(
+      'https://asia-south1-agoriya-app.cloudfunctions.net/deleteMyAccount',
+    );
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+      body: jsonEncode({if (targetUserId != null) 'targetUserId': targetUserId}),
+    );
+    if (response.statusCode == 200) return;
 
-    batch.update(_users.doc(userId), {'managerId': null, 'code': null});
-
-    if (user.managerId != null) {
-      final manager = await getUserById(user.managerId!);
-      if (manager != null) {
-        final updatedReports = _removeFromReportsMap(manager.reports, userId);
-        batch.update(_users.doc(manager.id), {'reports': updatedReports});
-      }
+    String? code;
+    try {
+      code = (jsonDecode(response.body) as Map)['error'] as String?;
+    } catch (_) {}
+    if (response.statusCode == 409 && code == 'has_reports') {
+      throw AccountHasReportsException();
     }
-
-    if (user.code != null && user.code!.isNotEmpty) {
-      batch.update(_codes.doc(user.code!), {
-        'currentUserCount': FieldValue.increment(-1),
-      });
-    }
-
-    await batch.commit();
+    throw Exception('Failed to delete account (${response.statusCode} ${code ?? ''})');
   }
+}
 
-  /// Recursively removes [userId] from any level of the reports map.
-  Map<String, dynamic> _removeFromReportsMap(
-      Map<String, dynamic> reports, String userId) {
-    if (reports.containsKey(userId)) {
-      return Map.from(reports)..remove(userId);
-    }
-    return reports.map((k, v) {
-      final entry = Map<String, dynamic>.from(v as Map);
-      final sub = Map<String, dynamic>.from(entry['reports'] as Map? ?? {});
-      return MapEntry(k, {...entry, 'reports': _removeFromReportsMap(sub, userId)});
-    });
-  }
+/// The account being deleted still has team members reporting to it.
+class AccountHasReportsException implements Exception {
+  @override
+  String toString() => 'AccountHasReportsException';
 }

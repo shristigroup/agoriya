@@ -24,6 +24,9 @@ class AuthAuthenticated extends AuthState {
 
 class AuthUnauthenticated extends AuthState {}
 
+/// The user's account was just deleted server-side.
+class AuthAccountDeleted extends AuthState {}
+
 class AuthError extends AuthState {
   final String message;
   AuthError(this.message);

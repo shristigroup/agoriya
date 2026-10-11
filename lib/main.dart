@@ -11,6 +11,7 @@ import 'services/notification_service.dart';
 import 'features/auth/bloc/auth_bloc.dart';
 import 'features/auth/bloc/auth_event.dart';
 import 'features/auth/bloc/auth_state.dart';
+import 'features/auth/screens/account_deleted_screen.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/home/bloc/home_bloc.dart';
 import 'features/home/bloc/home_event.dart';
@@ -19,6 +20,8 @@ import 'features/home/visits/visit_detail_screen.dart';
 import 'data/models/visit_model.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,7 +47,7 @@ void _handleNotificationTap(Map<String, dynamic> data) {
   final targetUserId = data['targetUserId'] as String?;
   final visitId = data['visitId'] as String?;
 
-  if (type == null || targetUserId == null) return;
+  if (type == null) return;
 
   final nav = navigatorKey.currentState;
   if (nav == null) return;
@@ -54,12 +57,28 @@ void _handleNotificationTap(Map<String, dynamic> data) {
     case 'check_out':
     case 'comment':
     case 'comment_reply':
-      if (visitId != null) {
+      if (targetUserId != null && visitId != null) {
         _navigateToVisitDetail(nav, targetUserId, visitId);
       }
       break;
     case 'punch_out':
-      _navigateToUserHome(nav, targetUserId);
+      if (targetUserId != null) {
+        _navigateToUserHome(nav, targetUserId);
+      }
+      break;
+    case 'auto_punch_out':
+      // About the tapping user's own account — no targetUserId needed.
+      // Pop back to the (already-home) root route and surface why.
+      nav.popUntil((route) => route.isFirst);
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            "You've been punched out automatically — we didn't receive "
+            'location updates from your device.',
+          ),
+          duration: Duration(seconds: 6),
+        ),
+      );
       break;
   }
 }
@@ -138,6 +157,7 @@ class TrackFolksApp extends StatelessWidget {
         theme: AppTheme.light,
         debugShowCheckedModeBanner: false,
         navigatorKey: navigatorKey,
+        scaffoldMessengerKey: scaffoldMessengerKey,
         home: const _AppEntry(),
       ),
     );
@@ -172,6 +192,10 @@ class _AppEntry extends StatelessWidget {
               ..add(HomeInitEvent(state.user.id)),
             child: const HomeScreen(),
           );
+        }
+
+        if (state is AuthAccountDeleted) {
+          return const AccountDeletedScreen();
         }
 
         return const LoginScreen();

@@ -56,15 +56,16 @@ class _TrackTabState extends State<TrackTab> {
       widget.lastKnownLocation ??
       (widget.locations.isNotEmpty ? widget.locations.last.position : null);
 
-  /// The label shown inside the current-location marker.
-  /// Uses lastPoint.timestamp + durationSeconds so owner and manager both see
-  /// the same effective "last active" time. Falls back to lastGpsUpdateTime
-  /// when no stored points exist yet (e.g. acquiring first GPS fix).
-  DateTime? get _markerTime {
-    if (widget.locations.isEmpty) return widget.lastGpsUpdateTime;
-    final last = widget.locations.last;
-    return last.timestamp.add(Duration(seconds: last.durationSeconds ?? 0));
-  }
+  /// The label shown inside the current-location marker. lastGpsUpdateTime
+  /// is HomeBloc's single, always-correctly-resolved "last active" time —
+  /// derived the same way lastKnownLocation's position is (currentBatch.last
+  /// → the isolate's lastConfirmedPoint anchor → finalLocations.last — see
+  /// LocationSyncService.resolveLastKnownLocationWithTimestamp) — not
+  /// re-derived here from widget.locations.last, which goes stale during a
+  /// stationary run after a sync trims currentBatch to empty (duration
+  /// keeps climbing on the anchor, invisible to finalLocations/currentBatch
+  /// until the next sync commits it).
+  DateTime? get _markerTime => widget.lastGpsUpdateTime;
 
   @override
   Widget build(BuildContext context) {
@@ -196,22 +197,17 @@ class _TrackTabState extends State<TrackTab> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (acquiring)
-                      const SizedBox(
-                        width: 36,
-                        height: 36,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          color: AppTheme.primary,
-                        ),
-                      )
-                    else
-                      Icon(Icons.location_off_rounded,
-                          color: AppTheme.textHint, size: 40),
+                    Icon(Icons.location_off_rounded,
+                        color: AppTheme.textHint, size: 40),
                     const SizedBox(height: 10),
                     Text(
+                      // No spinner here even while acquiring — the first
+                      // location doesn't land in Firestore until the first
+                      // batch sync (up to LOCATION_BATCH_MINUTES after
+                      // punch-in), so a spinner would just sit there for
+                      // minutes looking stuck rather than "in progress".
                       acquiring
-                          ? 'Acquiring GPS location...'
+                          ? 'Yet to capture location'
                           : 'No location data yet',
                       style: AppTheme.sora(14,
                           weight: FontWeight.w500,

@@ -200,7 +200,12 @@ class _HistoryDayScreenState extends State<HistoryDayScreen>
     if (path == null) return;
     setState(() => _imageState = _ImageState.loading);
     try {
-      final url = await FirebaseStorage.instance.ref(path).getDownloadURL();
+      // punchInImage holds the download URL returned at upload time; older
+      // data may hold a storage path instead. ref() only accepts paths, so a
+      // URL must be used as-is.
+      final url = path.startsWith('http')
+          ? path
+          : await FirebaseStorage.instance.ref(path).getDownloadURL();
       if (mounted) setState(() { _punchInImageUrl = url; _imageState = _ImageState.loaded; });
     } catch (_) {
       if (mounted) setState(() => _imageState = _ImageState.error);

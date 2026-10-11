@@ -3,8 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TrackFolks — Field Force Tracker</title>
-  <meta name="description" content="TrackFolks — field force tracker for attendance, visits &amp; live location. A simpler, affordable alternative to Lystloc, Hubstaff, FeetPort, Trackobit, Unolo, PagarBook, and BeatRoute for Indian field teams." />
+  <title>TrackFolks — Field Force Tracker: Attendance, GPS &amp; Visits</title>
+  <meta name="description" content="TrackFolks is a simple field force tracker: selfie attendance, live GPS location and customer visit logs for Indian sales, service and delivery teams. Available on Android and iOS." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="theme-color" content="#8B1A1A" />
+  <link rel="canonical" href="https://tf.shristigroup.com/" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/logo/favicon-192.png" />
+  <link rel="apple-touch-icon" href="/assets/logo/favicon-192.png" />
+
+  <!-- Open Graph / social sharing -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="TrackFolks" />
+  <meta property="og:locale" content="en_IN" />
+  <meta property="og:url" content="https://tf.shristigroup.com/" />
+  <meta property="og:title" content="TrackFolks — Your field team, always connected" />
+  <meta property="og:description" content="Track attendance, customer visits and live location for your field team. Selfie punch-in, GPS routes and visit logs in one simple app." />
+  <meta property="og:image" content="https://tf.shristigroup.com/assets/images/og.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1780" />
+  <meta property="og:image:height" content="910" />
+  <meta property="og:image:alt" content="TrackFolks logo with the tagline: Your field team, always connected." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="TrackFolks — Your field team, always connected" />
+  <meta name="twitter:description" content="Track attendance, customer visits and live location for your field team. Selfie punch-in, GPS routes and visit logs in one simple app." />
+  <meta name="twitter:image" content="https://tf.shristigroup.com/assets/images/og.png" />
+  <meta name="twitter:image:alt" content="TrackFolks logo with the tagline: Your field team, always connected." />
   <meta name="keywords" content="Lystloc alternative, Hubstaff alternative, FieldAssist alternative, FeetPort alternative, Delta Sales App alternative, Zoho CRM alternative, Salesforce alternative, ConnectTeam alternative, TSheets alternative, Trackobit alternative, PagarBook alternative, Unolo alternative, BeatRoute alternative, FieldEZ alternative, Flocksales alternative, Twib alternative, dayTrack alternative, Fieldsense alternative, field force tracking app India, field employee tracker, sales team attendance app" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -63,16 +86,33 @@
       max-width: 900px;
       margin: 0 auto;
     }
-    .hero-logo {
+    /* Demo video (portrait YouTube Short) on the left */
+    .hero-video {
       flex-shrink: 0;
-      width: 300px;
+      width: 270px;
+      aspect-ratio: 9 / 16;
+      border-radius: 20px;
+      overflow: hidden;
+      background: #000;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    }
+    .hero-video iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+    }
+    /* Logo, title and subtitle stacked on the right */
+    .hero-logo {
+      width: 130px;
+      margin-bottom: 20px;
     }
     .hero-logo img {
       width: 100%;
       height: auto;
       display: block;
-      border-radius: 20px;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
     }
     .hero-content { text-align: left; }
     .hero-content h1 {
@@ -101,8 +141,10 @@
         padding: 40px 0 48px;
         text-align: center;
       }
-      .hero-logo { width: 140px; }
-      .hero-content { text-align: center; }
+      /* Text first on small screens, then the video */
+      .hero-content { order: 1; text-align: center; }
+      .hero-video   { order: 2; width: min(270px, 78vw); }
+      .hero-logo { width: 110px; margin: 0 auto 18px; }
       .hero-content p { max-width: 100%; }
     }
 
@@ -310,10 +352,19 @@
   <!-- ── Hero ── -->
   <div class="hero-wrap">
     <div class="hero">
-      <div class="hero-logo">
-        <img src="assets/logo/tf-logo-with-name.png" alt="TrackFolks" />
+      <div class="hero-video">
+        <iframe
+          src="https://www.youtube.com/embed/8dkmj1N7yp8?rel=0&playsinline=1"
+          title="TrackFolks demo video"
+          loading="lazy"
+          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen></iframe>
       </div>
       <div class="hero-content">
+        <div class="hero-logo">
+          <img src="assets/logo/tf-logo-with-name.png" alt="TrackFolks" />
+        </div>
         <h1>Your field team,<br/>always connected.</h1>
         <p>Track attendance, customer visits, and location in real time — built for the ground level.</p>
       </div>
@@ -371,7 +422,7 @@
         <div class="card-title">Get TrackFolks for Android</div>
         <div class="card-sub">Download and install the APK directly — no Play Store required.</div>
         <a class="btn btn-gold" id="android-download-btn"
-           href="https://firebasestorage.googleapis.com/v0/b/agoriya-app.firebasestorage.app/o/releases%2Flatest.apk?alt=media&v=1.0.2"
+           href="https://firebasestorage.googleapis.com/v0/b/agoriya-app.firebasestorage.app/o/releases%2Flatest.apk?alt=media&v=2.0.0"
            download="trackfolks.apk">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h3.84v4h5.66V9h3.84L12 2z"/></svg>
           Download APK
@@ -415,7 +466,7 @@
             iOS — TestFlight
           </a>
           <a class="btn btn-red"
-             href="https://firebasestorage.googleapis.com/v0/b/agoriya-app.firebasestorage.app/o/releases%2Flatest.apk?alt=media&v=1.0.2"
+             href="https://firebasestorage.googleapis.com/v0/b/agoriya-app.firebasestorage.app/o/releases%2Flatest.apk?alt=media&v=2.0.0"
              download="trackfolks.apk">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h3.84v4h5.66V9h3.84L12 2z"/></svg>
             Android — APK
@@ -623,6 +674,7 @@
     <p>TrackFolks &copy; <span id="year"></span> Shrishti Group</p>
     <p style="margin-top:4px;">Built for field teams that move fast.</p>
     <p style="margin-top:4px;">Questions? <a href="mailto:gardeniavidesi@gmail.com">gardeniavidesi@gmail.com</a> · +91 95 3838 4545</p>
+    <p style="margin-top:4px;"><a href="/privacy">Privacy Policy</a></p>
   </footer>
 
   <!-- FAQ accordion -->
@@ -635,6 +687,22 @@
         if (!isOpen) item.classList.add('open');
       });
     });
+  </script>
+
+  <!-- SoftwareApplication structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "TrackFolks",
+    "alternateName": "TrackFolks Field Force Tracker",
+    "description": "Field force tracking app for attendance, customer visits and live GPS location, built for sales, service and delivery teams.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Android, iOS",
+    "url": "https://tf.shristigroup.com/",
+    "image": "https://tf.shristigroup.com/assets/images/og.png",
+    "publisher": { "@type": "Organization", "name": "Shristi Group", "url": "https://shristigroup.com" }
+  }
   </script>
 
   <!-- FAQPage structured data for Google rich snippets -->
