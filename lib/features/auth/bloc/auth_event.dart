@@ -25,4 +25,8 @@ class CompleteProfileEvent extends AuthEvent {
 
 class LogoutEvent extends AuthEvent {}
 
+/// Dispatched once the server confirmed the account was deleted: clears local
+/// state and shows the "account deleted" screen.
+class AccountDeletedEvent extends AuthEvent {}
+
 class CheckAuthEvent extends AuthEvent {}

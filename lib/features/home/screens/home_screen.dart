@@ -431,7 +431,7 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       await FirestoreRepository().deleteMyAccount();
       if (mounted) _dismissLoadingDialog();
-      if (mounted) context.read<AuthBloc>().add(LogoutEvent());
+      if (mounted) context.read<AuthBloc>().add(AccountDeletedEvent());
     } catch (e) {
       if (mounted) _dismissLoadingDialog();
       if (mounted) {

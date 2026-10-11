@@ -11,6 +11,7 @@ import 'services/notification_service.dart';
 import 'features/auth/bloc/auth_bloc.dart';
 import 'features/auth/bloc/auth_event.dart';
 import 'features/auth/bloc/auth_state.dart';
+import 'features/auth/screens/account_deleted_screen.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/home/bloc/home_bloc.dart';
 import 'features/home/bloc/home_event.dart';
@@ -191,6 +192,10 @@ class _AppEntry extends StatelessWidget {
               ..add(HomeInitEvent(state.user.id)),
             child: const HomeScreen(),
           );
+        }
+
+        if (state is AuthAccountDeleted) {
+          return const AccountDeletedScreen();
         }
 
         return const LoginScreen();

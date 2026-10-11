@@ -226,14 +226,6 @@ exports.onCommentWrite = onDocumentCreated(
   }
 );
 
-// ─── 4. FCM token updater (no-op — token is written client-side) ─────────────
-// exports.updateFcmToken = onDocumentWritten(
-//   { document: "Users/{userId}", region: "asia-south1" },
-//   async (event) => {
-//     // Token updates are handled client-side; this function is intentionally empty.
-//   }
-// );
-
 // ─── Location tracking watchdog — recover tracking the OS killed ────────────
 // Runs every WATCHDOG_SCHEDULE_MINUTES. Finds punched-in users whose
 // locationHeartbeatTimestamp (written by the app on every GPS sample — much
