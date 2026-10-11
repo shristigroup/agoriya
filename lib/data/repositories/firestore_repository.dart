@@ -459,7 +459,7 @@ class FirestoreRepository {
   /// Removes [userId] from the org:
   ///  - clears their managerId and code
   ///  - removes them from their manager's reports map
-  ///  - decrements currentUserCount in Codes
+  ///  (the org's currentUserCount is resynced by the syncOrgCodeCount function)
   Future<void> removeUserFromOrg(String userId) async {
     final user = await getUserById(userId);
     if (user == null) return;
@@ -478,12 +478,9 @@ class FirestoreRepository {
       }
     }
 
-    if (user.code != null && user.code!.isNotEmpty) {
-      batch.update(_codes.doc(user.code!), {
-        'currentUserCount': FieldValue.increment(-1),
-      });
-    }
-
+    // currentUserCount on Codes is NOT touched here: firestore.rules only lets
+    // Cloud Functions write Codes, and syncOrgCodeCount recomputes the count
+    // when this user's `code` is cleared above.
     await batch.commit();
   }
 
