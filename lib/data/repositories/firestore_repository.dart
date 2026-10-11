@@ -429,14 +429,18 @@ class FirestoreRepository {
     return members;
   }
 
-  /// Deletes the signed-in user's own account: their Firestore User doc and
-  /// every nested subcollection (Tracking, Visits, Visits/*/Comments),
-  /// Storage files (punch-in selfies, visit bill photos), and the Auth
-  /// credential itself — all server-side via the deleteMyAccount Cloud
-  /// Function, using the Admin SDK (see functions/index.js). Irreversible.
-  /// Throws on any failure; the caller should NOT sign out or clear local
-  /// state unless this completes successfully.
-  Future<void> deleteMyAccount() async {
+  /// Deletes an account and all its data, server-side, via the deleteMyAccount
+  /// Cloud Function (see functions/index.js): Firestore User doc and nested
+  /// subcollections, Storage files, and the Auth credential. Irreversible.
+  ///
+  /// With no [targetUserId] this deletes the signed-in user's own account.
+  /// With one, a manager removes that member — the server only allows it if
+  /// the caller is above them in the manager chain.
+  ///
+  /// Throws [AccountHasReportsException] if the account still has people
+  /// reporting to it, and a plain [Exception] on any other failure. The caller
+  /// should NOT sign out or clear local state unless this completes.
+  Future<void> deleteMyAccount({String? targetUserId}) async {
     final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
     if (idToken == null) {
       throw Exception('Not signed in');
@@ -450,50 +454,23 @@ class FirestoreRepository {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $idToken',
       },
+      body: jsonEncode({if (targetUserId != null) 'targetUserId': targetUserId}),
     );
-    if (response.statusCode != 200) {
-      throw Exception('Failed to delete account: ${response.body}');
+    if (response.statusCode == 200) return;
+
+    String? code;
+    try {
+      code = (jsonDecode(response.body) as Map)['error'] as String?;
+    } catch (_) {}
+    if (response.statusCode == 409 && code == 'has_reports') {
+      throw AccountHasReportsException();
     }
+    throw Exception('Failed to delete account (${response.statusCode} ${code ?? ''})');
   }
+}
 
-  /// Removes [userId] from the org:
-  ///  - clears their managerId and code
-  ///  - removes them from their manager's reports map
-  ///  (the org's currentUserCount is resynced by the syncOrgCodeCount function)
-  Future<void> removeUserFromOrg(String userId) async {
-    final user = await getUserById(userId);
-    if (user == null) return;
-    if (user.reports.isNotEmpty) {
-      throw Exception('cannot_remove_has_reports');
-    }
-    final batch = _db.batch();
-
-    batch.update(_users.doc(userId), {'managerId': null, 'code': null});
-
-    if (user.managerId != null) {
-      final manager = await getUserById(user.managerId!);
-      if (manager != null) {
-        final updatedReports = _removeFromReportsMap(manager.reports, userId);
-        batch.update(_users.doc(manager.id), {'reports': updatedReports});
-      }
-    }
-
-    // currentUserCount on Codes is NOT touched here: firestore.rules only lets
-    // Cloud Functions write Codes, and syncOrgCodeCount recomputes the count
-    // when this user's `code` is cleared above.
-    await batch.commit();
-  }
-
-  /// Recursively removes [userId] from any level of the reports map.
-  Map<String, dynamic> _removeFromReportsMap(
-      Map<String, dynamic> reports, String userId) {
-    if (reports.containsKey(userId)) {
-      return Map.from(reports)..remove(userId);
-    }
-    return reports.map((k, v) {
-      final entry = Map<String, dynamic>.from(v as Map);
-      final sub = Map<String, dynamic>.from(entry['reports'] as Map? ?? {});
-      return MapEntry(k, {...entry, 'reports': _removeFromReportsMap(sub, userId)});
-    });
-  }
+/// The account being deleted still has team members reporting to it.
+class AccountHasReportsException implements Exception {
+  @override
+  String toString() => 'AccountHasReportsException';
 }

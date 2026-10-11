@@ -435,9 +435,12 @@ class _HomeScreenState extends State<HomeScreen>
     } catch (e) {
       if (mounted) _dismissLoadingDialog();
       if (mounted) {
+        final msg = e is AccountHasReportsException
+            ? 'You still have team members reporting to you. They must change their manager before you can delete your account.'
+            : 'Could not delete account. Please try again.';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not delete account: $e'),
+            content: Text(msg),
             backgroundColor: AppTheme.error,
           ),
         );

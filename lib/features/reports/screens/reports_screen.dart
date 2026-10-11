@@ -100,7 +100,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Remove member'),
-        content: Text('Remove ${entry.name} from your organisation?'),
+        content: Text(
+          'Remove ${entry.name}? This permanently deletes their account and '
+          'all their data (attendance, visits and photos). This cannot be undone.',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(
@@ -113,11 +116,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await FirestoreRepository().removeUserFromOrg(entry.userId);
+      await FirestoreRepository().deleteMyAccount(targetUserId: entry.userId);
       await _refreshFromFirestore();
     } catch (e) {
       if (!mounted) return;
-      final msg = e.toString().contains('cannot_remove_has_reports')
+      final msg = e is AccountHasReportsException
           ? '${entry.name} still has team members reporting to them. They must change their manager first.'
           : 'Could not remove member. Please try again.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
