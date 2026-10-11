@@ -95,7 +95,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Future<void> _onRefresh() => _refreshFromFirestore();
 
-  Future<void> _removeUser(_ReportEntry entry) async {
+  /// Confirms, then deletes [entry]'s account on the server behind a blocking
+  /// progress dialog. Returns true only if the member was deleted, so the
+  /// swiped row can animate away; false (cancel or failure) snaps it back.
+  Future<bool> _removeUser(_ReportEntry entry) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -113,13 +116,36 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !mounted) return false;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+              const SizedBox(width: 20),
+              Expanded(child: Text('Deleting ${entry.name}…')),
+            ],
+          ),
+        ),
+      ),
+    );
 
     try {
       await FirestoreRepository().deleteMyAccount(targetUserId: entry.userId);
-      await _refreshFromFirestore();
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      return true;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
+      Navigator.of(context, rootNavigator: true).pop();
       final msg = e is AccountHasReportsException
           ? '${entry.name} still has team members reporting to them. They must change their manager first.'
           : 'Could not remove member. Please try again.';
@@ -127,6 +153,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         content: Text(msg),
         backgroundColor: AppTheme.error,
       ));
+      return false;
     }
   }
 
@@ -316,9 +343,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Dismissible(
       key: ValueKey(entry.userId),
       direction: DismissDirection.endToStart,
-      confirmDismiss: (_) async {
-        await _removeUser(entry);
-        return false; // we handle list refresh ourselves
+      confirmDismiss: (_) => _removeUser(entry),
+      onDismissed: (_) {
+        // The row must leave the tree as soon as it is dismissed.
+        setState(() => _reports.removeWhere((r) => r.userId == entry.userId));
+        _refreshFromFirestore(); // refresh seat count / org stats
       },
       background: Container(
         alignment: Alignment.centerRight,
