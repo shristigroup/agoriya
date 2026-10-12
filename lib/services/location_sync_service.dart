@@ -333,8 +333,7 @@ class LocationSyncService {
   /// they're not real GPS fixes — only for display, nothing reads them.
   /// The first and last point keep their REAL timestamp, and the last also
   /// keeps its real durationSeconds, since track_tab.dart's "last update"
-  /// display and the Cloud Functions "stationary" notification both depend
-  /// on the last point's timestamp/duration being accurate.
+  /// display depends on the last point's timestamp/duration being accurate.
   static Future<(List<LocationPoint>, double)?> _snapBatch({
     required List<LocationPoint> batch,
     required List<LocationPoint> finalLocations,

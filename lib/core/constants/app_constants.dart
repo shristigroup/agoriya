@@ -86,7 +86,6 @@ class AppConstants {
 
   // Stationary detection thresholds
   static const int stationaryThresholdMeters = 50;
-  static const int stationaryNotificationSeconds = 1800; // 30 min
 
   // Cache key prefix for monthly summaries (used in settingsBox)
   static const String monthlyCachePrefix = 'monthly_';
