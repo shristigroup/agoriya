@@ -55,7 +55,16 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // TF_SIGN_WITH_DEBUG=1 signs the release build with the Android
+            // debug key. Every APK distributed from the website before the Play
+            // launch was signed with it, so an APK meant to update those
+            // installs in place must use it too (Android rejects an update
+            // signed with a different key). Never use this for the Play AAB.
+            signingConfig = if (System.getenv("TF_SIGN_WITH_DEBUG") == "1") {
+                signingConfigs.getByName("debug")
+            } else {
+                signingConfigs.getByName("release")
+            }
         }
     }
 }
