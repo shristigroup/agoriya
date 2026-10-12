@@ -49,7 +49,21 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
     setState(() => _loading = true);
     try {
       final monthKey = DateFormat('yyyy-MM').format(_selectedMonth);
-      await CsvExportService.exportMonthlyReport(widget.members, monthKey);
+      final summary = await CsvExportService.exportMonthlyReport(monthKey);
+      if (mounted && !summary.isComplete) {
+        // Don't let a partial file pass for a complete one.
+        final problems = <String>[
+          if (summary.failedMembers > 0)
+            '${summary.failedMembers} member(s) could not be loaded',
+          if (summary.skippedDocs > 0)
+            '${summary.skippedDocs} record(s) were unreadable',
+        ].join(', ');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Export may be incomplete: $problems. Please try again.'),
+          backgroundColor: AppTheme.error,
+          duration: const Duration(seconds: 6),
+        ));
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(

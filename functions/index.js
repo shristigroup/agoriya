@@ -121,23 +121,6 @@ exports.onTrackingWrite = onDocumentWritten(
       );
       return;
     }
-
-    // ── last location's durationSeconds crossed 30 min threshold ─────────
-    const prevLocations = (before && before.locations) || [];
-    const curLocations = after.locations || [];
-    const prevDuration = prevLocations.length > 0
-        ? (prevLocations[prevLocations.length - 1].durationSeconds || 0) : 0;
-    const curDuration = curLocations.length > 0
-        ? (curLocations[curLocations.length - 1].durationSeconds || 0) : 0;
-    const threshold = 1800; // 30 minutes
-    if (prevDuration < threshold && curDuration >= threshold) {
-      await sendNotification(
-        managerToken,
-        `${userName} is stationary`,
-        "Has been at the same location for 30 minutes.",
-        { type: "stationary", targetUserId: userId, targetUserName: userName }
-      );
-    }
   }
 );
 
@@ -645,6 +628,181 @@ exports.deleteMyAccount = onRequest(
       res.status(200).json({ success: true });
     } catch (err) {
       console.error("[deleteMyAccount] failed:", err);
+      res.status(500).json({ error: "internal" });
+    }
+  }
+);
+
+// ─── 9. exportMonthlyReport — server-side CSV export ─────────────────────────
+// Builds the day-wise attendance CSV for everyone below the caller in the
+// reporting tree and returns it in the response, plus a private copy under
+// exports/{userId}/ (no Storage rule matches that path, so clients cannot read
+// it; a bucket lifecycle rule on the exports/ prefix should expire it). Reads
+// run here, with field selection, instead of on the phone, and every run is
+// logged so missing rows can be diagnosed.
+//
+// Request:  POST { monthKey: "yyyy-MM", tzOffsetMinutes?: number }
+// Response: 200 { csv, filename, rowCount, memberCount, failedMembers, skippedDocs }
+function csvEscape(v) {
+  const s = String(v == null ? "" : v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function pad2(n) { return String(n).padStart(2, "0"); }
+function fmtHHmm(ms, offsetMin) {
+  const d = new Date(ms + offsetMin * 60000);
+  return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+}
+function fmtDuration(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor(ms / 60000) % 60;
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+function flattenReports(node, out = []) {
+  for (const [id, v] of Object.entries(node || {})) {
+    out.push({ id, name: (v && v.name) || "" });
+    if (v && v.reports) flattenReports(v.reports, out);
+  }
+  return out;
+}
+async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+exports.exportMonthlyReport = onRequest(
+  { region: "asia-south1", cors: true, timeoutSeconds: 60, memory: "512MiB" },
+  async (req, res) => {
+    const startedAt = Date.now();
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) { res.status(401).json({ error: "Unauthenticated" }); return; }
+    let decoded;
+    try {
+      decoded = await admin.auth().verifyIdToken(idToken);
+    } catch (err) {
+      res.status(401).json({ error: "Invalid token" });
+      return;
+    }
+    const callerId = decoded.userId;
+    if (!callerId) { res.status(400).json({ error: "No userId claim on this account" }); return; }
+
+    const body = req.body || {};
+    const monthKey = String(body.monthKey || "");
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) {
+      res.status(400).json({ error: "invalid_month" });
+      return;
+    }
+    // Month boundaries in the caller's local time (device offset); IST default.
+    let offsetMin = Number(body.tzOffsetMinutes);
+    if (!Number.isFinite(offsetMin) || Math.abs(offsetMin) > 14 * 60) offsetMin = 330;
+    const [year, month] = monthKey.split("-").map(Number);
+    const startMs = Date.UTC(year, month - 1, 1) - offsetMin * 60000;
+    const endMs = Date.UTC(year, month, 1) - offsetMin * 60000;
+
+    try {
+      const callerSnap = await db.collection("Users").doc(callerId).get();
+      if (!callerSnap.exists) { res.status(404).json({ error: "User not found" }); return; }
+
+      const byId = new Map();
+      flattenReports(callerSnap.data().reports).forEach((m) => byId.set(m.id, m));
+      const members = [...byId.values()];
+
+      const fetched = await mapLimit(members, 20, async (mem) => {
+        try {
+          const snap = await db.collection("Users").doc(mem.id).collection("Tracking")
+            .where("startTime", ">=", admin.firestore.Timestamp.fromMillis(startMs))
+            .where("startTime", "<", admin.firestore.Timestamp.fromMillis(endMs))
+            .select("startTime", "stopTime", "distance")
+            .get();
+          const sessions = [];
+          const skipped = [];
+          snap.docs.forEach((d) => {
+            try {
+              const x = d.data();
+              sessions.push({
+                date: d.id.substring(0, 10),
+                startMs: x.startTime.toMillis(),
+                stopMs: x.stopTime ? x.stopTime.toMillis() : null,
+                distance: Number(x.distance) || 0,
+              });
+            } catch (e) {
+              skipped.push({ id: d.id, error: String(e.message || e).slice(0, 120) });
+            }
+          });
+          return { mem, sessions, skipped, error: null };
+        } catch (err) {
+          console.error(`[exportMonthlyReport] fetch failed for ${mem.id}:`, err.message);
+          return { mem, sessions: [], skipped: [], error: String(err.message || err).slice(0, 200) };
+        }
+      });
+
+      const rows = [];
+      fetched.forEach((f) => f.sessions.forEach((s) => rows.push({ name: f.mem.name, ...s })));
+      rows.sort((a, b) => a.name.localeCompare(b.name) || a.date.localeCompare(b.date));
+
+      const lines = ["Name,Date,Punch In,Punch Out,Total Hours,Distance (km)"];
+      rows.forEach((r) => {
+        lines.push([
+          csvEscape(r.name),
+          r.date,
+          fmtHHmm(r.startMs, offsetMin),
+          r.stopMs != null ? fmtHHmm(r.stopMs, offsetMin) : "",
+          r.stopMs != null ? fmtDuration(r.stopMs - r.startMs) : "",
+          r.distance.toFixed(1),
+        ].join(","));
+      });
+      const csv = lines.join("\n") + "\n";
+
+      const failedMembers = fetched.filter((f) => f.error).length;
+      const skippedDocs = fetched.reduce((n, f) => n + f.skipped.length, 0);
+      const filename = `trackfolks_${monthKey}.csv`;
+
+      // Private, short-lived copy for support/audit. Best-effort.
+      try {
+        await admin.storage().bucket()
+          .file(`exports/${callerId}/${filename.replace(".csv", "")}_${Date.now()}.csv`)
+          .save(csv, { contentType: "text/csv", resumable: false });
+      } catch (err) {
+        console.error(`[exportMonthlyReport] storage copy failed for ${callerId}:`, err.message);
+      }
+
+      // One structured entry per run: who, what range, and per member the
+      // session count and the exact dates that came back.
+      console.log(JSON.stringify({
+        event: "export_monthly_report",
+        callerId, monthKey, tzOffsetMinutes: offsetMin,
+        rangeStartUtc: new Date(startMs).toISOString(),
+        rangeEndUtc: new Date(endMs).toISOString(),
+        members: members.length, sessions: rows.length,
+        failedMembers, skippedDocs,
+        durationMs: Date.now() - startedAt,
+        perMember: fetched.map((f) => ({
+          id: f.mem.id,
+          n: f.sessions.length,
+          dates: [...new Set(f.sessions.map((s) => s.date))].sort(),
+          ...(f.error ? { error: f.error } : {}),
+          ...(f.skipped.length ? { skipped: f.skipped } : {}),
+        })),
+      }));
+
+      res.status(200).json({
+        csv, filename, rowCount: rows.length,
+        memberCount: members.length, failedMembers, skippedDocs,
+      });
+    } catch (err) {
+      console.error(`[exportMonthlyReport] failed for ${callerId} ${monthKey}:`, err);
       res.status(500).json({ error: "internal" });
     }
   }
