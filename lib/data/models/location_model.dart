@@ -21,6 +21,11 @@ class LocationPoint {
   /// Firestore at batch-flush time.
   final int? durationSeconds;
 
+  /// Set only on the last point of each batch written to Firestore: why that
+  /// batch was (or wasn't) snapped by OSRM — `ok`, `batch_too_small`,
+  /// `no_match`, `http_<code>`, `timeout` or `error`. Diagnostic only.
+  final String? snapReason;
+
   const LocationPoint({
     required this.position,
     required this.timestamp,
@@ -28,6 +33,7 @@ class LocationPoint {
     this.cumulativeDistanceKm,
     this.batchDistanceKm,
     this.durationSeconds,
+    this.snapReason,
   });
 
   factory LocationPoint.fromFirestore(Map<String, dynamic> map) {
@@ -40,6 +46,7 @@ class LocationPoint {
           (map['cumulativeDistanceKm'] as num?)?.toDouble(),
       batchDistanceKm: (map['batchDistanceKm'] as num?)?.toDouble(),
       durationSeconds: (map['durationSeconds'] as num?)?.toInt(),
+      snapReason: map['snapReason'] as String?,
     );
   }
 
@@ -52,6 +59,7 @@ class LocationPoint {
     if (cumulativeDistanceKm != null) m['cumulativeDistanceKm'] = cumulativeDistanceKm;
     if (batchDistanceKm != null) m['batchDistanceKm'] = batchDistanceKm;
     if (durationSeconds != null && durationSeconds! > 0) m['durationSeconds'] = durationSeconds;
+    if (snapReason != null) m['snapReason'] = snapReason;
     return m;
   }
 
@@ -64,6 +72,7 @@ class LocationPoint {
             (json['cumulativeDistanceKm'] as num?)?.toDouble(),
         batchDistanceKm: (json['batchDistanceKm'] as num?)?.toDouble(),
         durationSeconds: (json['durationSeconds'] as num?)?.toInt(),
+        snapReason: json['snapReason'] as String?,
       );
 
   Map<String, dynamic> toJson() {
@@ -76,6 +85,7 @@ class LocationPoint {
     if (cumulativeDistanceKm != null) m['cumulativeDistanceKm'] = cumulativeDistanceKm;
     if (batchDistanceKm != null) m['batchDistanceKm'] = batchDistanceKm;
     if (durationSeconds != null && durationSeconds! > 0) m['durationSeconds'] = durationSeconds;
+    if (snapReason != null) m['snapReason'] = snapReason;
     return m;
   }
 
@@ -86,6 +96,7 @@ class LocationPoint {
     double? cumulativeDistanceKm,
     double? batchDistanceKm,
     int? durationSeconds,
+    String? snapReason,
   }) =>
       LocationPoint(
         position: position ?? this.position,
@@ -94,6 +105,7 @@ class LocationPoint {
         cumulativeDistanceKm: cumulativeDistanceKm ?? this.cumulativeDistanceKm,
         batchDistanceKm: batchDistanceKm ?? this.batchDistanceKm,
         durationSeconds: durationSeconds ?? this.durationSeconds,
+        snapReason: snapReason ?? this.snapReason,
       );
 }
 

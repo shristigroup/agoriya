@@ -87,6 +87,13 @@ class AppConstants {
   // Stationary detection thresholds
   static const int stationaryThresholdMeters = 50;
 
+  // Stray-fix (spike) detection — see GpsOutlier.
+  /// Both legs into and out of a candidate spike must be longer than this.
+  static const double outlierMinLegMeters = 300;
+
+  /// The two neighbours must be closer than this fraction of the shorter leg.
+  static const double outlierReturnRatio = 0.35;
+
   // Cache key prefix for monthly summaries (used in settingsBox)
   static const String monthlyCachePrefix = 'monthly_';
 
