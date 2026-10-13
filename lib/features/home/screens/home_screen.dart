@@ -46,6 +46,9 @@ class _HomeScreenState extends State<HomeScreen>
   int _currentTab = 0;
   bool _loadingDialogOpen = false;
 
+  /// Bumped on app resume; the map tab's key, so it re-renders (and redraws).
+  int _resumeCount = 0;
+
   bool get _isReadOnly => widget.viewingUserId != null;
   String get _targetUserId {
     if (_isReadOnly) return widget.viewingUserId!;
@@ -69,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_isReadOnly || !mounted) return;
     if (state == AppLifecycleState.resumed) {
+      setState(() => _resumeCount++);
       context.read<HomeBloc>().add(AppResumedEvent());
     } else if (state == AppLifecycleState.paused) {
       context.read<HomeBloc>().add(AppPausedEvent());
@@ -805,6 +809,7 @@ class _HomeScreenState extends State<HomeScreen>
                         controller: _tabController,
                         children: [
                           TrackTab(
+                            key: ValueKey('track-$_resumeCount'),
                             attendance: tracking,
                             locations: loaded?.allLocations ?? [],
                             lastKnownLocation: loaded?.lastKnownLocation,

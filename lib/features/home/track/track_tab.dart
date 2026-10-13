@@ -33,14 +33,63 @@ class TrackTab extends StatefulWidget {
   State<TrackTab> createState() => _TrackTabState();
 }
 
-class _TrackTabState extends State<TrackTab> {
+class _TrackTabState extends State<TrackTab>
+    with SingleTickerProviderStateMixin {
   final MapController _mapController = MapController();
   bool _showMarkers = true;
 
+  /// 0→1: how much of the route has been drawn. Plays each time the route is
+  /// rendered (this widget created, or its points first arriving).
+  late final AnimationController _anim;
+
+  /// Index into widget.locations of the dot the user tapped.
+  int? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 3000))
+      ..forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant TrackTab old) {
+    super.didUpdateWidget(old);
+    if (old.locations.length < 2 && widget.locations.length >= 2) {
+      _anim.forward(from: 0);
+    }
+  }
+
   @override
   void dispose() {
+    _anim.dispose();
     _mapController.dispose();
     super.dispose();
+  }
+
+  /// The route drawn up to fraction [t] of its length.
+  List<LatLng> _drawn(List<LatLng> pts, double t) {
+    if (t >= 1 || pts.length < 2) return pts;
+    final cum = <double>[0];
+    for (var i = 1; i < pts.length; i++) {
+      cum.add(cum.last + AppUtils.haversineMeters(pts[i - 1], pts[i]));
+    }
+    final target = cum.last * t;
+    final out = <LatLng>[pts.first];
+    for (var i = 1; i < pts.length; i++) {
+      if (cum[i] <= target) {
+        out.add(pts[i]);
+      } else {
+        final f = (target - cum[i - 1]) / (cum[i] - cum[i - 1]);
+        out.add(LatLng(
+          pts[i - 1].latitude + (pts[i].latitude - pts[i - 1].latitude) * f,
+          pts[i - 1].longitude + (pts[i].longitude - pts[i - 1].longitude) * f,
+        ));
+        break;
+      }
+    }
+    return out;
   }
 
   LatLng get _mapCenter {
@@ -79,9 +128,18 @@ class _TrackTabState extends State<TrackTab> {
           options: MapOptions(
             initialCenter: _mapCenter,
             initialZoom: hasData ? 14.0 : 10.0,
+            // Show the whole route, so the drawing is visible end to end.
+            initialCameraFit: points.length >= 2
+                ? CameraFit.bounds(
+                    bounds: LatLngBounds.fromPoints(points),
+                    padding: const EdgeInsets.all(48),
+                    maxZoom: 17,
+                  )
+                : null,
             interactionOptions: const InteractionOptions(
               flags: InteractiveFlag.all,
             ),
+            onTap: (_, __) => setState(() => _selected = null),
           ),
           children: [
             TileLayer(
@@ -90,29 +148,39 @@ class _TrackTabState extends State<TrackTab> {
             ),
             // Polyline — drawn directly from stored points (snapped where available)
             if (points.length >= 2)
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: points,
-                    strokeWidth: 4.0,
-                    color: AppTheme.primary,
-                  ),
-                ],
+              AnimatedBuilder(
+                animation: _anim,
+                builder: (_, __) => PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: _drawn(points, _anim.value),
+                      strokeWidth: 4.0,
+                      color: AppTheme.primary,
+                    ),
+                  ],
+                ),
               ),
             // Markers
             if (_showMarkers)
-              MarkerLayer(
+              AnimatedBuilder(
+                animation: _anim,
+                builder: (_, __) => MarkerLayer(
                 markers: [
-                  // Intermediate route dots (all stored points except the last)
-                  if (hasData && widget.locations.length > 1)
-                    ...widget.locations
-                        .take(widget.locations.length - 1)
-                        .map(
-                          (p) => Marker(
-                            point: p.position,
-                            width: 12,
-                            height: 12,
+                  // Intermediate route dots (all stored points except the
+                  // last), tappable; shown once the route has been drawn.
+                  if (_anim.isCompleted)
+                    for (var i = 0; i < widget.locations.length - 1; i++)
+                      Marker(
+                        point: widget.locations[i].position,
+                        width: 28, // larger hit area around the 12 px dot
+                        height: 28,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => setState(() => _selected = i),
+                          child: Center(
                             child: Container(
+                              width: 12,
+                              height: 12,
                               decoration: BoxDecoration(
                                 color: AppTheme.primary.withOpacity(0.7),
                                 shape: BoxShape.circle,
@@ -122,6 +190,7 @@ class _TrackTabState extends State<TrackTab> {
                             ),
                           ),
                         ),
+                      ),
                   // Current position — shown as soon as we have a GPS fix,
                   // even before any points are stored (stationary case).
                   if (_currentPosition != null && _markerTime != null)
@@ -176,9 +245,18 @@ class _TrackTabState extends State<TrackTab> {
                       ),
                     ),
                 ],
+                ),
               ),
           ],
         ),
+
+        // Tapped dot: arrival time, plus how long they stayed if recorded
+        if (_selected != null && _selected! < widget.locations.length)
+          Positioned(
+            left: 12,
+            bottom: 20,
+            child: _pointCard(widget.locations[_selected!]),
+          ),
 
         // No data watermark
         if (!hasData)
@@ -296,6 +374,35 @@ class _TrackTabState extends State<TrackTab> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _pointCard(LocationPoint p) {
+    final stayed = p.durationSeconds ?? 0;
+    final time = AppUtils.formatTime(p.timestamp);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(stayed > 0 ? 'Arrived $time' : 'At $time',
+              style: AppTheme.sora(12,
+                  weight: FontWeight.w700, color: AppTheme.textPrimary)),
+          if (stayed > 0)
+            Text(
+                'Stayed ${AppUtils.formatDuration(Duration(seconds: stayed))}',
+                style: AppTheme.sora(12,
+                    weight: FontWeight.w500, color: AppTheme.textSecondary)),
+        ],
+      ),
     );
   }
 
