@@ -258,7 +258,8 @@ class LocationSyncService {
       // Confirm success so the tracking isolate (sole owner of the cursor
       // box) can trim currentBatch up to this point and adopt it as the
       // new anchor — anything it appended concurrently is left intact.
-      LocationTrackingService.confirmBatchSynced(allLocations.last);
+      LocationTrackingService.confirmBatchSynced(allLocations.last,
+          distanceKm: newFinalDistance);
 
       return (allLocations, newFinalDistance);
     } catch (e) {

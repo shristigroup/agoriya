@@ -48,6 +48,11 @@ class AppConstants {
   // isolate only ever needs this one point.
   static const String lastConfirmedPointKey = 'last_confirmed_point';
 
+  // Day distance (km) as of the last confirmed sync — lets the isolate show
+  // synced + unsynced distance in its notification without touching the main
+  // isolate's locationsBox. Null until the first sync after a (re)start.
+  static const String syncedDistanceKmKey = 'synced_distance_km';
+
   // Location tracking — tunable via functions/.env (see functions/.env.example).
   // Pass `--dart-define-from-file=functions/.env` to flutter run/build to
   // pick up non-default values.

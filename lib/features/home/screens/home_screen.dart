@@ -8,6 +8,9 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../data/local/local_storage_service.dart';
+import '../../../data/data_manager.dart';
+import '../../../services/location_sync_service.dart';
+import '../../../services/location_tracking_service.dart';
 import '../../../data/models/tracking_model.dart';
 import '../../../data/models/visit_model.dart';
 import '../../../data/repositories/firestore_repository.dart';
@@ -401,6 +404,56 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  /// Logging out while punched in would leave the session open on the server
+  /// and tracking running with no signed-in user (until the watchdog gave up
+  /// on it), so punch out first — same steps as HomeBloc's punch-out. If that
+  /// fails (e.g. offline), stay signed in so the user can retry.
+  Future<void> _handleLogout() async {
+    final user = LocalStorageService.getUser();
+    final tracking = DataManager.getActiveTracking();
+    if (user != null && tracking?.isPunchedIn == true) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Log out?'),
+          content: const Text(
+              "You're punched in. Logging out will punch you out first."),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Punch out & log out')),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+
+      _showLoadingDialog('Punching out...');
+      try {
+        await LocationSyncService.processBatchAndEmitLatestLocationData(
+            userId: user.id, trackingId: tracking!.id, forceSync: true);
+        LocationTrackingService.stop();
+        await DataManager.punchOut(
+            userId: user.id,
+            currentTracking: tracking,
+            timestamp: DateTime.now());
+      } catch (e) {
+        if (mounted) {
+          _dismissLoadingDialog();
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Couldn't punch out. Check your connection and try again."),
+            backgroundColor: AppTheme.error,
+          ));
+        }
+        return;
+      }
+      if (mounted) _dismissLoadingDialog();
+    }
+    if (mounted) context.read<AuthBloc>().add(LogoutEvent());
+  }
+
   /// Deletes the signed-in user's account and all their data, server-side,
   /// via FirestoreRepository.deleteMyAccount(). Only signs out and clears
   /// local state — via the existing LogoutEvent, which already does exactly
@@ -730,7 +783,7 @@ class _HomeScreenState extends State<HomeScreen>
                       builder: (_) => const ReportsScreen(),
                     ));
                   } else if (val == 'logout') {
-                    context.read<AuthBloc>().add(LogoutEvent());
+                    _handleLogout();
                   } else if (val == 'delete_account') {
                     _handleDeleteAccount();
                   }
