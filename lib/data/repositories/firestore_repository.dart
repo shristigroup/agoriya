@@ -180,6 +180,7 @@ class FirestoreRepository {
     await _trackingDoc(userId, trackingId).update({
       'stopTime': FieldValue.delete(),
       'isPunchedIn': true,
+      'autoClosedReason': FieldValue.delete(),
     });
   }
 

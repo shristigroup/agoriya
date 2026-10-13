@@ -44,6 +44,11 @@ class HomeLoaded extends HomeState {
   /// overlay until the user fixes it.
   final bool permissionsRequired;
 
+  /// Set when the server closed the session (watchdog) while this phone still
+  /// believed it was punched in; home_screen.dart shows a one-time notice and
+  /// clears it. Holds the time the server closed it.
+  final DateTime? autoPunchedOutAt;
+
   /// OSRM-accurate total for all committed batches.
   final double finalLocationsDistance;
 
@@ -61,6 +66,7 @@ class HomeLoaded extends HomeState {
     this.isSnapping = false,
     this.isPunchingOut = false,
     this.permissionsRequired = false,
+    this.autoPunchedOutAt,
     this.finalLocationsDistance = 0.0,
     this.currentBatchDistance = 0.0,
   });
@@ -85,9 +91,11 @@ class HomeLoaded extends HomeState {
     bool? isSnapping,
     bool? isPunchingOut,
     bool? permissionsRequired,
+    DateTime? autoPunchedOutAt,
     double? finalLocationsDistance,
     double? currentBatchDistance,
     bool clearLastKnown = false,
+    bool clearAutoPunchedOut = false,
   }) =>
       HomeLoaded(
         tracking: tracking ?? this.tracking,
@@ -103,6 +111,9 @@ class HomeLoaded extends HomeState {
         isPunchingOut: isPunchingOut ?? this.isPunchingOut,
         permissionsRequired:
             permissionsRequired ?? this.permissionsRequired,
+        autoPunchedOutAt: clearAutoPunchedOut
+            ? null
+            : (autoPunchedOutAt ?? this.autoPunchedOutAt),
         finalLocationsDistance:
             finalLocationsDistance ?? this.finalLocationsDistance,
         currentBatchDistance:

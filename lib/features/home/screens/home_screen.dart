@@ -448,6 +448,37 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  /// Shown once when the server closed this session because the phone stopped
+  /// sending location (see HomeBloc._reconcileAutoPunchOut).
+  void _showAutoPunchOutDialog(
+      BuildContext context, HomeBloc bloc, DateTime at) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Punched out automatically'),
+        content: Text(
+          'You were punched out at ${AppUtils.formatTime(at)} because your '
+          "phone stopped sending location updates.\n\n"
+          'To avoid this, keep TrackFolks allowed to run in the background '
+          '(battery set to "Unrestricted"). You can resume your session now.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              bloc.add(ResumeSessionEvent());
+            },
+            child: const Text('Resume session'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Bottom sheet shown when the user taps "Punch In" after already being
   /// punched out today. Offers "Resume Session" (undo punch-out) or
   /// "Fresh Punch In" (start a brand-new session, overwriting today's data).
@@ -647,6 +678,13 @@ class _HomeScreenState extends State<HomeScreen>
               backgroundColor: AppTheme.error,
             ),
           );
+        } else if (state is HomeLoaded &&
+            state.autoPunchedOutAt != null &&
+            !_isReadOnly) {
+          final at = state.autoPunchedOutAt!;
+          final bloc = context.read<HomeBloc>();
+          bloc.add(AutoPunchOutAcknowledgedEvent()); // show it only once
+          _showAutoPunchOutDialog(context, bloc, at);
         }
       },
       builder: (context, state) {
