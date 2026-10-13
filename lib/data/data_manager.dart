@@ -234,6 +234,13 @@ class DataManager {
 
   // ─── Punch Out ─────────────────────────────────────────────────────────────
 
+  /// The session as it currently is on the server (null if it doesn't exist).
+  /// Used to notice that the watchdog closed it while this phone still thinks
+  /// it's punched in.
+  static Future<TrackingModel?> fetchTrackingFromServer(
+          String userId, String trackingId) =>
+      _repo.getTrackingById(userId, trackingId);
+
   static Future<TrackingModel> punchOut({
     required String userId,
     required TrackingModel currentTracking,

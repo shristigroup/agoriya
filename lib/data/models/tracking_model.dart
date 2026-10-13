@@ -17,6 +17,11 @@ class TrackingModel {
   /// Server timestamp of the last locations write.
   final DateTime? lastUpdatedAt;
 
+  /// Set by the server watchdog when it closed this session itself (e.g.
+  /// `no_location_data`); null when the user punched out. Read-only on the
+  /// client — never written back.
+  final String? autoClosedReason;
+
   const TrackingModel({
     required this.id,
     required this.date,
@@ -26,12 +31,16 @@ class TrackingModel {
     this.distance = 0.0,
     this.visitCount = 0,
     this.lastUpdatedAt,
+    this.autoClosedReason,
   });
 
   // ── Computed ────────────────────────────────────────────────────────────────
 
   bool get isActive => stopTime == null;
   bool get isStopped => stopTime != null;
+
+  /// Closed by the server watchdog rather than by the user.
+  bool get wasAutoClosed => stopTime != null && autoClosedReason != null;
 
   bool get isPunchedIn => isActive;
   bool get isPunchedOut => isStopped;
@@ -65,6 +74,7 @@ class TrackingModel {
       distance: (data['distance'] as num?)?.toDouble() ?? 0.0,
       visitCount: (data['visitCount'] as num?)?.toInt() ?? 0,
       lastUpdatedAt: (data['lastUpdatedAt'] as Timestamp?)?.toDate(),
+      autoClosedReason: data['autoClosedReason'] as String?,
     );
   }
 
@@ -118,6 +128,7 @@ class TrackingModel {
     double? distance,
     int? visitCount,
     DateTime? lastUpdatedAt,
+    String? autoClosedReason,
     bool clearStopTime = false,
   }) =>
       TrackingModel(
@@ -129,5 +140,8 @@ class TrackingModel {
         distance: distance ?? this.distance,
         visitCount: visitCount ?? this.visitCount,
         lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
+        // Resuming a session clears the server-side reason too.
+        autoClosedReason:
+            clearStopTime ? null : (autoClosedReason ?? this.autoClosedReason),
       );
 }

@@ -1,8 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import '../../core/constants/app_constants.dart';
+
+/// Result of [OsrmService.matchSimplifiedGeometry]: the road geometry (null if
+/// OSRM couldn't help) and a short reason code for diagnostics.
+class OsrmMatch {
+  final List<LatLng>? geometry;
+  final String reason;
+  const OsrmMatch(this.geometry, this.reason);
+}
 
 class OsrmService {
   /// Snaps a list of GPS points to nearest roads using OSRM Match API.
@@ -110,49 +119,59 @@ class OsrmService {
   /// (`overview=simplified`), the same concept as Google Directions'
   /// `overview_polyline`: far fewer points than the raw trace or a
   /// `overview=full` request, while still visually following the road.
+  /// `tidy=true` lets OSRM clean a noisy trace first (it drops points it
+  /// considers duplicates/outliers instead of routing through them).
   /// Concatenates all returned matchings in trace order (OSRM can split a
-  /// low-confidence trace into multiple matchings). Returns null on any
-  /// error or if OSRM couldn't match anything — callers should fall back
-  /// to the original unsnapped points.
-  static Future<List<LatLng>?> matchSimplifiedGeometry(
-      List<LatLng> points) async {
-    if (points.length < 2) return null;
+  /// low-confidence trace into multiple matchings).
+  ///
+  /// Never throws. [OsrmMatch.geometry] is null when OSRM couldn't help —
+  /// callers should fall back to the original points — and
+  /// [OsrmMatch.reason] says why, for diagnostics.
+  static Future<OsrmMatch> matchSimplifiedGeometry(List<LatLng> points) async {
+    if (points.length < 2) {
+      return const OsrmMatch(null, 'batch_too_small');
+    }
 
     try {
       final coords = points.map((p) => '${p.longitude},${p.latitude}').join(';');
       final url = '${AppConstants.osrmMatchUrl}/$coords'
-          '?overview=simplified&geometries=geojson&annotations=false';
+          '?overview=simplified&geometries=geojson&annotations=false&tidy=true';
       final response =
           await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        if (data['code'] == 'Ok' && data['matchings'] != null) {
-          final result = <LatLng>[];
-          for (final matching in data['matchings'] as List) {
-            final coords = matching['geometry']['coordinates'] as List;
-            result.addAll(coords.map((c) => LatLng(
-                  (c[1] as num).toDouble(),
-                  (c[0] as num).toDouble(),
-                )));
-          }
-          if (result.isNotEmpty) {
-            print('[OSRM] matchSimplifiedGeometry OK | ${points.length} raw '
-                'points → ${result.length} simplified points');
-            return result;
-          }
-        }
-        print('[OSRM] matchSimplifiedGeometry non-OK response | '
-            'code=${data['code']} → falling back to raw points');
-      } else {
+      if (response.statusCode != 200) {
         print('[OSRM] matchSimplifiedGeometry HTTP ${response.statusCode} → '
             'falling back to raw points');
+        return OsrmMatch(null, 'http_${response.statusCode}');
       }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data['code'] != 'Ok' || data['matchings'] == null) {
+        print('[OSRM] matchSimplifiedGeometry non-OK response | '
+            'code=${data['code']} → falling back to raw points');
+        return const OsrmMatch(null, 'no_match');
+      }
+
+      final result = <LatLng>[];
+      for (final matching in data['matchings'] as List) {
+        final coords = matching['geometry']['coordinates'] as List;
+        result.addAll(coords.map((c) => LatLng(
+              (c[1] as num).toDouble(),
+              (c[0] as num).toDouble(),
+            )));
+      }
+      if (result.isEmpty) return const OsrmMatch(null, 'no_match');
+
+      print('[OSRM] matchSimplifiedGeometry OK | ${points.length} raw '
+          'points → ${result.length} simplified points');
+      return OsrmMatch(result, 'ok');
+    } on TimeoutException {
+      print('[OSRM] matchSimplifiedGeometry timeout → falling back to raw points');
+      return const OsrmMatch(null, 'timeout');
     } catch (e) {
       print('[OSRM] matchSimplifiedGeometry error: $e → falling back to raw points');
+      return const OsrmMatch(null, 'error');
     }
-
-    return null;
   }
 
   static double _toRad(double deg) => deg * math.pi / 180;

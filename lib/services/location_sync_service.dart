@@ -1,6 +1,7 @@
 import 'package:latlong2/latlong.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/app_utils.dart';
+import '../core/utils/gps_outlier.dart';
 import '../data/data_manager.dart';
 import '../data/local/local_storage_service.dart';
 import '../data/local/locations_box_lock.dart';
@@ -109,6 +110,7 @@ class LocationSyncService {
           snap: snap,
           finalLocations: finalLocations,
           finalLocationsDistance: finalLocationsDistance,
+          holdBackSuspiciousTail: !forceSync,
         );
         if (synced != null) {
           final (syncedFinalLocations, syncedFinalDistance) = synced;
@@ -174,10 +176,35 @@ class LocationSyncService {
     required TrackingSnapshot? snap,
     required List<LocationPoint> finalLocations,
     required double finalLocationsDistance,
+    bool holdBackSuspiciousTail = false,
   }) async {
     try {
-      final batchToProcess = snap?.currentBatch ?? <LocationPoint>[];
+      var batchToProcess = snap?.currentBatch ?? <LocationPoint>[];
       if (batchToProcess.isEmpty && finalLocations.isEmpty) return null;
+
+      // The last point of a batch can't be judged yet — a stray there would
+      // become the anchor for the next batch. If it's a big jump from the
+      // point before it, leave it out of this sync: it stays in the isolate's
+      // currentBatch (confirmBatchSynced only trims up to the last point we
+      // DO sync), and the real-time spike check in handleSample judges it
+      // when the next sample arrives. Skipped for forced flushes (punch-out),
+      // where no next sample is coming.
+      if (holdBackSuspiciousTail && batchToProcess.isNotEmpty) {
+        final tail = batchToProcess.last;
+        final prev = batchToProcess.length >= 2
+            ? batchToProcess[batchToProcess.length - 2]
+            : (snap?.lastConfirmedPoint ??
+                (finalLocations.isNotEmpty ? finalLocations.last : null));
+        if (prev != null &&
+            (tail.durationSeconds ?? 0) == 0 &&
+            GpsOutlier.isJump(prev.position, tail.position)) {
+          print('[LocationSync] Holding back last point of batch '
+              '(${AppUtils.haversineMeters(prev.position, tail.position).round()} m '
+              'jump) until the next sample confirms it');
+          batchToProcess =
+              batchToProcess.sublist(0, batchToProcess.length - 1);
+        }
+      }
 
       double osrmDistance = 0.0;
       List<LocationPoint> snappedBatch = [];
@@ -231,7 +258,8 @@ class LocationSyncService {
       // Confirm success so the tracking isolate (sole owner of the cursor
       // box) can trim currentBatch up to this point and adopt it as the
       // new anchor — anything it appended concurrently is left intact.
-      LocationTrackingService.confirmBatchSynced(allLocations.last);
+      LocationTrackingService.confirmBatchSynced(allLocations.last,
+          distanceKm: newFinalDistance);
 
       return (allLocations, newFinalDistance);
     } catch (e) {
@@ -351,15 +379,24 @@ class LocationSyncService {
 
     if (valid.isEmpty) return null;
 
-    final geometry = await OsrmService.matchSimplifiedGeometry(
+    final match = await OsrmService.matchSimplifiedGeometry(
       valid.map((p) => p.position).toList(),
     );
+    final geometry = match.geometry;
 
-    final snapped = (geometry != null && geometry.isNotEmpty)
+    var snapped = (geometry != null && geometry.isNotEmpty)
         ? _interpolateFromGeometry(geometry, valid)
         // OSRM failed or the batch was too small to match — keep the raw
         // points as-is rather than losing them.
         : valid.map((p) => p.copyWith(isSnapped: false)).toList();
+
+    // Record why OSRM was or wasn't used, on the batch's last point.
+    if (snapped.isNotEmpty) {
+      snapped = [
+        ...snapped.take(snapped.length - 1),
+        snapped.last.copyWith(snapReason: match.reason),
+      ];
+    }
 
     double distance = 0.0;
     final prevPoint = finalLocations.isNotEmpty ? finalLocations.last : null;

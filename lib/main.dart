@@ -67,18 +67,10 @@ void _handleNotificationTap(Map<String, dynamic> data) {
       }
       break;
     case 'auto_punch_out':
-      // About the tapping user's own account — no targetUserId needed.
-      // Pop back to the (already-home) root route and surface why.
+      // About the tapping user's own account — no targetUserId needed. Pop
+      // back to the (already-home) root route; HomeBloc reconciles with the
+      // server on resume and shows the "punched out automatically" notice.
       nav.popUntil((route) => route.isFirst);
-      scaffoldMessengerKey.currentState?.showSnackBar(
-        const SnackBar(
-          content: Text(
-            "You've been punched out automatically — we didn't receive "
-            'location updates from your device.',
-          ),
-          duration: Duration(seconds: 6),
-        ),
-      );
       break;
   }
 }
