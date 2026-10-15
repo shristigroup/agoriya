@@ -153,11 +153,48 @@ class _HomeScreenState extends State<HomeScreen>
   /// Returns true only when foreground and background location are both granted.
   /// Uses Geolocator's permission API so it accepts approximate location too —
   /// the user does NOT need to enable "Precise location".
+  /// Google Play's prominent disclosure: shown BEFORE any location permission
+  /// request (not dismissible — back or tapping outside counts as "Not now"),
+  /// saying what is collected, why, and who sees it. [extra] is appended for
+  /// the background step.
+  Future<bool> _showLocationDisclosure({String extra = ''}) async {
+    if (!mounted) return false;
+    final agreed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('Location access'),
+          content: Text(
+            'TrackFolks collects your location data while you are punched in, '
+            'to show your route and visits, even when the app is closed or '
+            'not in use, and to provide this information to you and your '
+            "manager. This is required for the app's main functionality.$extra",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Not now'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Agree'),
+            ),
+          ],
+        ),
+      ),
+    );
+    return agreed == true;
+  }
+
   Future<bool> _ensureLocationPermission() async {
     // ── Step 1: foreground location (coarse or fine both accepted) ────────────
     var perm = await Geolocator.checkPermission();
 
     if (perm == LocationPermission.denied) {
+      // Disclosure first; the system prompt must follow it immediately.
+      if (!await _showLocationDisclosure()) return false;
       perm = await Geolocator.requestPermission();
     }
 
@@ -187,31 +224,10 @@ class _HomeScreenState extends State<HomeScreen>
     var bgStatus = await Permission.locationAlways.status;
     if (bgStatus.isGranted) return true;
 
-    // Explain before sending to settings.
-    if (!mounted) return false;
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Background Location Needed'),
-        content: const Text(
-          'TrackFolks needs to track your location while punched in, even when '
-          'the app is in the background.\n\n'
-          'Precise location is not required — approximate is fine.\n\n'
-          'On the next screen select "Allow all the time".',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
-    );
-    if (proceed != true) return false;
+    // Same disclosure again, immediately before the background request.
+    final proceed = await _showLocationDisclosure(
+        extra: '\n\nOn the next screen, choose "Allow all the time".');
+    if (!proceed) return false;
 
     bgStatus = await Permission.locationAlways.request();
 
