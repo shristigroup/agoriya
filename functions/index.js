@@ -241,8 +241,9 @@ exports.locationTrackingWatchdog = onSchedule(
       const data = doc.data();
       const heartbeatAt = data.locationHeartbeatTimestamp
         ? data.locationHeartbeatTimestamp.toMillis()
-        : (data.lastUpdatedAt
-          ? data.lastUpdatedAt.toMillis()
+        // lastBatchSyncedAt was called lastUpdatedAt in older builds.
+        : ((data.lastBatchSyncedAt || data.lastUpdatedAt)
+          ? (data.lastBatchSyncedAt || data.lastUpdatedAt).toMillis()
           : (data.startTime ? data.startTime.toMillis() : now));
 
       const userId = doc.ref.parent.parent.id;

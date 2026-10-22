@@ -204,6 +204,7 @@ void _onStart(ServiceInstance service) async {
   // Android: periodic timer (foreground service keeps the process alive).
   // iOS:     persistent position stream (keeps the isolate alive in background).
   Timer? samplingTimer;
+  Timer? heartbeatTimer; // liveness signal, independent of location updates
   StreamSubscription<Position>? positionSub;
 
   String _ts([DateTime? at]) {
@@ -374,7 +375,6 @@ void _onStart(ServiceInstance service) async {
         '${flush ? ' → flush' : ''}');
 
     await updateTrackingNotification(timestamp);
-    await writeHeartbeat();
   }
 
   // ── Android: one-shot GPS collection ──────────────────────────────────────
@@ -537,6 +537,7 @@ void _onStart(ServiceInstance service) async {
   service.on('stopTracking').listen((_) async {
     print('[LocationService] Stopping');
     samplingTimer?.cancel();
+    heartbeatTimer?.cancel();
     await positionSub?.cancel();
     positionSub = null;
     // No synthetic final point needed: every sample is written to Hive as
@@ -571,4 +572,16 @@ void _onStart(ServiceInstance service) async {
         '(interval: ${AppConstants.locationSamplingSeconds}s)');
   }
   // iOS: position stream is started lazily from the setParams listener above.
+
+  // Heartbeat: "this service is alive" — deliberately NOT tied to a location
+  // arriving. iOS only samples when the system delivers a position update (a
+  // stationary phone gets few), and Android skips a tick when no fix is
+  // available; tying the heartbeat to samples made the watchdog read those
+  // quiet-but-alive phones as dead. (writeHeartbeat is a no-op until
+  // userId/trackingId are set.)
+  writeHeartbeat();
+  heartbeatTimer = Timer.periodic(
+    Duration(seconds: AppConstants.locationSamplingSeconds),
+    (_) => writeHeartbeat(),
+  );
 }

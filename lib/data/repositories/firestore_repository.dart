@@ -199,7 +199,7 @@ class FirestoreRepository {
       await _trackingDoc(userId, trackingId).update({
         'locations': allLocations.map((p) => p.toFirestore()).toList(),
         'distance': distanceKm,
-        'lastUpdatedAt': FieldValue.serverTimestamp(),
+        'lastBatchSyncedAt': FieldValue.serverTimestamp(),
       });
     } on FirebaseException catch (e) {
       if (_isDocumentSizeLimitError(e)) {
