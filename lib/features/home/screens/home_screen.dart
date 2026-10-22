@@ -305,16 +305,68 @@ class _HomeScreenState extends State<HomeScreen>
             'Notification access has been permanently denied.\n\n'
             'Please go to Settings → TrackFolks → Notifications and enable it.',
         deniedMessage:
-            'TrackFolks needs notification access so your manager is notified '
-            'when you punch in/out or check in/out of a visit.\n\n'
+            'TrackFolks needs notification access to tell you if you are '
+            'punched out automatically because of app inactivity.\n\n'
             'Please enable notification permission in Settings.',
       );
 
+  /// Camera, notifications and (Android) battery exemption are all needed to
+  /// punch in. Any that are missing are explained together in ONE dialog
+  /// before their system prompts, instead of each prompt appearing cold with
+  /// the reason shown only after a denial. A permission that is already
+  /// permanently denied can't be prompted, so it skips the explanation and
+  /// goes straight to the existing "open Settings" dialog.
+  Future<bool> _ensurePunchInPermissions() async {
+    Future<bool> canPrompt(Permission p) async {
+      final status = await p.status;
+      return !status.isGranted && !status.isPermanentlyDenied;
+    }
+
+    final reasons = <String>[
+      if (await canPrompt(Permission.camera))
+        '• Camera: TrackFolks takes your selfie for attendance when you punch in.',
+      if (await canPrompt(Permission.notification))
+        '• Notifications: TrackFolks notifies you if you are punched out '
+            'automatically because of app inactivity.',
+      if (Platform.isAndroid &&
+          await canPrompt(Permission.ignoreBatteryOptimizations))
+        '• Battery: allow TrackFolks to keep running in the background so '
+            'tracking is not interrupted.',
+    ];
+
+    if (reasons.isNotEmpty) {
+      if (!mounted) return false;
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Permissions needed to punch in'),
+          content: Text(reasons.join('\n\n')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Not now'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true) return false;
+    }
+
+    if (!await _ensureCameraPermission()) return false;
+    if (!await _ensureNotificationPermission()) return false;
+    if (Platform.isAndroid && !await _ensureBatteryOptimizationExemption()) {
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _handlePunchIn(HomeLoaded state) async {
     if (!await _ensureLocationPermission()) return;
-    if (!await _ensureCameraPermission()) return;
-    if (!await _ensureNotificationPermission()) return;
-    if (Platform.isAndroid && !await _ensureBatteryOptimizationExemption()) return;
+    if (!await _ensurePunchInPermissions()) return;
 
     final file = await Navigator.of(context).push<File>(
       MaterialPageRoute(builder: (_) => const PunchInCameraScreen()),
