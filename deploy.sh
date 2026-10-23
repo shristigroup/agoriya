@@ -56,6 +56,7 @@ mkdir -p "$DIST_DIR"
 BUILD_IOS=true
 BUILD_ANDROID=true
 UPLOAD_IOS=false
+PLAY_UPLOAD=false
 SKIP_CLEAN=true
 
 for arg in "$@"; do
@@ -63,6 +64,8 @@ for arg in "$@"; do
     --ios-only)     BUILD_ANDROID=false ;;
     --android-only) BUILD_IOS=false ;;
     --upload)       UPLOAD_IOS=true ;;
+    --play)         PLAY_UPLOAD=true ;;
+    --play-only)    PLAY_UPLOAD=true; BUILD_IOS=false; BUILD_ANDROID=false ;;
     --full-clean)     SKIP_CLEAN=false ;;
   esac
 done
@@ -89,6 +92,25 @@ if [[ "$UPLOAD_IOS" == true ]]; then
     error "ASC_KEY_PATH file not found: $ASC_KEY_PATH"
   fi
   info "Upload credentials verified."
+fi
+
+# ─── Google Play upload credentials ───────────────────────────────────────────
+# --play builds the Play App Bundle (signed with the UPLOAD key, never the debug
+# key) and uploads it with scripts/play_upload.py. Set in .env or your profile:
+#   export PLAY_SERVICE_ACCOUNT_JSON="$HOME/.play/service-account.json"   # outside the repo
+#   export PLAY_TRACK="internal"            # optional; internal (default) | production | ...
+#   export PLAY_RELEASE_NOTES="..."         # optional
+# Internal testing releases are live for testers at once; any other track is
+# uploaded as a DRAFT, so the rollout/review is still started by hand in Play Console.
+if [[ "$PLAY_UPLOAD" == true ]]; then
+  if [[ -z "${PLAY_SERVICE_ACCOUNT_JSON:-}" ]]; then
+    error "PLAY_SERVICE_ACCOUNT_JSON is not set.\n  export PLAY_SERVICE_ACCOUNT_JSON=\"\$HOME/.play/service-account.json\""
+  fi
+  if [[ ! -f "$PLAY_SERVICE_ACCOUNT_JSON" ]]; then
+    error "PLAY_SERVICE_ACCOUNT_JSON file not found: $PLAY_SERVICE_ACCOUNT_JSON"
+  fi
+  command -v python3 >/dev/null || error "python3 is required for --play."
+  info "Play credentials found."
 fi
 
 # ─── Flutter clean & pub get ──────────────────────────────────────────────────
@@ -264,6 +286,29 @@ if [[ "$UPLOAD_IOS" == true ]]; then
   success "Upload complete — check TestFlight in App Store Connect for processing status."
 fi
 
+# ─── Google Play — build the AAB and upload it ───────────────────────────────
+if [[ "$PLAY_UPLOAD" == true ]]; then
+  info "Building Android App Bundle for Google Play (upload key)..."
+  # env -u: the debug-signing switch (used for the website APK) must never
+  # reach the Play bundle.
+  env -u TF_SIGN_WITH_DEBUG flutter build appbundle --release --dart-define-from-file="$TRACKING_ENV_FILE"
+
+  AAB_SRC="$SCRIPT_DIR/build/app/outputs/bundle/release/app-release.aab"
+  AAB_DEST="$DIST_DIR/agoriya-$PUBSPEC_VERSION.aab"
+  [[ -f "$AAB_SRC" ]] || error "AAB not found at $AAB_SRC"
+  cp "$AAB_SRC" "$AAB_DEST"
+  success "AAB → $AAB_DEST"
+
+  PLAY_TRACK_USED="${PLAY_TRACK:-internal}"
+  python3 "$SCRIPT_DIR/scripts/play_upload.py" \
+    --aab "$AAB_DEST" \
+    --key "$PLAY_SERVICE_ACCOUNT_JSON" \
+    --track "$PLAY_TRACK_USED" \
+    --name "$PUBSPEC_VERSION" \
+    --notes "${PLAY_RELEASE_NOTES:-Bug fixes and improvements.}"
+  success "Uploaded to Google Play ($PLAY_TRACK_USED)."
+fi
+
 # ─── Record built version ─────────────────────────────────────────────────────
 echo "$PUBSPEC_VERSION" > "$VERSION_FILE"
 
@@ -273,4 +318,5 @@ success "Build complete — version $PUBSPEC_VERSION"
 [[ "$BUILD_ANDROID" == true ]] && command -v gcloud &>/dev/null && success "  Storage: gs://$STORAGE_BUCKET/releases/latest.apk"
 [[ "$BUILD_IOS"     == true ]] && [[ "$(uname)" == "Darwin" ]] && success "  IPA: dist/agoriya-$PUBSPEC_VERSION.ipa"
 [[ "$UPLOAD_IOS"    == true ]] && success "  Uploaded to TestFlight ✓"
+[[ "$PLAY_UPLOAD"   == true ]] && success "  Google Play: dist/agoriya-$PUBSPEC_VERSION.aab → ${PLAY_TRACK:-internal}"
 success "────────────────────────────────────────"
