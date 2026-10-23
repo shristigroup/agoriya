@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Build and (optionally) publish TrackFolks.
+#
+#   ./deploy.sh                       build iOS + Android, upload nothing
+#   ./deploy.sh --upload              build both, upload iOS to App Store Connect
+#                                     and Android to Google Play
+#   ./deploy.sh --ios-only [--upload]       one platform only
+#   ./deploy.sh --android-only [--upload]
+#   --full-clean                      run `flutter clean` first
+#
+# Android is an App Bundle (AAB) signed with the upload key — what Google Play
+# takes. Uploads go to Play's internal testing track by default; any other track
+# (PLAY_TRACK=production) is uploaded as a DRAFT so the rollout/review is still
+# started by hand in Play Console. Credentials: see the checks below.
+
 # ─── Colours ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -17,7 +31,6 @@ error()   { echo -e "${RED}[deploy]${NC} $*"; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIST_DIR="$SCRIPT_DIR/dist"
 VERSION_FILE="$DIST_DIR/.last_version"
-STORAGE_BUCKET="agoriya-app.firebasestorage.app"
 TRACKING_ENV_FILE="$SCRIPT_DIR/functions/.env"
 
 # ─── Tracking config (shared with Cloud Functions — see functions/.env.example) ──
@@ -55,29 +68,27 @@ mkdir -p "$DIST_DIR"
 # ─── Parse build args ─────────────────────────────────────────────────────────
 BUILD_IOS=true
 BUILD_ANDROID=true
-UPLOAD_IOS=false
-PLAY_UPLOAD=false
+UPLOAD=false
 SKIP_CLEAN=true
 
 for arg in "$@"; do
   case $arg in
     --ios-only)     BUILD_ANDROID=false ;;
     --android-only) BUILD_IOS=false ;;
-    --upload)       UPLOAD_IOS=true ;;
-    --play)         PLAY_UPLOAD=true ;;
-    --play-only)    PLAY_UPLOAD=true; BUILD_IOS=false; BUILD_ANDROID=false ;;
-    --full-clean)     SKIP_CLEAN=false ;;
+    --upload)       UPLOAD=true ;;
+    --full-clean)   SKIP_CLEAN=false ;;
+    *) error "Unknown option: $arg  (use --ios-only, --android-only, --upload, --full-clean)" ;;
   esac
 done
 
-# ─── Validate upload credentials early ───────────────────────────────────────
-# Set these in your shell profile (~/.zshrc or ~/.bash_profile):
-#   export ASC_KEY_ID="XXXXXXXXXX"
-#   export ASC_ISSUER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-#   export ASC_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8"
-if [[ "$UPLOAD_IOS" == true ]]; then
+# ─── Validate upload credentials early (only for the platforms being built) ───
+if [[ "$UPLOAD" == true && "$BUILD_IOS" == true ]]; then
+  # Set these in .env or your shell profile:
+  #   export ASC_KEY_ID="XXXXXXXXXX"
+  #   export ASC_ISSUER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  #   export ASC_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8"
   if [[ "$(uname)" != "Darwin" ]]; then
-    error "--upload is only supported on macOS."
+    error "Uploading the iOS build is only supported on macOS."
   fi
   if [[ -z "${ASC_KEY_ID:-}" ]]; then
     error "ASC_KEY_ID is not set. Export it in your shell profile.\n  export ASC_KEY_ID=\"YOUR_KEY_ID\""
@@ -91,26 +102,22 @@ if [[ "$UPLOAD_IOS" == true ]]; then
   if [[ ! -f "$ASC_KEY_PATH" ]]; then
     error "ASC_KEY_PATH file not found: $ASC_KEY_PATH"
   fi
-  info "Upload credentials verified."
+  info "App Store Connect credentials verified."
 fi
 
-# ─── Google Play upload credentials ───────────────────────────────────────────
-# --play builds the Play App Bundle (signed with the UPLOAD key, never the debug
-# key) and uploads it with scripts/play_upload.py. Set in .env or your profile:
-#   export PLAY_SERVICE_ACCOUNT_JSON="$HOME/.play/service-account.json"   # outside the repo
-#   export PLAY_TRACK="internal"            # optional; internal (default) | production | ...
-#   export PLAY_RELEASE_NOTES="..."         # optional
-# Internal testing releases are live for testers at once; any other track is
-# uploaded as a DRAFT, so the rollout/review is still started by hand in Play Console.
-if [[ "$PLAY_UPLOAD" == true ]]; then
+if [[ "$UPLOAD" == true && "$BUILD_ANDROID" == true ]]; then
+  # Set these in .env or your shell profile:
+  #   export PLAY_SERVICE_ACCOUNT_JSON="$HOME/.play/service-account.json"   # outside the repo
+  #   export PLAY_TRACK="internal"            # optional; internal (default) | production | ...
+  #   export PLAY_RELEASE_NOTES="..."         # optional
   if [[ -z "${PLAY_SERVICE_ACCOUNT_JSON:-}" ]]; then
     error "PLAY_SERVICE_ACCOUNT_JSON is not set.\n  export PLAY_SERVICE_ACCOUNT_JSON=\"\$HOME/.play/service-account.json\""
   fi
   if [[ ! -f "$PLAY_SERVICE_ACCOUNT_JSON" ]]; then
     error "PLAY_SERVICE_ACCOUNT_JSON file not found: $PLAY_SERVICE_ACCOUNT_JSON"
   fi
-  command -v python3 >/dev/null || error "python3 is required for --play."
-  info "Play credentials found."
+  command -v python3 >/dev/null || error "python3 is required to upload to Google Play."
+  info "Google Play credentials verified."
 fi
 
 # ─── Flutter clean & pub get ──────────────────────────────────────────────────
@@ -124,75 +131,29 @@ fi
 info "Running flutter pub get..."
 flutter pub get
 
-# ─── Android — release APK ───────────────────────────────────────────────────
+# ─── Android — App Bundle (upload key) ────────────────────────────────────────
 if [[ "$BUILD_ANDROID" == true ]]; then
-  info "Building Android release APK..."
-  flutter build apk --release --dart-define-from-file="$TRACKING_ENV_FILE"
+  info "Building Android App Bundle (upload key)..."
+  # env -u: a leftover TF_SIGN_WITH_DEBUG (the old website-APK switch) must
+  # never sign the bundle Google Play receives.
+  env -u TF_SIGN_WITH_DEBUG flutter build appbundle --release --dart-define-from-file="$TRACKING_ENV_FILE"
 
-  APK_SRC="$SCRIPT_DIR/build/app/outputs/flutter-apk/app-release.apk"
-  APK_DEST="$DIST_DIR/agoriya-$PUBSPEC_VERSION.apk"
+  AAB_SRC="$SCRIPT_DIR/build/app/outputs/bundle/release/app-release.aab"
+  AAB_DEST="$DIST_DIR/agoriya-$PUBSPEC_VERSION.aab"
+  [[ -f "$AAB_SRC" ]] || error "AAB not found at $AAB_SRC"
+  cp "$AAB_SRC" "$AAB_DEST"
+  success "AAB → $AAB_DEST"
 
-  if [[ ! -f "$APK_SRC" ]]; then
-    error "APK not found at $APK_SRC"
-  fi
-
-  cp "$APK_SRC" "$APK_DEST"
-  success "APK → $APK_DEST"
-
-  # ── Upload APK to Firebase Storage ──────────────────────────────────────────
-  if command -v gcloud &>/dev/null; then
-    gcloud config set project agoriya-app
-
-    info "Uploading APK to Firebase Storage..."
-
-    gcloud storage cp "$APK_DEST" \
-      "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk"
-    gcloud storage cp "$APK_DEST" \
-      "gs://$STORAGE_BUCKET/releases/latest.apk"
-
-    # Make both files publicly readable.
-    # Requires uniform bucket-level access to be OFF (fine-grained ACLs).
-    # If your bucket uses uniform access, set a Storage Rule instead:
-    #   match /releases/{file} { allow read; }
-    gcloud storage objects update \
-      "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk" \
-      --add-acl-grant=entity=allUsers,role=READER 2>/dev/null \
-      || warn "Could not set ACL — ensure Firebase Storage rules allow public reads for /releases/."
-    gcloud storage objects update \
-      "gs://$STORAGE_BUCKET/releases/latest.apk" \
-      --add-acl-grant=entity=allUsers,role=READER 2>/dev/null \
-      || warn "Could not set ACL on latest.apk — check Storage rules."
-
-    # Disable caching on latest.apk so browsers always fetch the newest version.
-    gcloud storage objects update \
-      "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk" \
-      "gs://$STORAGE_BUCKET/releases/latest.apk" \
-      --cache-control="no-cache,max-age=0" 2>/dev/null \
-      || warn "Could not set Cache-Control headers — downloads may be cached by browsers."
-
-    success "APK uploaded → gs://$STORAGE_BUCKET/releases/latest.apk"
-    success "Public URL: https://firebasestorage.googleapis.com/v0/b/$STORAGE_BUCKET/o/releases%2Flatest.apk?alt=media&v=$PUBSPEC_VERSION"
-
-    # Update download URLs in index.html with the new version so browsers
-    # treat this as a new URL and skip any cached copy of the old APK.
-    info "Updating index.html download links to v$PUBSPEC_VERSION..."
-    perl -i -pe "s|(releases%2Flatest\.apk\?alt=media)(?:&v=[^\"\\']*)?|\${1}&v=$PUBSPEC_VERSION|g" \
-      "$SCRIPT_DIR/index.html"
-
-    # Commit and push so GitHub Pages serves the updated download link.
-    if git -C "$SCRIPT_DIR" diff --quiet index.html; then
-      warn "index.html already up to date — skipping push."
-    else
-      git -C "$SCRIPT_DIR" add index.html
-      git -C "$SCRIPT_DIR" commit -m "chore: bump APK download link to v$PUBSPEC_VERSION"
-      git -C "$SCRIPT_DIR" push \
-        && success "index.html pushed → GitHub Pages will serve v$PUBSPEC_VERSION link" \
-        || warn "git push failed — push index.html manually so the download page updates."
-    fi
-  else
-    warn "gcloud not found — skipping Firebase Storage upload."
-    warn "Install Google Cloud SDK: https://cloud.google.com/sdk"
-    warn "Then run: gcloud auth login && gcloud config set project agoriya-app"
+  if [[ "$UPLOAD" == true ]]; then
+    PLAY_TRACK_USED="${PLAY_TRACK:-internal}"
+    info "Uploading AAB to Google Play ($PLAY_TRACK_USED)..."
+    python3 "$SCRIPT_DIR/scripts/play_upload.py" \
+      --aab "$AAB_DEST" \
+      --key "$PLAY_SERVICE_ACCOUNT_JSON" \
+      --track "$PLAY_TRACK_USED" \
+      --name "$PUBSPEC_VERSION" \
+      --notes "${PLAY_RELEASE_NOTES:-Bug fixes and improvements.}"
+    success "Uploaded to Google Play ($PLAY_TRACK_USED)."
   fi
 fi
 
@@ -254,9 +215,9 @@ PLIST
 fi
 
 # ─── Upload to App Store Connect ──────────────────────────────────────────────
-if [[ "$UPLOAD_IOS" == true ]]; then
+if [[ "$UPLOAD" == true && "$BUILD_IOS" == true ]]; then
   if [[ -z "$IPA_DEST" || ! -f "$IPA_DEST" ]]; then
-    error "No IPA to upload. Run with --upload alongside an iOS build (not --android-only)."
+    error "No IPA to upload — the iOS build did not produce one."
   fi
 
   # altool has no --private-key option: it looks for AuthKey_<ASC_KEY_ID>.p8 in
@@ -286,37 +247,13 @@ if [[ "$UPLOAD_IOS" == true ]]; then
   success "Upload complete — check TestFlight in App Store Connect for processing status."
 fi
 
-# ─── Google Play — build the AAB and upload it ───────────────────────────────
-if [[ "$PLAY_UPLOAD" == true ]]; then
-  info "Building Android App Bundle for Google Play (upload key)..."
-  # env -u: the debug-signing switch (used for the website APK) must never
-  # reach the Play bundle.
-  env -u TF_SIGN_WITH_DEBUG flutter build appbundle --release --dart-define-from-file="$TRACKING_ENV_FILE"
-
-  AAB_SRC="$SCRIPT_DIR/build/app/outputs/bundle/release/app-release.aab"
-  AAB_DEST="$DIST_DIR/agoriya-$PUBSPEC_VERSION.aab"
-  [[ -f "$AAB_SRC" ]] || error "AAB not found at $AAB_SRC"
-  cp "$AAB_SRC" "$AAB_DEST"
-  success "AAB → $AAB_DEST"
-
-  PLAY_TRACK_USED="${PLAY_TRACK:-internal}"
-  python3 "$SCRIPT_DIR/scripts/play_upload.py" \
-    --aab "$AAB_DEST" \
-    --key "$PLAY_SERVICE_ACCOUNT_JSON" \
-    --track "$PLAY_TRACK_USED" \
-    --name "$PUBSPEC_VERSION" \
-    --notes "${PLAY_RELEASE_NOTES:-Bug fixes and improvements.}"
-  success "Uploaded to Google Play ($PLAY_TRACK_USED)."
-fi
-
 # ─── Record built version ─────────────────────────────────────────────────────
 echo "$PUBSPEC_VERSION" > "$VERSION_FILE"
 
 success "────────────────────────────────────────"
 success "Build complete — version $PUBSPEC_VERSION"
-[[ "$BUILD_ANDROID" == true ]] && success "  APK: dist/agoriya-$PUBSPEC_VERSION.apk"
-[[ "$BUILD_ANDROID" == true ]] && command -v gcloud &>/dev/null && success "  Storage: gs://$STORAGE_BUCKET/releases/latest.apk"
-[[ "$BUILD_IOS"     == true ]] && [[ "$(uname)" == "Darwin" ]] && success "  IPA: dist/agoriya-$PUBSPEC_VERSION.ipa"
-[[ "$UPLOAD_IOS"    == true ]] && success "  Uploaded to TestFlight ✓"
-[[ "$PLAY_UPLOAD"   == true ]] && success "  Google Play: dist/agoriya-$PUBSPEC_VERSION.aab → ${PLAY_TRACK:-internal}"
+[[ "$BUILD_ANDROID" == true ]] && success "  AAB: dist/agoriya-$PUBSPEC_VERSION.aab"
+[[ "$BUILD_ANDROID" == true && "$UPLOAD" == true ]] && success "  Uploaded to Google Play (${PLAY_TRACK:-internal}) ✓"
+[[ "$BUILD_IOS"     == true && -n "$IPA_DEST" ]] && success "  IPA: dist/agoriya-$PUBSPEC_VERSION.ipa"
+[[ "$BUILD_IOS"     == true && "$UPLOAD" == true ]] && success "  Uploaded to TestFlight ✓"
 success "────────────────────────────────────────"
