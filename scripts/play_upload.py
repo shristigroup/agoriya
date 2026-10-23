@@ -48,7 +48,7 @@ def access_token(sa: dict) -> str:
     return (signing_input + b"." + b64(sig)).decode()
 
 
-def curl(method, url, token=None, body=None, data_file=None, content_type=None):
+def curl(method, url, token=None, body=None, data_file=None, content_type=None, step=""):
     cmd = ["curl", "-sS", "-g", "-X", method, url]
     if token:
         cmd += ["-H", "Authorization: Bearer " + token]
@@ -66,7 +66,8 @@ def curl(method, url, token=None, body=None, data_file=None, content_type=None):
         sys.exit(f"Unexpected response from {url}: {out.stdout[:300]}")
     if isinstance(data, dict) and "error" in data:
         err = data["error"]
-        sys.exit(f"Google Play API error ({err.get('code')}): {err.get('message')}")
+        where = f" while trying to {step}" if step else ""
+        sys.exit(f"Google Play API error{where} ({err.get('code')}): {err.get('message')}")
     return data
 
 
@@ -110,18 +111,23 @@ def main():
     if not tok:
         sys.exit(f"Could not get an access token: {out[:300]}")
 
-    edit = curl("POST", f"{API}/{a.package}/edits", tok, body={})["id"]
+    edit = curl("POST", f"{API}/{a.package}/edits", tok, body={}, step="open an edit")["id"]
     print(f"[play] edit {edit} created; uploading bundle (this can take a minute)...")
     bundle = curl("POST", f"{UPLOAD}/{a.package}/edits/{edit}/bundles?uploadType=media",
-                  tok, data_file=a.aab)
+                  tok, data_file=a.aab, step="upload the bundle")
     vc = bundle["versionCode"]
     print(f"[play] uploaded: versionCode {vc}")
 
     release = {"name": a.name or str(vc), "versionCodes": [str(vc)], "status": status,
                "releaseNotes": [{"language": "en-US", "text": a.notes}]}
     curl("PUT", f"{API}/{a.package}/edits/{edit}/tracks/{a.track}", tok,
-         body={"track": a.track, "releases": [release]})
-    curl("POST", f"{API}/{a.package}/edits/{edit}:commit", tok, body={})
+         body={"track": a.track, "releases": [release]}, step=f"assign it to the '{a.track}' track")
+    # Play checks release permissions when the edit is validated/committed, not
+    # when it is staged, so a 403 here means the service account lacks them.
+    curl("POST", f"{API}/{a.package}/edits/{edit}:validate", tok, body={},
+         step="validate the release (the service account needs 'Release apps to "
+              "testing tracks' / 'Release to production' in Play Console > Users and permissions)")
+    curl("POST", f"{API}/{a.package}/edits/{edit}:commit", tok, body={}, step="commit the release")
     print(f"[play] committed: versionCode {vc} on '{a.track}' as {status}.")
     if status == "draft":
         print("[play] it is a DRAFT: open Play Console > Production (or the track) to roll it out.")
