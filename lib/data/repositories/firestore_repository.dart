@@ -50,21 +50,28 @@ class FirestoreRepository {
     return snap.docs.map((d) => UserModel.fromFirestore(d)).toList();
   }
 
+  /// Returns null ONLY when the server says there is no such user. Network
+  /// errors, timeouts and non-200 responses throw — callers must not mistake a
+  /// failed lookup for "new user" (that would create a duplicate account).
   Future<UserModel?> getUserByPhone(String phone) async {
     final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
-    if (idToken == null) return null;
+    if (idToken == null) throw Exception('Not signed in');
     final uri = Uri.parse(
       'https://asia-south1-agoriya-app.cloudfunctions.net/getUserByPhone',
     );
-    final response = await http.post(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $idToken',
-      },
-      body: jsonEncode({'phoneNumber': phone}),
-    );
-    if (response.statusCode != 200) return null;
+    final response = await http
+        .post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+          body: jsonEncode({'phoneNumber': phone}),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw Exception('getUserByPhone failed (${response.statusCode})');
+    }
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     if (body['user'] == null) return null;
     final data = body['user'] as Map<String, dynamic>;
@@ -413,7 +420,7 @@ class FirestoreRepository {
     final uri = Uri.parse(
       'https://asia-south1-agoriya-app.cloudfunctions.net/getOrgMembers?code=$code',
     );
-    final response = await http.get(uri);
+    final response = await http.get(uri).timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) {
       throw Exception('Failed to load org members');
     }
@@ -456,7 +463,7 @@ class FirestoreRepository {
         'Authorization': 'Bearer $idToken',
       },
       body: jsonEncode({if (targetUserId != null) 'targetUserId': targetUserId}),
-    );
+    ).timeout(const Duration(seconds: 30));
     if (response.statusCode == 200) return;
 
     String? code;

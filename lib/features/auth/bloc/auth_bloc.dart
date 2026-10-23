@@ -164,7 +164,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       emit(AuthAuthenticated(user));
     } catch (e) {
-      emit(AuthError(e.toString()));
+      emit(AuthError(e is TimeoutException
+          ? 'The network is slow. Please check your connection and try again.'
+          : e.toString()));
     }
   }
 
@@ -180,7 +182,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         'Authorization': 'Bearer $idToken',
       },
       body: jsonEncode({'userId': docId}),
-    );
+    ).timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) {
       throw Exception('Failed to set user claim: ${response.body}');
     }
