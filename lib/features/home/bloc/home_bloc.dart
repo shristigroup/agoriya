@@ -29,6 +29,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       'contact the app administrator.';
 
   StreamSubscription? _newPointSub;
+  StreamSubscription? _autoPunchOutSub;
 
   HomeBloc({required this.userId}) : super(HomeInitial()) {
     on<HomeInitEvent>(_onInit);
@@ -37,6 +38,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<ResumeSessionEvent>(_onResumeSession);
     on<AppResumedEvent>(_onAppResumed);
     on<AppPausedEvent>(_onAppPaused);
+    on<ReconcileWithServerEvent>(
+        (event, emit) async => _reconcileAutoPunchOut(emit));
+    on<AutoPunchOutAcknowledgedEvent>((event, emit) {
+      final s = state;
+      if (s is HomeLoaded) emit(s.copyWith(clearAutoPunchedOut: true));
+    });
     on<NewLocationPointEvent>(_onNewLocationPoint);
     on<CreateVisitEvent>(_onCreateVisit);
     on<UpdateVisitEvent>(_onUpdateVisit);
@@ -44,6 +51,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<AddCommentEvent>(_onAddComment);
 
     final bgService = FlutterBackgroundService();
+
+    _autoPunchOutSub = NotificationService.autoPunchOutEvents
+        .listen((_) => add(ReconcileWithServerEvent()));
 
     _newPointSub = bgService.on('newPoint').listen((data) {
       if (data == null) return;
@@ -64,6 +74,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   @override
   Future<void> close() {
+    _autoPunchOutSub?.cancel();
     _newPointSub?.cancel();
     return super.close();
   }
@@ -81,6 +92,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final visits = await DataManager.getVisitsForDay(userId, today);
 
     emit(HomeLoaded(tracking: tracking, visits: visits));
+
+    // The server may have closed the session while the app was dead — find
+    // out before restarting tracking for a session that no longer exists.
+    if (await _reconcileAutoPunchOut(emit)) return;
 
     await _ensureServiceMatchesTracking(tracking, emit);
     await _processBatch(emit);
@@ -184,6 +199,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final current = state as HomeLoaded;
     if (current.tracking?.isPunchedIn != true) return;
 
+    // First, has the server closed this session behind our back?
+    if (await _reconcileAutoPunchOut(emit)) return;
+
     // Reopen locationsBox/settingsBox + reacquire the lock released in
     // _onAppPaused — must happen before _processBatch reads finalLocations,
     // since the FCM watchdog may have synced a batch to disk while we were
@@ -195,6 +213,58 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     // syncing, same check _onInit uses.
     await _ensureServiceMatchesTracking(current.tracking, emit);
     await _processBatch(emit);
+  }
+
+  // ── Reconcile with server-side auto punch-out ────────────────────────────
+  // The watchdog (Cloud Function) can close a session itself when the phone
+  // stops reporting. It tells the user by push, but the app used to keep
+  // trusting its LOCAL model — still showing "punched in" and still
+  // tracking into a session the manager already sees as closed. This asks
+  // the server and, if it's closed, brings the phone in line. Returns true
+  // if the session turned out to be closed.
+
+  Future<bool> _reconcileAutoPunchOut(Emitter<HomeState> emit) async {
+    final current = state;
+    if (current is! HomeLoaded) return false;
+    // Only ever for the signed-in user's own session (HomeBloc is also used
+    // to view a team member read-only).
+    if (LocalStorageService.getUser()?.id != userId) return false;
+    final local = current.tracking;
+    if (local == null || !local.isPunchedIn) return false;
+
+    try {
+      final remote =
+          await DataManager.fetchTrackingFromServer(userId, local.id);
+      if (remote == null || !remote.isStopped) return false;
+
+      // Push whatever the isolate still holds to the (now closed) session so
+      // its distance and points aren't lost, then stop tracking.
+      try {
+        await _processBatch(emit, forceSync: true);
+      } catch (_) {}
+      LocationTrackingService.stop();
+      await LocalStorageService.saveTracking(remote);
+
+      final latest = state;
+      if (latest is HomeLoaded) {
+        emit(latest.copyWith(
+          tracking: remote,
+          isRefreshing: false,
+          // Only the watchdog's closes get the notice; a close made from the
+          // user's own other device doesn't need one.
+          autoPunchedOutAt:
+              remote.wasAutoClosed ? (remote.stopTime ?? DateTime.now()) : null,
+        ));
+      }
+      print('[HomeBloc] session ${local.id} was closed by the server '
+          '(reason=${remote.autoClosedReason}) — local state reconciled');
+      return true;
+    } catch (e) {
+      // Offline or a transient error — leave the local state alone; the next
+      // resume/init tries again.
+      print('[HomeBloc] reconcile skipped: $e');
+      return false;
+    }
   }
 
   // ── App Paused (backgrounded) ─────────────────────────────────────────────

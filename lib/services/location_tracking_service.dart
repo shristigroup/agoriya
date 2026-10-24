@@ -10,6 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/app_utils.dart';
+import '../core/utils/gps_outlier.dart';
 import '../data/local/local_storage_service.dart';
 import '../data/models/location_model.dart';
 import '../firebase_options.dart';
@@ -131,8 +132,10 @@ class LocationTrackingService {
   /// timestamp and (b) update its stationary/movement anchor to this point.
   /// Never called on sync failure — leaving cursor state untouched is what
   /// makes a failed sync naturally retryable on the next signal/resume.
-  static void confirmBatchSynced(LocationPoint lastSyncedPoint) {
+  static void confirmBatchSynced(LocationPoint lastSyncedPoint,
+      {required double distanceKm}) {
     _bgService.invoke('batchSynced', {
+      'syncedDistanceKm': distanceKm,
       'uptoTimestamp': lastSyncedPoint.timestamp.toIso8601String(),
       'anchorLat': lastSyncedPoint.position.latitude,
       'anchorLng': lastSyncedPoint.position.longitude,
@@ -201,6 +204,7 @@ void _onStart(ServiceInstance service) async {
   // Android: periodic timer (foreground service keeps the process alive).
   // iOS:     persistent position stream (keeps the isolate alive in background).
   Timer? samplingTimer;
+  Timer? heartbeatTimer; // liveness signal, independent of location updates
   StreamSubscription<Position>? positionSub;
 
   String _ts([DateTime? at]) {
@@ -221,9 +225,29 @@ void _onStart(ServiceInstance service) async {
     if (!Platform.isAndroid) return;
     final hhmm = '${sampledAt.hour.toString().padLeft(2, '0')}:'
         '${sampledAt.minute.toString().padLeft(2, '0')}';
+
+    // Day duration: the session id is 'yyyy-MM-dd_HH:mm:ss', so it holds the
+    // punch-in time.
+    final start = DateTime.tryParse(trackingId?.replaceFirst('_', 'T') ?? '');
+    final elapsed = start != null ? sampledAt.difference(start) : Duration.zero;
+
+    // Day distance, same formula as the home screen: synced total + the
+    // unsynced batch chained from the last confirmed point.
+    final pts = [
+      if (LocalStorageService.getLastConfirmedPoint() != null)
+        LocalStorageService.getLastConfirmedPoint()!,
+      ...LocalStorageService.getCurrentBatch(),
+    ];
+    var km = LocalStorageService.getSyncedDistanceKm() ?? 0.0;
+    for (var i = 0; i < pts.length - 1; i++) {
+      km += AppUtils.haversineMeters(pts[i].position, pts[i + 1].position) /
+          1000.0;
+    }
+
     await notificationsPlugin.show(
       AppConstants.bgNotificationId,
-      'TrackFolks',
+      'TrackFolks · ${AppUtils.formatDuration(elapsed.isNegative ? Duration.zero : elapsed)}'
+          ' · ${AppUtils.formatDistance(km)}',
       'Tracking location · last sample $hhmm',
       const NotificationDetails(
         android: AndroidNotificationDetails(
@@ -271,8 +295,30 @@ void _onStart(ServiceInstance service) async {
     }
 
     final newPosition = LatLng(lat, lng);
-    final currentBatch = LocalStorageService.getCurrentBatch();
+    var currentBatch = LocalStorageService.getCurrentBatch();
     final anchor = LocalStorageService.getLastConfirmedPoint();
+
+    // Stray-fix check: this new sample (C) is the first moment the previous
+    // point (B) can be judged. If B jumped far out and the track came straight
+    // back (A and C close together), B was a stray — drop it before it can
+    // inflate distance or become an anchor. Only an isolated B is considered:
+    // one that already has stationary ticks is a real place. B is only in
+    // currentBatch while unsynced; once synced it can't be retracted here.
+    if (currentBatch.isNotEmpty && (currentBatch.last.durationSeconds ?? 0) == 0) {
+      final b = currentBatch.last;
+      final a = currentBatch.length >= 2
+          ? currentBatch[currentBatch.length - 2]
+          : anchor;
+      if (a != null &&
+          GpsOutlier.isSpike(a.position, b.position, newPosition)) {
+        currentBatch = currentBatch.sublist(0, currentBatch.length - 1);
+        await LocalStorageService.saveCurrentBatch(currentBatch);
+        print('[LocationService ${_ts()}] dropped stray point '
+            '${b.position.latitude}, ${b.position.longitude} '
+            '(jumped away and came back)');
+      }
+    }
+
     final lastPoint = currentBatch.isNotEmpty ? currentBatch.last : anchor;
 
     final distanceMeters = lastPoint != null
@@ -329,7 +375,6 @@ void _onStart(ServiceInstance service) async {
         '${flush ? ' → flush' : ''}');
 
     await updateTrackingNotification(timestamp);
-    await writeHeartbeat();
   }
 
   // ── Android: one-shot GPS collection ──────────────────────────────────────
@@ -459,6 +504,11 @@ void _onStart(ServiceInstance service) async {
         .toList();
     await LocalStorageService.saveCurrentBatch(remaining);
 
+    final syncedKm = data['syncedDistanceKm'] as num?;
+    if (syncedKm != null) {
+      await LocalStorageService.saveSyncedDistanceKm(syncedKm.toDouble());
+    }
+
     final anchorLat = data['anchorLat'] as num?;
     final anchorLng = data['anchorLng'] as num?;
     final anchorTsIso = data['anchorTimestamp'] as String?;
@@ -487,6 +537,7 @@ void _onStart(ServiceInstance service) async {
   service.on('stopTracking').listen((_) async {
     print('[LocationService] Stopping');
     samplingTimer?.cancel();
+    heartbeatTimer?.cancel();
     await positionSub?.cancel();
     positionSub = null;
     // No synthetic final point needed: every sample is written to Hive as
@@ -521,4 +572,16 @@ void _onStart(ServiceInstance service) async {
         '(interval: ${AppConstants.locationSamplingSeconds}s)');
   }
   // iOS: position stream is started lazily from the setParams listener above.
+
+  // Heartbeat: "this service is alive" — deliberately NOT tied to a location
+  // arriving. iOS only samples when the system delivers a position update (a
+  // stationary phone gets few), and Android skips a tick when no fix is
+  // available; tying the heartbeat to samples made the watchdog read those
+  // quiet-but-alive phones as dead. (writeHeartbeat is a no-op until
+  // userId/trackingId are set.)
+  writeHeartbeat();
+  heartbeatTimer = Timer.periodic(
+    Duration(seconds: AppConstants.locationSamplingSeconds),
+    (_) => writeHeartbeat(),
+  );
 }

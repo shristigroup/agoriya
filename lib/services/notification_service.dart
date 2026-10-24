@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
@@ -94,6 +95,13 @@ class NotificationService {
   /// Receives a decoded Map<String, dynamic> of FCM data.
   static Function(Map<String, dynamic> data)? onNotificationTap;
 
+  static final StreamController<void> _autoPunchOutController =
+      StreamController<void>.broadcast();
+
+  /// Fires when an `auto_punch_out` push arrives while the app is open, so
+  /// HomeBloc can reconcile its local state with the server's.
+  static Stream<void> get autoPunchOutEvents => _autoPunchOutController.stream;
+
   static Future<void> initialize() async {
     // Register background handler
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -127,6 +135,9 @@ class NotificationService {
     // Foreground FCM
     FirebaseMessaging.onMessage.listen((message) {
       _showLocalNotification(message);
+      if (message.data['type'] == 'auto_punch_out') {
+        _autoPunchOutController.add(null);
+      }
     });
 
     // App opened from background via notification tap

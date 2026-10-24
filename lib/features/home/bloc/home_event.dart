@@ -76,3 +76,12 @@ class AppResumedEvent extends HomeEvent {}
 /// LocationsBoxLock) so the FCM watchdog can safely sync while the app is
 /// backgrounded — the window it's most likely to be needed.
 class AppPausedEvent extends HomeEvent {}
+
+/// Re-reads the open session from Firestore and, if the server watchdog has
+/// closed it in the meantime, brings the phone in line (stops tracking, shows
+/// the punched-out state). Fired on start-up, on resume, and when an
+/// `auto_punch_out` push arrives while the app is open.
+class ReconcileWithServerEvent extends HomeEvent {}
+
+/// The user dismissed the "punched out automatically" notice.
+class AutoPunchOutAcknowledgedEvent extends HomeEvent {}

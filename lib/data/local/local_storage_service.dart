@@ -333,6 +333,13 @@ class LocalStorageService {
     }
   }
 
+  static Future<void> saveSyncedDistanceKm(double km) async {
+    await _cursorBox.put(AppConstants.syncedDistanceKmKey, km);
+  }
+
+  static double? getSyncedDistanceKm() =>
+      (_cursorBox.get(AppConstants.syncedDistanceKmKey) as num?)?.toDouble();
+
   static LocationPoint? getLastConfirmedPoint() {
     final raw = _cursorBox.get(AppConstants.lastConfirmedPointKey);
     if (raw == null) return null;
@@ -346,6 +353,7 @@ class LocalStorageService {
     await _cursorBox.delete(AppConstants.currentBatchKey);
     await _cursorBox.delete(AppConstants.pendingSampleCountKey);
     await _cursorBox.delete(AppConstants.lastConfirmedPointKey);
+    await _cursorBox.delete(AppConstants.syncedDistanceKmKey);
   }
 
   // ─── Persisted locations for any user+date ────────────────────────────────

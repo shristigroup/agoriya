@@ -52,3 +52,7 @@ dist/
 _site/
 .jekyll-metadata
 .env
+
+# Google Play API credentials (keep outside the repo; ignored just in case)
+*service-account*.json
+play-api*.json

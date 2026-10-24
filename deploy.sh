@@ -1,6 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Build and (optionally) publish TrackFolks.
+#
+#   ./deploy.sh                       build iOS + Android, upload nothing
+#   ./deploy.sh --upload              build both, upload iOS to App Store Connect
+#                                     and Android to Google Play
+#   ./deploy.sh --ios-only [--upload]       one platform only
+#   ./deploy.sh --android-only [--upload]
+#   --full-clean                      run `flutter clean` first
+#   --rebuild                         ignore a previous build and build again
+#
+# Progress is tracked per platform in dist/.deploy_state (built / uploaded, keyed
+# by version@commit). Re-running after a failed upload reuses the artifact that
+# is already built and only uploads it. A build is reused only if it is the same
+# version AND the same git commit with a clean working tree; otherwise it is
+# rebuilt, so a stale binary can never be shipped.
+#
+# Android is an App Bundle (AAB) signed with the upload key — what Google Play
+# takes. Uploads go to Play's internal testing track by default; any other track
+# (PLAY_TRACK=production) is uploaded as a DRAFT so the rollout/review is still
+# started by hand in Play Console. Credentials: see the checks below.
+
 # ─── Colours ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -16,8 +37,7 @@ error()   { echo -e "${RED}[deploy]${NC} $*"; exit 1; }
 # ─── Paths ────────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIST_DIR="$SCRIPT_DIR/dist"
-VERSION_FILE="$DIST_DIR/.last_version"
-STORAGE_BUCKET="agoriya-app.firebasestorage.app"
+STATE_FILE="$DIST_DIR/.deploy_state"
 TRACKING_ENV_FILE="$SCRIPT_DIR/functions/.env"
 
 # ─── Tracking config (shared with Cloud Functions — see functions/.env.example) ──
@@ -39,42 +59,55 @@ if [[ -z "$PUBSPEC_VERSION" ]]; then
 fi
 
 info "Current version: $PUBSPEC_VERSION"
-
-# ─── Compare with last built version ──────────────────────────────────────────
-if [[ -f "$VERSION_FILE" ]]; then
-  LAST_VERSION=$(cat "$VERSION_FILE")
-  if [[ "$LAST_VERSION" == "$PUBSPEC_VERSION" ]]; then
-    warn "Version $PUBSPEC_VERSION was already built. Bump the version in pubspec.yaml before deploying."
-    warn "Example: version: 0.2.0+2"
-    exit 1
-  fi
-fi
-
 mkdir -p "$DIST_DIR"
+
+# ─── Per-platform build/upload state ──────────────────────────────────────────
+# dist/.deploy_state holds lines like:  android_built=2.1.0+12@a1b2c3d
+state_get() {
+  [[ -f "$STATE_FILE" ]] || return 0
+  grep "^$1=" "$STATE_FILE" | tail -1 | cut -d= -f2- || true
+}
+state_set() {
+  touch "$STATE_FILE"
+  { grep -v "^$1=" "$STATE_FILE" || true; echo "$1=$2"; } > "$STATE_FILE.tmp"
+  mv "$STATE_FILE.tmp" "$STATE_FILE"
+}
+
+# What a build is identified by: version + commit (+dirty if tracked files differ).
+GIT_REV=$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo "nogit")
+TREE_DIRTY=false
+if [[ "$GIT_REV" != "nogit" ]] && ! git -C "$SCRIPT_DIR" diff --quiet HEAD -- 2>/dev/null; then
+  TREE_DIRTY=true
+  GIT_REV="$GIT_REV-dirty"
+fi
+BUILD_ID="$PUBSPEC_VERSION@$GIT_REV"
 
 # ─── Parse build args ─────────────────────────────────────────────────────────
 BUILD_IOS=true
 BUILD_ANDROID=true
-UPLOAD_IOS=false
+UPLOAD=false
+REBUILD=false
 SKIP_CLEAN=true
 
 for arg in "$@"; do
   case $arg in
     --ios-only)     BUILD_ANDROID=false ;;
     --android-only) BUILD_IOS=false ;;
-    --upload)       UPLOAD_IOS=true ;;
-    --full-clean)     SKIP_CLEAN=false ;;
+    --upload)       UPLOAD=true ;;
+    --full-clean)   SKIP_CLEAN=false ;;
+    --rebuild)      REBUILD=true ;;
+    *) error "Unknown option: $arg  (use --ios-only, --android-only, --upload, --full-clean, --rebuild)" ;;
   esac
 done
 
-# ─── Validate upload credentials early ───────────────────────────────────────
-# Set these in your shell profile (~/.zshrc or ~/.bash_profile):
-#   export ASC_KEY_ID="XXXXXXXXXX"
-#   export ASC_ISSUER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-#   export ASC_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8"
-if [[ "$UPLOAD_IOS" == true ]]; then
+# ─── Validate upload credentials early (only for the platforms being built) ───
+if [[ "$UPLOAD" == true && "$BUILD_IOS" == true ]]; then
+  # Set these in .env or your shell profile:
+  #   export ASC_KEY_ID="XXXXXXXXXX"
+  #   export ASC_ISSUER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  #   export ASC_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8"
   if [[ "$(uname)" != "Darwin" ]]; then
-    error "--upload is only supported on macOS."
+    error "Uploading the iOS build is only supported on macOS."
   fi
   if [[ -z "${ASC_KEY_ID:-}" ]]; then
     error "ASC_KEY_ID is not set. Export it in your shell profile.\n  export ASC_KEY_ID=\"YOUR_KEY_ID\""
@@ -88,115 +121,128 @@ if [[ "$UPLOAD_IOS" == true ]]; then
   if [[ ! -f "$ASC_KEY_PATH" ]]; then
     error "ASC_KEY_PATH file not found: $ASC_KEY_PATH"
   fi
-  info "Upload credentials verified."
+  info "App Store Connect credentials verified."
 fi
 
-# ─── Flutter clean & pub get ──────────────────────────────────────────────────
-if [[ "$SKIP_CLEAN" == true ]]; then
-  warn "Skipping flutter clean (--no-clean). Using existing build cache."
-else
-  info "Running flutter clean..."
-  flutter clean
+if [[ "$UPLOAD" == true && "$BUILD_ANDROID" == true ]]; then
+  # Set these in .env or your shell profile:
+  #   export PLAY_SERVICE_ACCOUNT_JSON="$HOME/.play/service-account.json"   # outside the repo
+  #   export PLAY_TRACK="internal"            # optional; internal (default) | production | ...
+  #   export PLAY_RELEASE_NOTES="..."         # optional
+  if [[ -z "${PLAY_SERVICE_ACCOUNT_JSON:-}" ]]; then
+    error "PLAY_SERVICE_ACCOUNT_JSON is not set.\n  export PLAY_SERVICE_ACCOUNT_JSON=\"\$HOME/.play/service-account.json\""
+  fi
+  if [[ ! -f "$PLAY_SERVICE_ACCOUNT_JSON" ]]; then
+    error "PLAY_SERVICE_ACCOUNT_JSON file not found: $PLAY_SERVICE_ACCOUNT_JSON"
+  fi
+  command -v python3 >/dev/null || error "python3 is required to upload to Google Play."
+  info "Google Play credentials verified."
 fi
 
-info "Running flutter pub get..."
-flutter pub get
+# ─── Work out what is left to do, per platform ────────────────────────────────
+AAB_DEST="$DIST_DIR/agoriya-$PUBSPEC_VERSION.aab"
+IPA_DEST="$DIST_DIR/agoriya-$PUBSPEC_VERSION.ipa"
 
-# ─── Android — release APK ───────────────────────────────────────────────────
+# reusable <platform> <artifact>: an existing build of exactly this version+commit
+reusable() {
+  [[ "$REBUILD" == false && "$TREE_DIRTY" == false \
+     && "$(state_get "${1}_built")" == "$BUILD_ID" && -f "$2" ]]
+}
+
+ANDROID_NEEDS_BUILD=false; ANDROID_NEEDS_UPLOAD=false
+IOS_NEEDS_BUILD=false;     IOS_NEEDS_UPLOAD=false
 if [[ "$BUILD_ANDROID" == true ]]; then
-  info "Building Android release APK..."
-  flutter build apk --release --dart-define-from-file="$TRACKING_ENV_FILE"
-
-  APK_SRC="$SCRIPT_DIR/build/app/outputs/flutter-apk/app-release.apk"
-  APK_DEST="$DIST_DIR/agoriya-$PUBSPEC_VERSION.apk"
-
-  if [[ ! -f "$APK_SRC" ]]; then
-    error "APK not found at $APK_SRC"
+  reusable android "$AAB_DEST" || ANDROID_NEEDS_BUILD=true
+  if [[ "$UPLOAD" == true && "$(state_get android_uploaded)" != "$BUILD_ID" ]]; then
+    ANDROID_NEEDS_UPLOAD=true
   fi
-
-  cp "$APK_SRC" "$APK_DEST"
-  success "APK → $APK_DEST"
-
-  # ── Upload APK to Firebase Storage ──────────────────────────────────────────
-  if command -v gcloud &>/dev/null; then
-    gcloud config set project agoriya-app
-
-    info "Uploading APK to Firebase Storage..."
-
-    gcloud storage cp "$APK_DEST" \
-      "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk"
-    gcloud storage cp "$APK_DEST" \
-      "gs://$STORAGE_BUCKET/releases/latest.apk"
-
-    # Make both files publicly readable.
-    # Requires uniform bucket-level access to be OFF (fine-grained ACLs).
-    # If your bucket uses uniform access, set a Storage Rule instead:
-    #   match /releases/{file} { allow read; }
-    gcloud storage objects update \
-      "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk" \
-      --add-acl-grant=entity=allUsers,role=READER 2>/dev/null \
-      || warn "Could not set ACL — ensure Firebase Storage rules allow public reads for /releases/."
-    gcloud storage objects update \
-      "gs://$STORAGE_BUCKET/releases/latest.apk" \
-      --add-acl-grant=entity=allUsers,role=READER 2>/dev/null \
-      || warn "Could not set ACL on latest.apk — check Storage rules."
-
-    # Disable caching on latest.apk so browsers always fetch the newest version.
-    gcloud storage objects update \
-      "gs://$STORAGE_BUCKET/releases/agoriya-$PUBSPEC_VERSION.apk" \
-      "gs://$STORAGE_BUCKET/releases/latest.apk" \
-      --cache-control="no-cache,max-age=0" 2>/dev/null \
-      || warn "Could not set Cache-Control headers — downloads may be cached by browsers."
-
-    success "APK uploaded → gs://$STORAGE_BUCKET/releases/latest.apk"
-    success "Public URL: https://firebasestorage.googleapis.com/v0/b/$STORAGE_BUCKET/o/releases%2Flatest.apk?alt=media&v=$PUBSPEC_VERSION"
-
-    # Update download URLs in index.html with the new version so browsers
-    # treat this as a new URL and skip any cached copy of the old APK.
-    info "Updating index.html download links to v$PUBSPEC_VERSION..."
-    perl -i -pe "s|(releases%2Flatest\.apk\?alt=media)(?:&v=[^\"\\']*)?|\${1}&v=$PUBSPEC_VERSION|g" \
-      "$SCRIPT_DIR/index.html"
-
-    # Commit and push so GitHub Pages serves the updated download link.
-    if git -C "$SCRIPT_DIR" diff --quiet index.html; then
-      warn "index.html already up to date — skipping push."
-    else
-      git -C "$SCRIPT_DIR" add index.html
-      git -C "$SCRIPT_DIR" commit -m "chore: bump APK download link to v$PUBSPEC_VERSION"
-      git -C "$SCRIPT_DIR" push \
-        && success "index.html pushed → GitHub Pages will serve v$PUBSPEC_VERSION link" \
-        || warn "git push failed — push index.html manually so the download page updates."
-    fi
+fi
+if [[ "$BUILD_IOS" == true ]]; then
+  if [[ "$(uname)" != "Darwin" ]]; then
+    warn "iOS skipped — not running on macOS."
+    BUILD_IOS=false
   else
-    warn "gcloud not found — skipping Firebase Storage upload."
-    warn "Install Google Cloud SDK: https://cloud.google.com/sdk"
-    warn "Then run: gcloud auth login && gcloud config set project agoriya-app"
+    reusable ios "$IPA_DEST" || IOS_NEEDS_BUILD=true
+    if [[ "$UPLOAD" == true && "$(state_get ios_uploaded)" != "$BUILD_ID" ]]; then
+      IOS_NEEDS_UPLOAD=true
+    fi
   fi
+fi
+
+[[ "$TREE_DIRTY" == true ]] && warn "Uncommitted changes in tracked files — builds from this tree are never reused."
+if [[ "$BUILD_ANDROID" == true && "$ANDROID_NEEDS_BUILD" == false ]]; then
+  info "Android: AAB for $BUILD_ID is already built — not rebuilding."
+fi
+if [[ "$BUILD_IOS" == true && "$IOS_NEEDS_BUILD" == false ]]; then
+  info "iOS: IPA for $BUILD_ID is already built — not rebuilding."
+fi
+
+if [[ "$ANDROID_NEEDS_BUILD" == false && "$ANDROID_NEEDS_UPLOAD" == false \
+   && "$IOS_NEEDS_BUILD" == false && "$IOS_NEEDS_UPLOAD" == false ]]; then
+  success "Nothing to do for $BUILD_ID — everything requested is already done."
+  success "(Bump the version for a new release, or use --rebuild to build again.)"
+  exit 0
+fi
+
+# ─── Flutter clean & pub get (only if something is being built) ───────────────
+if [[ "$ANDROID_NEEDS_BUILD" == true || "$IOS_NEEDS_BUILD" == true ]]; then
+  if [[ "$SKIP_CLEAN" == true ]]; then
+    warn "Skipping flutter clean (--no-clean). Using existing build cache."
+  else
+    info "Running flutter clean..."
+    flutter clean
+  fi
+
+  info "Running flutter pub get..."
+  flutter pub get
+fi
+
+# ─── Android — App Bundle (upload key) ────────────────────────────────────────
+if [[ "$ANDROID_NEEDS_BUILD" == true ]]; then
+  info "Building Android App Bundle (upload key)..."
+  # env -u: a leftover TF_SIGN_WITH_DEBUG (the old website-APK switch) must
+  # never sign the bundle Google Play receives.
+  env -u TF_SIGN_WITH_DEBUG flutter build appbundle --release --dart-define-from-file="$TRACKING_ENV_FILE"
+
+  AAB_SRC="$SCRIPT_DIR/build/app/outputs/bundle/release/app-release.aab"
+  [[ -f "$AAB_SRC" ]] || error "AAB not found at $AAB_SRC"
+  cp "$AAB_SRC" "$AAB_DEST"
+  state_set android_built "$BUILD_ID"
+  success "AAB → $AAB_DEST"
+fi
+
+if [[ "$ANDROID_NEEDS_UPLOAD" == true ]]; then
+  PLAY_TRACK_USED="${PLAY_TRACK:-internal}"
+  info "Uploading AAB to Google Play ($PLAY_TRACK_USED)..."
+  python3 "$SCRIPT_DIR/scripts/play_upload.py" \
+    --aab "$AAB_DEST" \
+    --key "$PLAY_SERVICE_ACCOUNT_JSON" \
+    --track "$PLAY_TRACK_USED" \
+    --name "$PUBSPEC_VERSION" \
+    --notes "${PLAY_RELEASE_NOTES:-Bug fixes and improvements.}"
+  state_set android_uploaded "$BUILD_ID"
+  success "Uploaded to Google Play ($PLAY_TRACK_USED)."
 fi
 
 # ─── iOS — release IPA ────────────────────────────────────────────────────────
-IPA_DEST=""
-if [[ "$BUILD_IOS" == true ]]; then
-  if [[ "$(uname)" != "Darwin" ]]; then
-    warn "iOS build skipped — not running on macOS."
-  else
-    info "Building iOS release IPA..."
-    flutter build ipa --release --dart-define-from-file="$TRACKING_ENV_FILE"
+if [[ "$IOS_NEEDS_BUILD" == true ]]; then
+  info "Building iOS release IPA..."
+  flutter build ipa --release --dart-define-from-file="$TRACKING_ENV_FILE"
 
-    # flutter build ipa places the archive here
-    IPA_SRC=$(find "$SCRIPT_DIR/build/ios/archive" -name "*.xcarchive" | head -1)
+  # flutter build ipa places the archive here
+  IPA_SRC=$(find "$SCRIPT_DIR/build/ios/archive" -name "*.xcarchive" | head -1)
 
-    if [[ -z "$IPA_SRC" ]]; then
-      error "xcarchive not found. Ensure Xcode signing is configured."
-    fi
+  if [[ -z "$IPA_SRC" ]]; then
+    error "xcarchive not found. Ensure Xcode signing is configured."
+  fi
 
-    # Export the IPA from the archive
-    EXPORT_DIR="$SCRIPT_DIR/build/ios/ipa"
-    EXPORT_PLIST="$SCRIPT_DIR/ios/ExportOptions.plist"
+  # Export the IPA from the archive
+  EXPORT_DIR="$SCRIPT_DIR/build/ios/ipa"
+  EXPORT_PLIST="$SCRIPT_DIR/ios/ExportOptions.plist"
 
-    if [[ ! -f "$EXPORT_PLIST" ]]; then
-      warn "ios/ExportOptions.plist not found — creating a default app-store plist."
-      cat > "$EXPORT_PLIST" <<PLIST
+  if [[ ! -f "$EXPORT_PLIST" ]]; then
+    warn "ios/ExportOptions.plist not found — creating a default app-store plist."
+    cat > "$EXPORT_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -210,32 +256,29 @@ if [[ "$BUILD_IOS" == true ]]; then
 </dict>
 </plist>
 PLIST
-    fi
-
-    xcodebuild -exportArchive \
-      -archivePath "$IPA_SRC" \
-      -exportPath "$EXPORT_DIR" \
-      -exportOptionsPlist "$EXPORT_PLIST" \
-      -allowProvisioningUpdates \
-      2>&1 | grep -E "(error:|warning:|IPA|Export)"
-
-    IPA_FILE=$(find "$EXPORT_DIR" -name "*.ipa" | head -1)
-
-    if [[ -z "$IPA_FILE" ]]; then
-      error "IPA export failed. Check Xcode signing and ExportOptions.plist."
-    fi
-
-    IPA_DEST="$DIST_DIR/agoriya-$PUBSPEC_VERSION.ipa"
-    cp "$IPA_FILE" "$IPA_DEST"
-    success "IPA → $IPA_DEST"
   fi
+
+  xcodebuild -exportArchive \
+    -archivePath "$IPA_SRC" \
+    -exportPath "$EXPORT_DIR" \
+    -exportOptionsPlist "$EXPORT_PLIST" \
+    -allowProvisioningUpdates \
+    2>&1 | grep -E "(error:|warning:|IPA|Export)"
+
+  IPA_FILE=$(find "$EXPORT_DIR" -name "*.ipa" | head -1)
+
+  if [[ -z "$IPA_FILE" ]]; then
+    error "IPA export failed. Check Xcode signing and ExportOptions.plist."
+  fi
+
+  cp "$IPA_FILE" "$IPA_DEST"
+  state_set ios_built "$BUILD_ID"
+  success "IPA → $IPA_DEST"
 fi
 
 # ─── Upload to App Store Connect ──────────────────────────────────────────────
-if [[ "$UPLOAD_IOS" == true ]]; then
-  if [[ -z "$IPA_DEST" || ! -f "$IPA_DEST" ]]; then
-    error "No IPA to upload. Run with --upload alongside an iOS build (not --android-only)."
-  fi
+if [[ "$IOS_NEEDS_UPLOAD" == true ]]; then
+  [[ -f "$IPA_DEST" ]] || error "No IPA to upload at $IPA_DEST."
 
   # altool has no --private-key option: it looks for AuthKey_<ASC_KEY_ID>.p8 in
   # $API_PRIVATE_KEYS_DIR (or ./private_keys, ~/private_keys, ~/.private_keys,
@@ -261,16 +304,18 @@ if [[ "$UPLOAD_IOS" == true ]]; then
     --apiIssuer "$ASC_ISSUER_ID" \
     2>&1 | grep -v "^$"
 
+  state_set ios_uploaded "$BUILD_ID"
   success "Upload complete — check TestFlight in App Store Connect for processing status."
 fi
 
-# ─── Record built version ─────────────────────────────────────────────────────
-echo "$PUBSPEC_VERSION" > "$VERSION_FILE"
-
 success "────────────────────────────────────────"
-success "Build complete — version $PUBSPEC_VERSION"
-[[ "$BUILD_ANDROID" == true ]] && success "  APK: dist/agoriya-$PUBSPEC_VERSION.apk"
-[[ "$BUILD_ANDROID" == true ]] && command -v gcloud &>/dev/null && success "  Storage: gs://$STORAGE_BUCKET/releases/latest.apk"
-[[ "$BUILD_IOS"     == true ]] && [[ "$(uname)" == "Darwin" ]] && success "  IPA: dist/agoriya-$PUBSPEC_VERSION.ipa"
-[[ "$UPLOAD_IOS"    == true ]] && success "  Uploaded to TestFlight ✓"
+success "Done — $BUILD_ID"
+if [[ "$BUILD_ANDROID" == true ]]; then
+  note=""; [[ "$(state_get android_uploaded)" == "$BUILD_ID" ]] && note=" — uploaded to Google Play ✓"
+  success "  Android: dist/agoriya-$PUBSPEC_VERSION.aab$note"
+fi
+if [[ "$BUILD_IOS" == true ]]; then
+  note=""; [[ "$(state_get ios_uploaded)" == "$BUILD_ID" ]] && note=" — uploaded to TestFlight ✓"
+  success "  iOS:     dist/agoriya-$PUBSPEC_VERSION.ipa$note"
+fi
 success "────────────────────────────────────────"

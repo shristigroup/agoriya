@@ -14,8 +14,14 @@ class TrackingModel {
   /// Number of customer visits logged during this session.
   final int visitCount;
 
-  /// Server timestamp of the last locations write.
-  final DateTime? lastUpdatedAt;
+  /// Server timestamp of the last batch sync (the last locations write).
+  /// Documents written by older builds call this field `lastUpdatedAt`.
+  final DateTime? lastBatchSyncedAt;
+
+  /// Set by the server watchdog when it closed this session itself (e.g.
+  /// `no_location_data`); null when the user punched out. Read-only on the
+  /// client — never written back.
+  final String? autoClosedReason;
 
   const TrackingModel({
     required this.id,
@@ -25,13 +31,17 @@ class TrackingModel {
     this.punchInImage,
     this.distance = 0.0,
     this.visitCount = 0,
-    this.lastUpdatedAt,
+    this.lastBatchSyncedAt,
+    this.autoClosedReason,
   });
 
   // ── Computed ────────────────────────────────────────────────────────────────
 
   bool get isActive => stopTime == null;
   bool get isStopped => stopTime != null;
+
+  /// Closed by the server watchdog rather than by the user.
+  bool get wasAutoClosed => stopTime != null && autoClosedReason != null;
 
   bool get isPunchedIn => isActive;
   bool get isPunchedOut => isStopped;
@@ -64,7 +74,10 @@ class TrackingModel {
       punchInImage: data['punchInImage'] as String?,
       distance: (data['distance'] as num?)?.toDouble() ?? 0.0,
       visitCount: (data['visitCount'] as num?)?.toInt() ?? 0,
-      lastUpdatedAt: (data['lastUpdatedAt'] as Timestamp?)?.toDate(),
+      lastBatchSyncedAt:
+          ((data['lastBatchSyncedAt'] ?? data['lastUpdatedAt']) as Timestamp?)
+              ?.toDate(),
+      autoClosedReason: data['autoClosedReason'] as String?,
     );
   }
 
@@ -94,9 +107,12 @@ class TrackingModel {
         punchInImage: json['punchInImage'] as String?,
         distance: (json['distance'] as num?)?.toDouble() ?? 0.0,
         visitCount: (json['visitCount'] as num?)?.toInt() ?? 0,
-        lastUpdatedAt: json['lastUpdatedAt'] != null
-            ? DateTime.parse(json['lastUpdatedAt'] as String)
-            : null,
+        lastBatchSyncedAt:
+            (json['lastBatchSyncedAt'] ?? json['lastUpdatedAt']) != null
+                ? DateTime.parse(
+                    (json['lastBatchSyncedAt'] ?? json['lastUpdatedAt'])
+                        as String)
+                : null,
       );
 
   Map<String, dynamic> toJson() => {
@@ -107,7 +123,7 @@ class TrackingModel {
         'punchInImage': punchInImage,
         'distance': distance,
         'visitCount': visitCount,
-        'lastUpdatedAt': lastUpdatedAt?.toIso8601String(),
+        'lastBatchSyncedAt': lastBatchSyncedAt?.toIso8601String(),
       };
 
   // ── copyWith ────────────────────────────────────────────────────────────────
@@ -117,7 +133,8 @@ class TrackingModel {
     String? punchInImage,
     double? distance,
     int? visitCount,
-    DateTime? lastUpdatedAt,
+    DateTime? lastBatchSyncedAt,
+    String? autoClosedReason,
     bool clearStopTime = false,
   }) =>
       TrackingModel(
@@ -128,6 +145,9 @@ class TrackingModel {
         punchInImage: punchInImage ?? this.punchInImage,
         distance: distance ?? this.distance,
         visitCount: visitCount ?? this.visitCount,
-        lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
+        lastBatchSyncedAt: lastBatchSyncedAt ?? this.lastBatchSyncedAt,
+        // Resuming a session clears the server-side reason too.
+        autoClosedReason:
+            clearStopTime ? null : (autoClosedReason ?? this.autoClosedReason),
       );
 }

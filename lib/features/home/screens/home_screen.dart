@@ -8,6 +8,9 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../data/local/local_storage_service.dart';
+import '../../../data/data_manager.dart';
+import '../../../services/location_sync_service.dart';
+import '../../../services/location_tracking_service.dart';
 import '../../../data/models/tracking_model.dart';
 import '../../../data/models/visit_model.dart';
 import '../../../data/repositories/firestore_repository.dart';
@@ -46,6 +49,9 @@ class _HomeScreenState extends State<HomeScreen>
   int _currentTab = 0;
   bool _loadingDialogOpen = false;
 
+  /// Bumped on app resume; the map tab's key, so it re-renders (and redraws).
+  int _resumeCount = 0;
+
   bool get _isReadOnly => widget.viewingUserId != null;
   String get _targetUserId {
     if (_isReadOnly) return widget.viewingUserId!;
@@ -69,6 +75,7 @@ class _HomeScreenState extends State<HomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_isReadOnly || !mounted) return;
     if (state == AppLifecycleState.resumed) {
+      setState(() => _resumeCount++);
       context.read<HomeBloc>().add(AppResumedEvent());
     } else if (state == AppLifecycleState.paused) {
       context.read<HomeBloc>().add(AppPausedEvent());
@@ -146,11 +153,48 @@ class _HomeScreenState extends State<HomeScreen>
   /// Returns true only when foreground and background location are both granted.
   /// Uses Geolocator's permission API so it accepts approximate location too —
   /// the user does NOT need to enable "Precise location".
+  /// Google Play's prominent disclosure: shown BEFORE any location permission
+  /// request (not dismissible — back or tapping outside counts as "Not now"),
+  /// saying what is collected, why, and who sees it. [extra] is appended for
+  /// the background step.
+  Future<bool> _showLocationDisclosure({String extra = ''}) async {
+    if (!mounted) return false;
+    final agreed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('Location access'),
+          content: Text(
+            'TrackFolks collects your location data while you are punched in, '
+            'to show your route and visits, even when the app is closed or '
+            'not in use, and to provide this information to you and your '
+            "manager. This is required for the app's main functionality.$extra",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Not now'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Agree'),
+            ),
+          ],
+        ),
+      ),
+    );
+    return agreed == true;
+  }
+
   Future<bool> _ensureLocationPermission() async {
     // ── Step 1: foreground location (coarse or fine both accepted) ────────────
     var perm = await Geolocator.checkPermission();
 
     if (perm == LocationPermission.denied) {
+      // Disclosure first; the system prompt must follow it immediately.
+      if (!await _showLocationDisclosure()) return false;
       perm = await Geolocator.requestPermission();
     }
 
@@ -180,31 +224,10 @@ class _HomeScreenState extends State<HomeScreen>
     var bgStatus = await Permission.locationAlways.status;
     if (bgStatus.isGranted) return true;
 
-    // Explain before sending to settings.
-    if (!mounted) return false;
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Background Location Needed'),
-        content: const Text(
-          'TrackFolks needs to track your location while punched in, even when '
-          'the app is in the background.\n\n'
-          'Precise location is not required — approximate is fine.\n\n'
-          'On the next screen select "Allow all the time".',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
-    );
-    if (proceed != true) return false;
+    // Same disclosure again, immediately before the background request.
+    final proceed = await _showLocationDisclosure(
+        extra: '\n\nOn the next screen, choose "Allow all the time".');
+    if (!proceed) return false;
 
     bgStatus = await Permission.locationAlways.request();
 
@@ -282,16 +305,68 @@ class _HomeScreenState extends State<HomeScreen>
             'Notification access has been permanently denied.\n\n'
             'Please go to Settings → TrackFolks → Notifications and enable it.',
         deniedMessage:
-            'TrackFolks needs notification access so your manager is notified '
-            'when you punch in/out or check in/out of a visit.\n\n'
+            'TrackFolks needs notification access to tell you if you are '
+            'punched out automatically because of app inactivity.\n\n'
             'Please enable notification permission in Settings.',
       );
 
+  /// Camera, notifications and (Android) battery exemption are all needed to
+  /// punch in. Any that are missing are explained together in ONE dialog
+  /// before their system prompts, instead of each prompt appearing cold with
+  /// the reason shown only after a denial. A permission that is already
+  /// permanently denied can't be prompted, so it skips the explanation and
+  /// goes straight to the existing "open Settings" dialog.
+  Future<bool> _ensurePunchInPermissions() async {
+    Future<bool> canPrompt(Permission p) async {
+      final status = await p.status;
+      return !status.isGranted && !status.isPermanentlyDenied;
+    }
+
+    final reasons = <String>[
+      if (await canPrompt(Permission.camera))
+        '• Camera: TrackFolks takes your selfie for attendance when you punch in.',
+      if (await canPrompt(Permission.notification))
+        '• Notifications: TrackFolks notifies you if you are punched out '
+            'automatically because of app inactivity.',
+      if (Platform.isAndroid &&
+          await canPrompt(Permission.ignoreBatteryOptimizations))
+        '• Battery: allow TrackFolks to keep running in the background so '
+            'tracking is not interrupted.',
+    ];
+
+    if (reasons.isNotEmpty) {
+      if (!mounted) return false;
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Permissions needed to punch in'),
+          content: Text(reasons.join('\n\n')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Not now'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true) return false;
+    }
+
+    if (!await _ensureCameraPermission()) return false;
+    if (!await _ensureNotificationPermission()) return false;
+    if (Platform.isAndroid && !await _ensureBatteryOptimizationExemption()) {
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _handlePunchIn(HomeLoaded state) async {
     if (!await _ensureLocationPermission()) return;
-    if (!await _ensureCameraPermission()) return;
-    if (!await _ensureNotificationPermission()) return;
-    if (Platform.isAndroid && !await _ensureBatteryOptimizationExemption()) return;
+    if (!await _ensurePunchInPermissions()) return;
 
     final file = await Navigator.of(context).push<File>(
       MaterialPageRoute(builder: (_) => const PunchInCameraScreen()),
@@ -397,6 +472,56 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  /// Logging out while punched in would leave the session open on the server
+  /// and tracking running with no signed-in user (until the watchdog gave up
+  /// on it), so punch out first — same steps as HomeBloc's punch-out. If that
+  /// fails (e.g. offline), stay signed in so the user can retry.
+  Future<void> _handleLogout() async {
+    final user = LocalStorageService.getUser();
+    final tracking = DataManager.getActiveTracking();
+    if (user != null && tracking?.isPunchedIn == true) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Log out?'),
+          content: const Text(
+              "You're punched in. Logging out will punch you out first."),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Punch out & log out')),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+
+      _showLoadingDialog('Punching out...');
+      try {
+        await LocationSyncService.processBatchAndEmitLatestLocationData(
+            userId: user.id, trackingId: tracking!.id, forceSync: true);
+        LocationTrackingService.stop();
+        await DataManager.punchOut(
+            userId: user.id,
+            currentTracking: tracking,
+            timestamp: DateTime.now());
+      } catch (e) {
+        if (mounted) {
+          _dismissLoadingDialog();
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Couldn't punch out. Check your connection and try again."),
+            backgroundColor: AppTheme.error,
+          ));
+        }
+        return;
+      }
+      if (mounted) _dismissLoadingDialog();
+    }
+    if (mounted) context.read<AuthBloc>().add(LogoutEvent());
+  }
+
   /// Deletes the signed-in user's account and all their data, server-side,
   /// via FirestoreRepository.deleteMyAccount(). Only signs out and clears
   /// local state — via the existing LogoutEvent, which already does exactly
@@ -446,6 +571,37 @@ class _HomeScreenState extends State<HomeScreen>
         );
       }
     }
+  }
+
+  /// Shown once when the server closed this session because the phone stopped
+  /// sending location (see HomeBloc._reconcileAutoPunchOut).
+  void _showAutoPunchOutDialog(
+      BuildContext context, HomeBloc bloc, DateTime at) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Punched out automatically'),
+        content: Text(
+          'You were punched out at ${AppUtils.formatTime(at)} because your '
+          "phone stopped sending location updates.\n\n"
+          'To avoid this, keep TrackFolks allowed to run in the background '
+          '(battery set to "Unrestricted"). You can resume your session now.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              bloc.add(ResumeSessionEvent());
+            },
+            child: const Text('Resume session'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Bottom sheet shown when the user taps "Punch In" after already being
@@ -647,6 +803,13 @@ class _HomeScreenState extends State<HomeScreen>
               backgroundColor: AppTheme.error,
             ),
           );
+        } else if (state is HomeLoaded &&
+            state.autoPunchedOutAt != null &&
+            !_isReadOnly) {
+          final at = state.autoPunchedOutAt!;
+          final bloc = context.read<HomeBloc>();
+          bloc.add(AutoPunchOutAcknowledgedEvent()); // show it only once
+          _showAutoPunchOutDialog(context, bloc, at);
         }
       },
       builder: (context, state) {
@@ -688,7 +851,7 @@ class _HomeScreenState extends State<HomeScreen>
                       builder: (_) => const ReportsScreen(),
                     ));
                   } else if (val == 'logout') {
-                    context.read<AuthBloc>().add(LogoutEvent());
+                    _handleLogout();
                   } else if (val == 'delete_account') {
                     _handleDeleteAccount();
                   }
@@ -767,6 +930,7 @@ class _HomeScreenState extends State<HomeScreen>
                         controller: _tabController,
                         children: [
                           TrackTab(
+                            key: ValueKey('track-$_resumeCount'),
                             attendance: tracking,
                             locations: loaded?.allLocations ?? [],
                             lastKnownLocation: loaded?.lastKnownLocation,

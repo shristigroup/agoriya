@@ -241,8 +241,9 @@ exports.locationTrackingWatchdog = onSchedule(
       const data = doc.data();
       const heartbeatAt = data.locationHeartbeatTimestamp
         ? data.locationHeartbeatTimestamp.toMillis()
-        : (data.lastUpdatedAt
-          ? data.lastUpdatedAt.toMillis()
+        // lastBatchSyncedAt was called lastUpdatedAt in older builds.
+        : ((data.lastBatchSyncedAt || data.lastUpdatedAt)
+          ? (data.lastBatchSyncedAt || data.lastUpdatedAt).toMillis()
           : (data.startTime ? data.startTime.toMillis() : now));
 
       const userId = doc.ref.parent.parent.id;
@@ -283,10 +284,14 @@ exports.locationTrackingWatchdog = onSchedule(
         // Manager notification fires automatically via onTrackingWrite's
         // stopTime branch above — this only needs to tell the worker.
         const userToken = await getUserToken(userId);
+        const closedAt = new Date().toLocaleTimeString("en-IN", {
+          hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata",
+        });
         await sendNotification(
           userToken,
           "Punched out automatically",
-          "You were punched out because your location data stopped syncing.",
+          `You were punched out at ${closedAt} because your phone stopped sending ` +
+            "location. Open TrackFolks to resume your session.",
           { type: "auto_punch_out", trackingId }
         );
         console.log(`[locationTrackingWatchdog] auto punch-out → ${userId} (${doc.id})`);

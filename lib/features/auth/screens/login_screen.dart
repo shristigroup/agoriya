@@ -42,6 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _selfId; // current user's doc ID — excluded from manager dropdown
   String _appVersion = '';
   bool _prefillingUser = false;
+  bool _prefillFailed = false; // the details lookup failed — offer a retry
 
   @override
   void initState() {
@@ -67,7 +68,10 @@ class _LoginScreenState extends State<LoginScreen> {
       '+${_countryCodeController.text.trim()}${_phoneController.text.trim()}';
 
   Future<void> _prefillExistingUser() async {
-    setState(() => _prefillingUser = true);
+    setState(() {
+      _prefillingUser = true;
+      _prefillFailed = false;
+    });
     try {
       final existing = await FirestoreRepository()
           .getUserByPhone(_fullPhone);
@@ -83,7 +87,9 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } catch (_) {
-      // proceed without prefill
+      // Don't leave blank fields with no explanation: a returning user's
+      // details failed to load (network, timeout) — let them retry.
+      if (mounted) setState(() => _prefillFailed = true);
     } finally {
       if (mounted) setState(() => _prefillingUser = false);
     }
@@ -352,6 +358,25 @@ class _LoginScreenState extends State<LoginScreen> {
                               children: [
                                 _sectionTitle('Your Name'),
                                 const SizedBox(height: 12),
+                                if (_prefillFailed)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            "Couldn't load your details.",
+                                            style: AppTheme.sora(12,
+                                                color: AppTheme.error),
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: _prefillExistingUser,
+                                          child: const Text('Retry'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 Row(
                                   children: [
                                     Expanded(
