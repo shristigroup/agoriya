@@ -212,22 +212,36 @@
     .warning-box strong { font-weight: 700; }
 
     /* ── Features ── */
-    .features-section { padding: 0 20px 48px; max-width: 580px; margin: 0 auto; }
+    .features-section { padding: 0 20px 48px; max-width: 860px; margin: 0 auto; }
     .section-label {
       font-size: 11px; font-weight: 700; letter-spacing: 1px;
       color: var(--hint); text-transform: uppercase;
       margin-bottom: 16px; padding-left: 2px;
     }
-    .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .feature-group { font-size: 18px; font-weight: 800; color: var(--text); margin: 30px 0 14px; }
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
     .feature-card {
       background: var(--surface);
       border-radius: 16px; padding: 18px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.06);
       border: 1px solid var(--divider);
+      display: flex; flex-direction: column;
     }
-    .feature-icon { font-size: 26px; margin-bottom: 10px; }
-    .feature-title { font-size: 13px; font-weight: 700; color: var(--red); margin-bottom: 4px; }
-    .feature-desc  { font-size: 12px; color: var(--muted); line-height: 1.45; }
+    /* Phone-shaped frame for the screenshots and looping demo videos */
+    .feature-media {
+      width: 100%; max-width: 210px; aspect-ratio: 420 / 914;
+      margin: 0 auto 16px; border-radius: 22px; overflow: hidden;
+      border: 1px solid var(--divider); background: #f3eaea;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    }
+    .feature-media img, .feature-media video {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .feature-icon { font-size: 30px; margin-bottom: 10px; }
+    .feature-title { font-size: 15px; font-weight: 700; color: var(--red); margin-bottom: 5px; }
+    .feature-desc  { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    @media (max-width: 760px) { .feature-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .feature-grid { grid-template-columns: 1fr; } }
 
     /* ── Pricing ── */
     .pricing-section { padding: 0 20px 52px; max-width: 860px; margin: 0 auto; }
@@ -341,7 +355,7 @@
   <!-- ── Header ── -->
   <header>
     <div class="logo">
-      <img src="assets/logo/tf-logo.png" alt="TrackFolks logo" />
+      <img src="assets/logo/tf-logo-96.png" width="42" height="42" alt="TrackFolks logo" />
     </div>
     <div class="brand">
       <span class="brand-name">TrackFolks</span>
@@ -363,7 +377,7 @@
       </div>
       <div class="hero-content">
         <div class="hero-logo">
-          <img src="assets/logo/tf-logo-with-name.png" alt="TrackFolks" />
+          <img src="assets/logo/tf-logo-with-name-260.png" width="130" height="148" fetchpriority="high" alt="TrackFolks" />
         </div>
         <h1>Your field team,<br/>always connected.</h1>
         <p>Track attendance, customer visits, and location in real time — built for the ground level.</p>
@@ -472,31 +486,68 @@
   </div>
 
   <!-- ── Features ── -->
-  <div class="features-section">
-    <div class="section-label">What TrackFolks does</div>
+  <section class="features-section" id="features">
+    <h2 class="section-label">What TrackFolks does</h2>
+    <h3 class="feature-group">For field staff</h3>
     <div class="feature-grid">
       <div class="feature-card">
-        <div class="feature-icon">📍</div>
-        <div class="feature-title">Live Location Tracking</div>
-        <div class="feature-desc">Automatically records your route while punched in. Works in the background.</div>
+        <div class="feature-media"><video muted loop playsinline preload="none" poster="assets/media/route-replay.jpg" data-src="assets/media/route-replay.mp4" aria-label="Animated replay of a day's route drawn on the map"></video></div>
+        <h4 class="feature-title">Live route tracking, with replay</h4>
+        <p class="feature-desc">Your route is recorded in the background while you are punched in, and drawn on the map for you and your manager.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🤳</div>
-        <div class="feature-title">Selfie Punch In</div>
-        <div class="feature-desc">Capture a selfie on punch-in for verified attendance records.</div>
+        <div class="feature-media"><img src="assets/media/punched-in.jpg" width="420" height="914" loading="lazy" alt="TrackFolks punch-in confirmation screen" /></div>
+        <h4 class="feature-title">Selfie punch-in</h4>
+        <p class="feature-desc">Take a quick selfie when you punch in for verified attendance records.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-media"><img src="assets/media/resume-session.jpg" width="420" height="914" loading="lazy" alt="Resume Session or Fresh Punch In options" /></div>
+        <h4 class="feature-title">Punched out by mistake? Resume</h4>
+        <p class="feature-desc">Resume your session instead of starting the day over.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-media"><img src="assets/media/history.jpg" width="420" height="914" loading="lazy" alt="Daily history list with hours, distance and visits" /></div>
+        <h4 class="feature-title">Daily and monthly history</h4>
+        <p class="feature-desc">Every day's hours, distance and visits, plus monthly totals.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon">🏪</div>
-        <div class="feature-title">Customer Visits</div>
-        <div class="feature-desc">Log every client visit with location, notes, and expense receipts.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">📊</div>
-        <div class="feature-title">Manager Reports</div>
-        <div class="feature-desc">Managers get a real-time view of their team's daily activity.</div>
+        <h4 class="feature-title">Customer visits and expenses</h4>
+        <p class="feature-desc">Log every client visit with location, notes and expense receipts.</p>
       </div>
     </div>
-  </div>
+    <h3 class="feature-group">For managers</h3>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-media"><img src="assets/media/team-status.jpg" width="420" height="914" loading="lazy" alt="My Team list showing who is at work, punched out or not in" /></div>
+        <h4 class="feature-title">Live team status</h4>
+        <p class="feature-desc">See who is at work, who has punched out and who has not started, and invite people with your organisation code.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-media"><video muted loop playsinline preload="none" poster="assets/media/team-view.jpg" data-src="assets/media/team-view.mp4" aria-label="Opening a team member's route and monthly summary"></video></div>
+        <h4 class="feature-title">Any team member's route and history</h4>
+        <p class="feature-desc">Open anyone's day to see their route, hours and distance, plus their monthly summary.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-media"><video muted loop playsinline preload="none" poster="assets/media/export-csv.jpg" data-src="assets/media/export-csv.mp4" aria-label="Exporting a team attendance report as a CSV file"></video></div>
+        <h4 class="feature-title">Export monthly reports</h4>
+        <p class="feature-desc">Download a day-wise CSV of punch times and distance for your whole team.</p>
+      </div>
+    </div>
+    <h3 class="feature-group">Privacy and control</h3>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h4 class="feature-title">Tracked only while punched in</h4>
+        <p class="feature-desc">Location is collected only between punch-in and punch-out, never outside your shift.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-media"><video muted loop playsinline preload="none" poster="assets/media/delete-account.jpg" data-src="assets/media/delete-account.mp4" aria-label="Deleting an account and all its data from the app"></video></div>
+        <h4 class="feature-title">Delete your account anytime</h4>
+        <p class="feature-desc">Remove your account and all your data from the app in a few taps.</p>
+      </div>
+    </div>
+  </section>
 
   <!-- ── Pricing ── -->
   <div class="pricing-section">
@@ -686,6 +737,7 @@
     "alternateName": "TrackFolks Field Force Tracker",
     "description": "Field force tracking app for attendance, customer visits and live GPS location, built for sales, service and delivery teams.",
     "applicationCategory": "BusinessApplication",
+    "featureList": ["Selfie punch-in and punch-out for verified attendance", "Live GPS route tracking with route replay", "Customer visit check-ins with notes and expense receipts", "Daily and monthly attendance history", "Live team status for managers", "View any team member's route and history", "Export monthly team reports as CSV", "Location tracked only while punched in", "Delete your account and data from the app"],
     "operatingSystem": "Android, iOS",
     "url": "https://tf.shristigroup.com/",
     "image": "https://tf.shristigroup.com/assets/images/og.png",
@@ -777,6 +829,28 @@
 
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Demo videos: download and play only while on screen (and not at all for
+    // people who prefer reduced motion — they just see the poster image).
+    (function () {
+      const vids = document.querySelectorAll('video[data-src]');
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce) return;
+      if (!('IntersectionObserver' in window)) {
+        vids.forEach(v => { v.src = v.dataset.src; v.play().catch(() => {}); });
+        return;
+      }
+      const io = new IntersectionObserver(entries => entries.forEach(e => {
+        const v = e.target;
+        if (e.isIntersecting) {
+          if (!v.src) v.src = v.dataset.src;
+          v.play().catch(() => {});
+        } else {
+          v.pause();
+        }
+      }), { rootMargin: '150px' });
+      vids.forEach(v => io.observe(v));
+    })();
 
     const ua = navigator.userAgent || '';
     const isIOS     = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;

@@ -56,3 +56,7 @@ _site/
 # Google Play API credentials (keep outside the repo; ignored just in case)
 *service-account*.json
 play-api*.json
+
+# Raw screen recordings / screenshots used to make the optimised files in assets/media
+assets/images/*.MP4
+assets/images/*.PNG
