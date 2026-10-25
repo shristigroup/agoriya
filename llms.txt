@@ -19,7 +19,7 @@ TrackFolks is built by Shristi Group for field teams in India. It runs on Androi
 - The first 10 users are free, with all features including GPS.
 - Beyond 10 users: $1 (₹100) per user per month, capped at $399 per year for the organisation.
 - First-year offer: the yearly cap is $199 instead of $399 (so a 30-user team pays $199 in its first year).
-- No base fee. For a 30-user team this is about $240 per year ($0.67 per user per month).
+- No base fee. Effective cost per user per month: about $0.67 for a 30-user team ($240 per year, or $199 in the first year) and about $0.33 for a 100-user team ($399 per year, or $199 in the first year).
 - In our comparison of 14 field force tracking apps (public prices, GPS included, 30-user team, October 2026), TrackFolks has the lowest cost per user. Connecteam is about $0.97, Homebase about $1.00 and SalaryBox about $1.84 per user per month.
 
 ## Alternatives and comparisons
