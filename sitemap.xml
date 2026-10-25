@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
   <url>
     <loc>https://tf.shristigroup.com/</loc>
     <lastmod>2026-10-25</lastmod>
+    <video:video>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/8dkmj1N7yp8/hqdefault.jpg</video:thumbnail_loc>
+      <video:title>Track Your Team's Attendance &amp; Travel Location | TrackFolks mobile app demo</video:title>
+      <video:description>A short walkthrough of the TrackFolks field force tracking app: selfie punch-in, live GPS location and route replay, customer visit logs and the manager's team view, on Android and iPhone.</video:description>
+      <video:player_loc>https://www.youtube.com/embed/8dkmj1N7yp8</video:player_loc>
+    </video:video>
   </url>
   <url>
     <loc>https://tf.shristigroup.com/comparison/how-to-choose-a-field-force-tracking-app.html</loc>
