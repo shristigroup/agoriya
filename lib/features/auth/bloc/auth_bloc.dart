@@ -127,7 +127,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (event.orgCode != null && event.orgCode!.isNotEmpty) {
         resolvedCode = event.orgCode!;
       } else {
-        resolvedCode = await _repo.createOrgCode();
+        resolvedCode = await _createOrgCode();
       }
 
       final user = UserModel(
@@ -186,6 +186,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     if (response.statusCode != 200) {
       throw Exception('Failed to set user claim: ${response.body}');
     }
+  }
+
+  /// Returns the caller's existing org code, or has the server create one.
+  /// Codes are server-written only (see firestore.rules); the owner is the
+  /// `userId` claim on the token, so _setUserClaim must have run first.
+  Future<String> _createOrgCode() async {
+    final idToken = await _auth.currentUser!.getIdToken();
+    final response = await http.post(
+      Uri.parse('https://asia-south1-agoriya-app.cloudfunctions.net/createOrgCode'),
+      headers: {'Authorization': 'Bearer $idToken'},
+    ).timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to create org code: ${response.body}');
+    }
+    return (jsonDecode(response.body) as Map<String, dynamic>)['code'] as String;
   }
 
   Future<void> _onLogout(LogoutEvent event, Emitter<AuthState> emit) async {

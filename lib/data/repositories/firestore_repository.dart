@@ -386,26 +386,7 @@ class FirestoreRepository {
     return OrgCodeModel.fromFirestore(doc);
   }
 
-  /// Returns the caller's existing org code, or has the server create one.
-  /// Codes are server-written only (see firestore.rules); the owner is the
-  /// `userId` claim on the caller's token, so setUserClaim must have run first.
-  Future<String> createOrgCode() async {
-    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
-    if (idToken == null) throw Exception('Not signed in');
-    final response = await http.post(
-      Uri.parse('https://asia-south1-agoriya-app.cloudfunctions.net/createOrgCode'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $idToken',
-      },
-    ).timeout(const Duration(seconds: 15));
-    if (response.statusCode != 200) {
-      throw Exception('Failed to create org code: ${response.body}');
-    }
-    return (jsonDecode(response.body) as Map<String, dynamic>)['code'] as String;
-  }
-
-/// All users who share this org code.
+  /// All users who share this org code.
   /// Calls the unauthenticated Cloud Function — needed before login when
   /// Firestore rules would otherwise block the query.
   Future<List<UserModel>> getOrgMembers(String code) async {
