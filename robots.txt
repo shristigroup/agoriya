@@ -1,3 +1,5 @@
 # TrackFolks — https://tf.shristigroup.com
 User-agent: *
 Allow: /
+
+Sitemap: https://tf.shristigroup.com/sitemap.xml
