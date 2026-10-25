@@ -1,6 +1,7 @@
 const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
+const crypto = require("crypto");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -517,8 +518,61 @@ exports.setUserClaim = onRequest(
     }
 
     const decoded = await admin.auth().verifyIdToken(idToken);
+
+    // The claim is what Firestore rules trust, so it must belong to the caller:
+    // the doc already registered to their phone number, or — for a new user —
+    // an id that ends in their own phone number (ids are first-last-phone).
+    const phone = decoded.phone_number;
+    if (!phone) { res.status(403).json({ error: "Phone sign-in required" }); return; }
+    const existing = await db.collection("Users").where("phoneNumber", "==", phone).limit(1).get();
+    const allowed = existing.empty ? userId.endsWith(`-${phone}`) : existing.docs[0].id === userId;
+    if (!allowed) { res.status(403).json({ error: "userId does not belong to caller" }); return; }
+
     await admin.auth().setCustomUserClaims(decoded.uid, { userId });
     res.status(200).json({ success: true });
+  }
+);
+
+// ─── 8a. createOrgCode — the only place org codes are created ───────────────
+// Called when a new user submits their profile without an org code. Clients
+// cannot write Codes (firestore.rules), so the seat limit below is authoritative
+// for new codes. Existing codes keep their own totalUserCount.
+const FREE_USER_LIMIT = 10;
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no O/0/1/I ambiguity
+
+exports.createOrgCode = onRequest(
+  { region: "asia-south1", cors: true },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) { res.status(401).json({ error: "Unauthenticated" }); return; }
+
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const userId = decoded.userId; // custom claim from setUserClaim
+    if (!userId) { res.status(403).json({ error: "No userId claim" }); return; }
+
+    // Reuse any code this user already owns.
+    const existing = await db.collection("Codes").where("userId", "==", userId).limit(1).get();
+    if (!existing.empty) { res.status(200).json({ code: existing.docs[0].id }); return; }
+
+    for (let attempt = 0; attempt < 10; attempt++) {
+      let code = "";
+      for (let i = 0; i < 6; i++) code += CODE_CHARS[crypto.randomInt(CODE_CHARS.length)];
+      try {
+        await db.collection("Codes").doc(code).create({
+          userId,
+          totalUserCount: FREE_USER_LIMIT,
+          currentUserCount: 1,
+        });
+        res.status(200).json({ code });
+        return;
+      } catch (err) {
+        if (err.code !== 6) throw err; // 6 = ALREADY_EXISTS, try another code
+      }
+    }
+    res.status(500).json({ error: "Could not generate unique org code" });
   }
 );
 

@@ -21,7 +21,7 @@ class OrgCodeModel {
     return OrgCodeModel(
       code: doc.id,
       ownerId: data['userId'] as String,
-      totalUserCount: (data['totalUserCount'] as num?)?.toInt() ?? 5,
+      totalUserCount: (data['totalUserCount'] as num?)?.toInt() ?? 10,
       currentUserCount: (data['currentUserCount'] as num?)?.toInt() ?? 0,
     );
   }

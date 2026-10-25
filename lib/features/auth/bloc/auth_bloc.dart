@@ -127,7 +127,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (event.orgCode != null && event.orgCode!.isNotEmpty) {
         resolvedCode = event.orgCode!;
       } else {
-        resolvedCode = await _repo.createOrgCode(docId);
+        resolvedCode = await _repo.createOrgCode();
       }
 
       final user = UserModel(

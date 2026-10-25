@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -387,30 +386,23 @@ class FirestoreRepository {
     return OrgCodeModel.fromFirestore(doc);
   }
 
-  /// Returns the existing Code for this owner, or creates a new one.
-  Future<String> createOrgCode(String ownerId) async {
-    // Reuse any Code doc already owned by this user.
-    final existing = await _codes
-        .where('userId', isEqualTo: ownerId)
-        .limit(1)
-        .get();
-    if (existing.docs.isNotEmpty) return existing.docs.first.id;
-
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/1/I ambiguity
-    final rand = Random.secure();
-    for (int attempts = 0; attempts < 10; attempts++) {
-      final code = List.generate(6, (_) => chars[rand.nextInt(chars.length)]).join();
-      final doc = await _codes.doc(code).get();
-      if (!doc.exists) {
-        await _codes.doc(code).set({
-          'userId': ownerId,
-          'totalUserCount': 5,
-          'currentUserCount': 1,
-        });
-        return code;
-      }
+  /// Returns the caller's existing org code, or has the server create one.
+  /// Codes are server-written only (see firestore.rules); the owner is the
+  /// `userId` claim on the caller's token, so setUserClaim must have run first.
+  Future<String> createOrgCode() async {
+    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (idToken == null) throw Exception('Not signed in');
+    final response = await http.post(
+      Uri.parse('https://asia-south1-agoriya-app.cloudfunctions.net/createOrgCode'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+    ).timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to create org code: ${response.body}');
     }
-    throw Exception('Could not generate unique org code');
+    return (jsonDecode(response.body) as Map<String, dynamic>)['code'] as String;
   }
 
 /// All users who share this org code.
