@@ -28,7 +28,7 @@
   <meta name="twitter:description" content="Track attendance, customer visits and live location for your field team. Selfie punch-in, GPS routes and visit logs in one simple app." />
   <meta name="twitter:image" content="https://tf.shristigroup.com/assets/images/og.png" />
   <meta name="twitter:image:alt" content="TrackFolks logo with the tagline: Your field team, always connected." />
-  <meta name="keywords" content="Connecteam alternative, Homebase alternative, Deputy alternative, When I Work alternative, SalaryBox alternative, Trackobit alternative, Hubstaff alternative, Timeero alternative, Workyard alternative, Buddy Punch alternative, QuickBooks Workforce alternative, Jibble alternative, Clockify alternative, field force tracking app India, field employee tracker, sales team attendance app" />
+  <meta name="keywords" content="QuickBooks Time alternative, PagarBook alternative, Connecteam alternative, SalaryBox alternative, FieldSense alternative, Clockify alternative, Jibble alternative, Unolo alternative, Truein alternative, Hubstaff alternative, Timeero alternative, field force tracking app India, field employee tracker, sales team attendance app" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -379,13 +379,12 @@
     .feat-table .n { background: #efeaea; color: #6B5050; }
     .feat-table .x { background: #fbe3e3; color: #7f1d1d; }
     .feat-table .tf { box-shadow: inset 2px 0 0 var(--red), inset -2px 0 0 var(--red); }
-    .steps { display: flex; gap: 22px; align-items: center; }
-    .steps ol { list-style: none; display: flex; flex-direction: column; gap: 14px; flex: 1; }
-    .steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; color: var(--text); line-height: 1.5; }
-    .steps li span.n { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--red); color: #fff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; }
-    .flat-art { width: 260px; height: auto; flex-shrink: 0; }
-    .steps img { width: 170px; height: auto; border-radius: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); flex-shrink: 0; }
-    @media (max-width: 560px) { .steps { flex-direction: column; } .flat-art { width: 100%; max-width: 300px; } }
+    .split { display: flex; flex-direction: row; gap: 28px; align-items: center; }
+    .split-text { flex: 1; }
+    .split-text p { font-size: 14px; color: var(--text); line-height: 1.65; margin-bottom: 12px; }
+    .split-text p:last-child { margin-bottom: 0; }
+    .split .pricing-art { width: 280px; height: auto; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); flex-shrink: 0; }
+    @media (max-width: 560px) { .split { flex-direction: column; } .pricing-art { width: 100%; max-width: 300px; } }
     .pricing-card.wide { margin-top: 14px; }
     .pricing-perks.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 22px; }
     @media (max-width: 700px) { .pricing-perks.two-col { grid-template-columns: 1fr; } }
@@ -412,6 +411,13 @@
     .contact-box a { color: var(--text); text-decoration: none; font-size: 14px; }
     .contact-box a:hover { color: var(--red); text-decoration: underline; }
     @media (max-width: 640px) { .contact-card { flex-direction: column; padding: 20px; gap: 22px; } .contact-details { width: 100%; } }
+
+    .claim-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+    .claim { background: var(--surface); border: 1.5px solid var(--divider); border-left: 4px solid var(--red); border-radius: 14px; padding: 14px 16px; }
+    .claim h3 { font-size: 14px; font-weight: 700; color: var(--red-dark); margin-bottom: 4px; }
+    .claim p { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+    @media (max-width: 800px) { .claim-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 520px) { .claim-grid { grid-template-columns: 1fr; } }
 
     /* ── FAQ ── */
     .faq-section { padding: 0 20px 52px; max-width: 860px; margin: 0 auto; }
@@ -715,17 +721,17 @@
       <div class="pricing-card enterprise">
         <div class="pricing-badge badge-enterprise">Enterprise</div>
         <div class="pricing-seats">100+ <span>users</span></div>
-        <div class="pricing-price">Custom quote</div>
+        <div class="pricing-price">$399 per year</div>
         <hr class="pricing-divider"/>
         <div class="pricing-perks">
-          <div class="perk"><div class="perk-dot red">✓</div>Pricing scoped to your team size and requirements.</div>
-          <div class="perk"><div class="perk-dot red">✓</div>Choose the data region your data is stored in, at extra cost.</div>
-          <div class="perk"><div class="perk-dot red">✓</div>On-premise or your own cloud setup, at extra cost.</div>
-          <div class="perk"><div class="perk-dot red">✓</div>Custom software development: API integrations and business-specific workflows.</div>
+          <div class="perk"><div class="perk-dot red">✓</div>The usage cost stays at $399 a year, however large your team gets.</div>
+          <div class="perk"><div class="perk-dot red">✓</div>One-time cost: data localisation, so your data is stored in the region you choose.</div>
+          <div class="perk"><div class="perk-dot red">✓</div>One-time cost: on-premise hosting or your own cloud setup.</div>
+          <div class="perk"><div class="perk-dot red">✓</div>One-time cost: custom features, API integrations and business-specific workflows.</div>
           <div class="perk"><div class="perk-dot red">✓</div>Full feature access. Priority support.</div>
         </div>
         <div class="pricing-cond">
-          <strong>Get a quote:</strong> email <a href="mailto:developer@shristigroup.com" style="color:var(--red);font-weight:600;text-decoration:none;">developer@shristigroup.com</a> with your team size and requirements.
+          <strong>Get a quote for the one-time items:</strong> email <a href="mailto:developer@shristigroup.com" style="color:var(--red);font-weight:600;text-decoration:none;">developer@shristigroup.com</a> with your requirements.
         </div>
       </div>
 
@@ -755,98 +761,60 @@
 
       <div class="switch-card">
         <h3>The most cost-effective option</h3>
-        <p>Free for 10 users, then $1 per user per month, and never more than $399 a year. Here is what teams of different sizes would pay per year.</p>
-        <div id="cost-chart"></div>
-        <div class="chart-legend" aria-hidden="true">
-          <span><i style="border-color:#8B1A1A"></i>TrackFolks</span>
-          <span><i style="border-color:#8B1A1A;border-top-style:dashed"></i>TrackFolks, first year ($199 cap)</span>
-          <span><i style="border-color:#2a78d6"></i>Connecteam</span>
-          <span><i style="border-color:#eda100"></i>Homebase</span>
-          <span><i style="border-color:#6250d6"></i>SalaryBox</span>
-          <span><i style="border-color:#1baf7a"></i>Jibble</span>
-          <span><i style="border-color:#eb6834"></i>QuickBooks Workforce</span>
-        </div>
-        <p class="viz-note">Jibble and QuickBooks Workforce run off the top of the chart; their price at 100 users is shown on the top edge. From each vendor's public pricing, October 2026, GPS included, rupees converted at ₹95 = $1.</p>
-        <details>
-          <summary>View the numbers as a table</summary>
-    <div class="pricing-table-wrap">
-      <div class="pricing-table-title">What you would pay per year, compared to <a href="/comparison/how-to-choose-a-field-force-tracking-app.html" style="color:var(--red);">the most popular alternatives in field force reporting area</a></div>
-      <div class="pricing-table-scroll">
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th>Users</th>
-              <th>TrackFolks</th>
-              <th>TrackFolks, first year</th>
-              <th><a href="https://connecteam.com/pricing/" rel="noopener">Connecteam</a></th>
-              <th><a href="https://www.joinhomebase.com/pricing" rel="noopener">Homebase</a></th>
-              <th><a href="https://www.salarybox.in/pricing" rel="noopener">SalaryBox</a></th>
-              <th><a href="https://jibble.io/pricing" rel="noopener">Jibble</a></th>
-              <th><a href="https://quickbooks.intuit.com/time-tracking/pricing/" rel="noopener">QuickBooks Workforce</a></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>10</td><td class="us">$0</td><td class="us">$0</td><td>$0</td><td>$0</td><td>$221</td><td>$959</td><td>$3,648</td></tr>
-            <tr><td>20</td><td class="us">$120</td><td class="us">$120</td><td>$348</td><td>$360</td><td>$442</td><td>$1,918</td><td>$5,688</td></tr>
-            <tr><td>30</td><td class="us">$240</td><td class="us">$199</td><td>$348</td><td>$360</td><td>$663</td><td>$2,876</td><td>$7,728</td></tr>
-            <tr><td>50</td><td class="us">$399</td><td class="us">$199</td><td>$540</td><td>$360</td><td>$1,105</td><td>$4,794</td><td>$11,808</td></tr>
-            <tr><td>100</td><td class="us">$399</td><td class="us">$199</td><td>$1,020</td><td>$360</td><td>$2,210</td><td>$9,588</td><td>$22,008</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="pricing-note">USD per year, with GPS location tracking included, from each vendor's public pricing in October 2026 (rupees converted at ₹95 = $1). Homebase is priced per location, not per user, and is a shift scheduler with location at clock-in only. SalaryBox has no free plan and is priced at ₹75 per user plus ₹100 per user for live location. Jibble is priced on its Ultimate plan (the plan with live location) at about $7.99 per user per month, a figure from third-party sources. QuickBooks Workforce is priced on its Elite plan (GPS and geofencing) at $17 per user plus a $134 monthly base fee. See the <a href="/comparison/how-to-choose-a-field-force-tracking-app.html">full comparison of field force tracking apps</a>.</p>
-    </div>
-
-        </details>
+        <p>Free for 10 users, then $1 per user per month, and never more than $399 a year ($199 in your first year). Here is what teams of different sizes would pay per year, against the 11 most-used apps.</p>
+        <div id="cost-chart" data-highlight=""></div>
+<script type="application/json" id="cost-data">{"users": [10, 20, 30, 50, 100], "ymax": 15000, "ymin": 50, "scale": "log", "ticks": [100, 200, 500, 1000, 2000, 5000, 10000], "series": [{"key": "trackfolks", "name": "TrackFolks", "color": "#8B1A1A", "dash": "", "w": 3.5, "v": [0, 120, 240, 399, 399]}, {"key": "trackfolks", "name": "TrackFolks, first year", "color": "#8B1A1A", "dash": "6 4", "w": 2.5, "v": [0, 120, 199, 199, 199]}, {"key": "connecteam", "name": "Connecteam", "color": "#2a78d6", "dash": "", "w": 2, "v": [0, 348, 348, 540, 1020]}, {"key": "salarybox", "name": "SalaryBox", "color": "#6250d6", "dash": "", "w": 2, "v": [221, 442, 663, 1105, 2211]}, {"key": "truein", "name": "Truein", "color": "#8d6e4a", "dash": "", "w": 2, "v": [774, 821, 868, 963, 1200]}, {"key": "fieldsense", "name": "FieldSense, first year*", "color": "#1baf7a", "dash": "6 4", "w": 2, "v": [105, 211, 316, 526, 1053]}, {"key": "fieldsense", "name": "FieldSense, after renewal*", "color": "#1baf7a", "dash": "", "w": 2, "v": [316, 632, 947, 1579, 3158]}, {"key": "quickbooks", "name": "QuickBooks Time", "color": "#eb6834", "dash": "", "w": 2, "v": [1440, 2640, 3840, 6240, 12240]}, {"key": "clockify", "name": "Clockify", "color": "#8a8580", "dash": "", "w": 2, "v": [959, 1918, 2876, 4794, 9588]}, {"key": "jibble", "name": "Jibble\u2731", "color": "#e87ba4", "dash": "", "w": 2, "v": [959, 1918, 2876, 4794, 9588]}, {"key": "hubstaff", "name": "Hubstaff\u2731", "color": "#0b7285", "dash": "", "w": 2, "v": [1200, 2400, 3600, 6000, 12000]}, {"key": "timeero", "name": "Timeero", "color": "#7c8f23", "dash": "", "w": 2, "v": [600, 1200, 1800, 3000, 6000]}]}</script>
+<p class="viz-note">Yearly price in USD with GPS location tracking included, from each vendor's public pricing in October 2026 (rupees at ₹95 = $1). The vertical axis is logarithmic, so each step up is a multiple of the one below, which lets every provider fit; $0 is drawn at the bottom. We could not find a public price for PagarBook and Unolo, so they are not on the chart.</p>
+<details>
+<summary>View the numbers as a table</summary>
+<div class="pricing-table-wrap">
+<div class="pricing-table-scroll"><table class="pricing-table"><thead><tr><th>Users</th><th>TrackFolks</th><th>TrackFolks, first year</th><th>Connecteam</th><th>SalaryBox</th><th>Truein</th><th>FieldSense, first year*</th><th>FieldSense, after renewal*</th><th>QuickBooks Time</th><th>Clockify</th><th>Jibble✱</th><th>Hubstaff✱</th><th>Timeero</th></tr></thead>
+<tbody>
+<tr><td>10</td><td class="us">$0</td><td class="us">$0</td><td class="">$0</td><td class="">$221</td><td class="">$774</td><td class="">$105</td><td class="">$316</td><td class="">$1,440</td><td class="">$959</td><td class="">$959</td><td class="">$1,200</td><td class="">$600</td></tr>
+<tr><td>20</td><td class="us">$120</td><td class="us">$120</td><td class="">$348</td><td class="">$442</td><td class="">$821</td><td class="">$211</td><td class="">$632</td><td class="">$2,640</td><td class="">$1,918</td><td class="">$1,918</td><td class="">$2,400</td><td class="">$1,200</td></tr>
+<tr><td>30</td><td class="us">$240</td><td class="us">$199</td><td class="">$348</td><td class="">$663</td><td class="">$868</td><td class="">$316</td><td class="">$947</td><td class="">$3,840</td><td class="">$2,876</td><td class="">$2,876</td><td class="">$3,600</td><td class="">$1,800</td></tr>
+<tr><td>50</td><td class="us">$399</td><td class="us">$199</td><td class="">$540</td><td class="">$1,105</td><td class="">$963</td><td class="">$526</td><td class="">$1,579</td><td class="">$6,240</td><td class="">$4,794</td><td class="">$4,794</td><td class="">$6,000</td><td class="">$3,000</td></tr>
+<tr><td>100</td><td class="us">$399</td><td class="us">$199</td><td class="">$1,020</td><td class="">$2,211</td><td class="">$1,200</td><td class="">$1,053</td><td class="">$3,158</td><td class="">$12,240</td><td class="">$9,588</td><td class="">$9,588</td><td class="">$12,000</td><td class="">$6,000</td></tr>
+</tbody></table></div>
+<p class="pricing-note">* FieldSense: per-user price worked out from what a FieldSense customer told us: Rs 25,000 for 25 users in the first year, rising to Rs 75,000 after renewal; the price at other team sizes assumes the same per-user rate. ✱ Jibble: the vendor's pages did not list a full price table, so the figure is from third-party sources that disagree. ✱ Hubstaff: the Team plan at $10 per user, without the Locations add-on that GPS tracking needs, whose price we could not find. QuickBooks Time is the Premium plan ($20 a month base fee + $10 per user). Clockify is the Pro plan. SalaryBox is Rs 75 per user plus Rs 100 for live location. Truein is the Time Capture plan (Rs 250 per user per year + a Rs 69,000 a year base fee) plus the Rs 200 per user live tracking add-on. Timeero is the Basic plan.</p>
+</div>
+</details>
+<script src="/assets/js/cost-chart.js" defer></script>
       </div>
 
       <div class="switch-card">
         <h3>The most features for the price you pay</h3>
         <p>Selfie punch-in, live GPS, route replay with distance, customer visit logs and expense receipts, all included in one price.</p>
         <div class="feat-table-scroll">
-          <table class="feat-table">
-            <thead><tr><th>Feature</th><th class=tf><a href="https://tf.shristigroup.com/" rel="noopener">TrackFolks</a></th><th><a href="https://connecteam.com/pricing/" rel="noopener">Connecteam</a></th><th><a href="https://www.joinhomebase.com/pricing" rel="noopener">Homebase</a></th><th><a href="https://www.salarybox.in/pricing" rel="noopener">SalaryBox</a></th><th><a href="https://jibble.io/pricing" rel="noopener">Jibble</a></th><th><a href="https://quickbooks.intuit.com/time-tracking/pricing/" rel="noopener">QuickBooks Workforce</a></th><th><a href="https://timeero.com/pricing" rel="noopener">Timeero</a></th></tr></thead>
+          <table class="feat-table" style="min-width:1250px">
+            <thead><tr><th>Feature</th><th class=tf>TrackFolks</th><th><a href="/comparison/alternative-to-quickbooks-time-field-force-tracking-app.html">QuickBooks Time</a></th><th><a href="/comparison/alternative-to-pagarbook-field-force-tracking-app.html">PagarBook</a></th><th><a href="/comparison/alternative-to-connecteam-field-force-tracking-app.html">Connecteam</a></th><th><a href="/comparison/alternative-to-salarybox-field-force-tracking-app.html">SalaryBox</a></th><th><a href="/comparison/alternative-to-fieldsense-field-force-tracking-app.html">FieldSense</a></th><th><a href="/comparison/alternative-to-clockify-field-force-tracking-app.html">Clockify</a></th><th><a href="/comparison/alternative-to-jibble-field-force-tracking-app.html">Jibble</a></th><th><a href="/comparison/alternative-to-unolo-field-force-tracking-app.html">Unolo</a></th><th><a href="/comparison/alternative-to-truein-field-force-tracking-app.html">Truein</a></th><th><a href="/comparison/alternative-to-hubstaff-field-force-tracking-app.html">Hubstaff</a></th><th><a href="/comparison/alternative-to-timeero-field-force-tracking-app.html">Timeero</a></th></tr></thead>
             <tbody>
-            <tr><th scope="row">Selfie / photo at punch-in</th><td class="y tf">Yes</td><td class="n">Not stated</td><td class="n">Not stated</td><td class="y">Yes</td><td class="y">Yes</td><td class="n">Not stated</td><td class="n">Not stated</td></tr>
-            <tr><th scope="row">Live location</th><td class="y tf">Yes</td><td class="p">Breadcrumbs</td><td class="x">No</td><td class="p">Add-on</td><td class="p">Top plan</td><td class="p">Map view</td><td class="n">Not stated</td></tr>
-            <tr><th scope="row">Route history and distance</th><td class="y tf">Yes</td><td class="p">Trail</td><td class="x">No</td><td class="p">Reported</td><td class="p">On timesheets</td><td class="p">GPS mileage</td><td class="y">Yes</td></tr>
-            <tr><th scope="row">Customer visit logging</th><td class="y tf">Yes</td><td class="n">Not stated</td><td class="n">Not stated</td><td class="y">Yes</td><td class="n">Not stated</td><td class="n">Not stated</td><td class="n">Not stated</td></tr>
-            <tr><th scope="row">Expenses</th><td class="y tf">Receipts</td><td class="n">Not stated</td><td class="n">Not stated</td><td class="y">Yes</td><td class="n">Not stated</td><td class="p">Mileage</td><td class="p">Mileage</td></tr>
-            <tr><th scope="row">Price per user per month (30 users)</th><td class="y tf">$0.67</td><td class="y">$0.97</td><td class="y">$1.00</td><td class="p">$1.84</td><td class="x">$7.99 ✱</td><td class="x">$21.47</td><td class="p">$5.00</td></tr>
+<tr><th scope="row">Selfie / face check at punch-in</th><td class="y tf">Selfie punch-in</td><td class="n">Not stated</td><td class="y">Selfie attendance</td><td class="n">Not stated</td><td class="y">AI selfie</td><td class="n">Not stated</td><td class="n">Not stated</td><td class="y">Face recognition</td><td class="p">Facelock, separate product</td><td class="y">Face recognition</td><td class="n">Not stated</td><td class="p">Photo at clock-in</td></tr>
+<tr><th scope="row">Live location</th><td class="y tf">Yes</td><td class="y">Who&#x27;s working map</td><td class="y">Geo product</td><td class="p">Breadcrumbs</td><td class="p">Add-on, Rs 100</td><td class="y">Yes</td><td class="p">Last locations, Pro plan</td><td class="p">Ultimate plan</td><td class="y">Real-time location</td><td class="p">Live tracking add-on</td><td class="p">Locations add-on</td><td class="n">Not stated</td></tr>
+<tr><th scope="row">Route history and distance</th><td class="y tf">Route replay, daily distance</td><td class="p">GPS mileage, Elite plan</td><td class="y">Geo route timeline</td><td class="p">Breadcrumb trail</td><td class="p">Reported</td><td class="y">Yes</td><td class="p">Route points, Pro plan</td><td class="p">Timesheet locations</td><td class="y">Distance travelled</td><td class="n">Not stated</td><td class="p">Route history, Locations add-on</td><td class="y">Route map, breadcrumbs, playback</td></tr>
+<tr><th scope="row">Customer visit logging</th><td class="y tf">Check-in form</td><td class="n">Not stated</td><td class="y">OTP-confirmed visits</td><td class="n">Not stated</td><td class="y">Meetings</td><td class="y">Visit management</td><td class="n">Not stated</td><td class="n">Not stated</td><td class="y">Sites and clients</td><td class="p">Activity punch</td><td class="p">Job site attendance with notes and photos</td><td class="n">Not stated</td></tr>
+<tr><th scope="row">Expense claims</th><td class="y tf">Receipts</td><td class="n">Not stated</td><td class="n">Not stated</td><td class="n">Not stated</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td><td class="n">Not stated</td><td class="y">Conveyance claims</td><td class="n">Not stated</td><td class="n">Not stated</td><td class="p">Mileage</td></tr>
+<tr><th scope="row">Price per user per month, year 1</th><td class="y tf">$0.55</td><td class="x">$10.67</td><td class="n">Not published</td><td class="y">$0.97</td><td class="y">$1.84</td><td class="y">$0.88*</td><td class="p">$7.99</td><td class="p">$7.99✱</td><td class="n">Not published</td><td class="p">$2.41</td><td class="x">$10.00✱</td><td class="p">$5.00</td></tr>
+<tr><th scope="row">Price per user per month, after renewal</th><td class="y tf">$0.67</td><td class="x">$10.67</td><td class="n">Not published</td><td class="y">$0.97</td><td class="y">$1.84</td><td class="p">$2.63*</td><td class="p">$7.99</td><td class="p">$7.99✱</td><td class="n">Not published</td><td class="p">$2.41</td><td class="x">$10.00✱</td><td class="p">$5.00</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="viz-note">Green = included, amber = partial, add-on or higher plan, grey = not stated in the vendor's public material (not the same as missing), red = not available or high price. Price is approximate USD per user per month for a 30-user team; ✱ is from third-party sources. This table shows the features TrackFolks offers; our <a href="/comparison/how-to-choose-a-field-force-tracking-app.html">full comparison of 14 apps</a> also shows where TrackFolks is behind, such as a web dashboard, offline mode, payroll and geofencing.</p>
+        <p class="viz-note">Green = included, amber = partial, add-on or higher plan, grey = not stated in the vendor's public material (not the same as missing), red = not available or a high price. Price is approximate USD per user per month for a 30-user team; * FieldSense is from a FieldSense customer, ✱ Jibble and Hubstaff are third-party or partial figures. This table shows the features TrackFolks offers; the <a href="/comparison/field-force-tracking-apps-compared.html">full comparison of the top 11 apps</a> also shows where TrackFolks is behind: no leave or roster management and no biometric or QR attendance, with geofencing coming soon. See also <a href="/comparison/alternatives-to-top-field-force-tracking-apps.html">alternatives to the top 11 apps</a>.</p>
       </div>
 
       <div class="switch-card">
         <h3>Transparent pricing that does not climb with your team</h3>
-        <div class="steps">
-          <ol>
-            <li><span class="n">1</span><span><strong>The first 10 users are free</strong>, with every feature, GPS included.</span></li>
-            <li><span class="n">2</span><span><strong>$1 per user per month</strong> beyond that, with no base fee and no paid add-ons for GPS or route tracking.</span></li>
-            <li><span class="n">3</span><span><strong>Never more than $399 a year</strong>, however many people you add.</span></li>
-          </ol>
-          <svg class="flat-art" viewBox="0 0 320 200" role="img" aria-labelledby="flat-art-t flat-art-d">
-            <title id="flat-art-t">A flat price line against a rising one</title>
-            <desc id="flat-art-d">Illustration: as the team grows, a typical per-user price keeps climbing while the TrackFolks price levels off at a fixed yearly cap.</desc>
-            <rect x="0" y="0" width="320" height="200" rx="16" fill="#fbeaea"/>
-            <line x1="40" y1="160" x2="300" y2="160" stroke="#B09090" stroke-width="1.5"/>
-            <line x1="40" y1="30" x2="40" y2="160" stroke="#B09090" stroke-width="1.5"/>
-            <path d="M40 150 L300 40" fill="none" stroke="#B09090" stroke-width="3" stroke-dasharray="6 5" stroke-linecap="round"/>
-            <path d="M40 150 L150 100 L300 100" fill="none" stroke="#8B1A1A" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
-            <circle cx="150" cy="100" r="6" fill="#F5A623" stroke="#fff" stroke-width="2"/>
-            <rect x="170" y="70" width="86" height="22" rx="11" fill="#8B1A1A"/>
-            <text x="213" y="85" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">$399 a year cap</text>
-            <text x="250" y="30" text-anchor="end" font-size="10" fill="#6B5050">Typical per-user pricing</text>
-            <text x="170" y="178" text-anchor="middle" font-size="10" fill="#6B5050">More people</text>
-            <text x="20" y="100" text-anchor="middle" font-size="10" fill="#6B5050" transform="rotate(-90 20 100)">Price</text>
-            <g fill="#8B1A1A"><circle cx="64" cy="146" r="4"/><rect x="60" y="150" width="8" height="8" rx="3"/><circle cx="82" cy="146" r="4"/><rect x="78" y="150" width="8" height="8" rx="3"/><circle cx="100" cy="146" r="4"/><rect x="96" y="150" width="8" height="8" rx="3"/><circle cx="212" cy="146" r="4"/><rect x="208" y="150" width="8" height="8" rx="3"/><circle cx="230" cy="146" r="4"/><rect x="226" y="150" width="8" height="8" rx="3"/><circle cx="248" cy="146" r="4"/><rect x="244" y="150" width="8" height="8" rx="3"/><circle cx="266" cy="146" r="4"/><rect x="262" y="150" width="8" height="8" rx="3"/><circle cx="284" cy="146" r="4"/><rect x="280" y="150" width="8" height="8" rx="3"/></g>
-          </svg>
+        <div class="split">
+          <div class="split-text">
+            <p>Most field tracking apps charge per user, so your bill keeps growing with every person you add. With TrackFolks the first 10 users are free, then it is $1 per user per month, and your bill stops at $399 a year however large the team gets, including beyond 100 users.</p>
+            <p>Some vendors also start with an introductory price that goes up later. Ours is published here upfront: capped at $199 in your first year and at $399 after that, with no base fee and no paid add-ons for GPS or route tracking. Data localisation, on-premise hosting and custom features are one-time costs; the usage cost stays at $399. There is nothing to find out at renewal.</p>
+          </div>
+          <img class="pricing-art" src="assets/media/transparent-pricing.jpg" width="600" height="1075" loading="lazy" alt="Infographic: transparent pricing with no surprises, with clear upfront costs, a pre-defined yearly renewal, no hidden fees and complete visibility" />
         </div>
       </div>
 
     </div>
+    <div class="claim-grid"><div class="claim"><h3>Privacy first</h3><p>Location is collected only while you are punched in. There is no tracking when staff are off duty.</p></div><div class="claim"><h3>Accurate distance measurement</h3><p>Distance is measured along the route staff actually travelled, with stray GPS points filtered out and the route snapped to roads.</p></div><div class="claim"><h3>Easy on the battery</h3><p>One location point a minute, uploaded every 15 minutes: as light as it can be while still showing managers near-real-time data, about 15 minutes behind.</p></div><div class="claim"><h3>Reliable</h3><p>No crashes reported by the roughly 50 people who have used the app so far, from in-person feedback and TestFlight crash data.</p></div><div class="claim"><h3>Mobile first</h3><p>Everything is done from the phone, including exporting CSV reports, so managers never need a dashboard to get work done.</p></div><div class="claim"><h3>Personal support from the creator</h3><p>The creator answers on WhatsApp personally. Most teams need support only while onboarding, because the app is self-serve.</p></div><div class="claim"><h3>Try it yourself</h3><p>Free for up to 10 users. Download the app, share your code and start, with no need to talk to anyone.</p></div></div>
   </div>
 
   <!-- ── FAQ ── -->
@@ -855,43 +823,43 @@
     <div class="faq-list">
 
       <div class="faq-item">
-        <button class="faq-q">How much does TrackFolks cost compared with other field tracking apps? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">The first 10 users are free. Beyond that it is $1 (₹100) per user per month, capped at $399 a year, or $199 in the first year. For a 30-user team that is about $240 a year ($199 in the first year), compared with about $348 on Connecteam and about $663 on SalaryBox, based on public pricing in October 2026.</div>
+        <button class="faq-q">How much does TrackFolks cost compared with other field force tracking apps? <i class="faq-chevron">▾</i></button>
+        <div class="faq-a">The first 10 users are free. Beyond that it is $1 (₹100) per user per month, capped at $399 a year, or $199 in the first year. For a 30-user team that is about $240 a year ($199 in the first year), compared with about $348 on Connecteam, $663 on SalaryBox, $868 on Truein, $1,800 on Timeero, $2,876 on Clockify and $3,840 on QuickBooks Time, based on public pricing in October 2026.</div>
       </div>
 
       <div class="faq-item">
-        <button class="faq-q">Is TrackFolks an alternative to Connecteam, Homebase, Deputy or When I Work? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">Those are team-management and shift-scheduling tools with a time clock that records location. TrackFolks is built for field staff: selfie punch-in, live GPS, route replay with distance, customer visit logs and expense receipts. Connecteam and Homebase also have free plans for 10 users, and they add scheduling that TrackFolks does not have. Homebase and When I Work are reported to record location only at clock-in and clock-out.</div>
+        <button class="faq-q">Is TrackFolks an alternative to QuickBooks Time, Connecteam, Clockify, Jibble, Hubstaff or Timeero? <i class="faq-chevron">▾</i></button>
+        <div class="faq-a">Those are time tracking and team management apps from outside India that include GPS, often on higher plans or with add-ons. TrackFolks is built for field staff: selfie punch-in, live GPS, route replay with distance, customer visit check-ins and expense receipts. They offer scheduling, payroll, offline clock-in and geofencing that TrackFolks does not have yet.</div>
       </div>
 
       <div class="faq-item">
-        <button class="faq-q">How does TrackFolks compare with SalaryBox and Trackobit? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">SalaryBox and Trackobit are Indian apps that also offer leave management and geofencing, and SalaryBox adds payroll. TrackFolks has no leave, payroll or geofencing yet; geofencing is coming soon. On price, SalaryBox costs about ₹175 ($1.84) per user per month with live location and has no free plan, and Trackobit lists $5 per user with a 10-user minimum. TrackFolks is free for 10 users and then $1 per user.</div>
+        <button class="faq-q">How does TrackFolks compare with SalaryBox, PagarBook, FieldSense, Unolo and Truein? <i class="faq-chevron">▾</i></button>
+        <div class="faq-a">These are Indian apps. SalaryBox and PagarBook add leave management, payroll and biometric or QR attendance, and Truein adds face-recognition attendance with offline clock-in, none of which TrackFolks has; FieldSense and Unolo are field-first, like TrackFolks. On price, SalaryBox is about ₹175 ($1.84) per user per month with live location and has no free plan, Truein charges a ₹69,000 yearly base fee, PagarBook and Unolo do not publish prices, and a FieldSense customer reports ₹1,000 per user per year in year 1 and ₹3,000 after renewal. TrackFolks is free for 10 users and then $1 per user, capped at $399 a year.</div>
       </div>
 
       <div class="faq-item">
-        <button class="faq-q">Is TrackFolks cheaper than Hubstaff, Timeero, Workyard, Buddy Punch or QuickBooks Workforce? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">Yes. With GPS included, those cost roughly $5 to $21 per user per month for a 30-user team: Timeero about $5, Buddy Punch about $7.62, Workyard about $7.67, Hubstaff $10 plus a Locations add-on, and QuickBooks Workforce about $21. They also have web dashboards, which TrackFolks does not.</div>
+        <button class="faq-q">Does TrackFolks drain the battery or track staff when they are off duty? <i class="faq-chevron">▾</i></button>
+        <div class="faq-a">No. TrackFolks collects one location point a minute and uploads every 15 minutes, which is as light as it can be while still showing managers near-real-time data. Location is collected only while a user is punched in; background permission is needed so tracking continues while the app is in the background during a shift.</div>
       </div>
 
       <div class="faq-item">
-        <button class="faq-q">How does TrackFolks compare with Jibble and Clockify? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">Jibble's free plan allows unlimited users and includes clock-in location and geofencing, but live location needs its paid Ultimate plan. Clockify's free plan covers 5 users without GPS, and GPS starts on its $7.99 Pro plan. TrackFolks' free plan covers 10 users and includes live GPS, route replay, selfie punch-in and visit logging.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-q">Does TrackFolks work on iPhone and Android? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">Yes. TrackFolks has apps for both Android and iPhone, and the whole team runs it from the app. There is no web dashboard to set up.</div>
+        <button class="faq-q">Does TrackFolks work on iPhone and Android? Do I need a web dashboard? <i class="faq-chevron">▾</i></button>
+        <div class="faq-a">TrackFolks has apps for both Android and iPhone, and everything is done from the app, including exporting CSV reports for payroll. There is no web dashboard by design: managers never need one to get their work done.</div>
       </div>
 
       <div class="faq-item">
         <button class="faq-q">What can TrackFolks not do yet? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">TrackFolks has no web dashboard (everything is in the mobile app), no offline mode, no leave or payroll, and no regional-language support. Geofencing is coming soon. If you need those, another app in our comparison may suit you better.</div>
+        <div class="faq-a">TrackFolks has no leave or roster management and no biometric or QR attendance. Geofencing is coming soon. Payroll is handled by exporting a CSV, and location is gathered offline and synced later, while punch-in needs a connection so the manager is notified straight away. It is also a new entrant with no store ratings yet.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q">What do users complain about in other attendance and field force tracking apps? <i class="faq-chevron">▾</i></button>
+        <div class="faq-a">In app store reviews of the most-used apps, the most common complaints are crashes and login errors after updates, price and renewal surprises, always-on location tracking, battery drain, inaccurate distance, and slow support. See our article on alternatives to the top attendance and field force tracking apps.</div>
       </div>
 
       <div class="faq-item">
         <button class="faq-q">Where can I see all these apps compared side by side? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">Our <a href="/comparison/how-to-choose-a-field-force-tracking-app.html" style="color:var(--red);font-weight:600;">feature-by-feature comparison of 14 field force tracking apps</a> lists attendance, selfie check, live location, route history, geofencing, visits, expenses, payroll, offline use, free plans, cost per user and app store ratings.</div>
+        <div class="faq-a">Our <a href="/comparison/field-force-tracking-apps-compared.html" style="color:var(--red);font-weight:600;">comparison of the top 11 field force tracking apps</a> lists selfie check, live location, route history, geofencing, visits, expenses, leave, payroll, offline use, biometric attendance, free plans, price per user in year 1 and after renewal, and app store ratings. <a href="/comparison/alternatives-to-top-field-force-tracking-apps.html" style="color:var(--red);font-weight:600;">Alternatives to the top 11 apps</a> covers what each app's users complain about and the best alternative to each, and every app has its own page, such as <a href="/comparison/alternative-to-salarybox-field-force-tracking-app.html" style="color:var(--red);font-weight:600;">alternative to SalaryBox</a> and <a href="/comparison/alternative-to-quickbooks-time-field-force-tracking-app.html" style="color:var(--red);font-weight:600;">alternative to QuickBooks Time</a>.</div>
       </div>
 
     </div>
@@ -933,7 +901,7 @@
     <p>TrackFolks &copy; <span id="year"></span> Shrishti Group</p>
     <p style="margin-top:4px;">Built for field teams that move fast.</p>
     <p style="margin-top:4px;">Questions? <a href="mailto:developer@shristigroup.com">developer@shristigroup.com</a></p>
-    <p style="margin-top:4px;"><a href="/comparison/how-to-choose-a-field-force-tracking-app.html">Compare field tracking apps</a> · <a href="/privacy">Privacy Policy</a></p>
+    <p style="margin-top:4px;"><a href="/comparison/field-force-tracking-apps-compared.html">Compare field tracking apps</a> · <a href="/privacy">Privacy Policy</a></p>
   </footer>
 
   <!-- FAQ accordion -->
@@ -973,50 +941,42 @@
   "mainEntity": [
     {
       "@type": "Question",
-      "name": "How much does TrackFolks cost compared with other field tracking apps?",
+      "name": "How much does TrackFolks cost compared with other field force tracking apps?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "The first 10 users are free. Beyond that it is $1 (₹100) per user per month, capped at $399 a year, or $199 in the first year. For a 30-user team that is about $240 a year ($199 in the first year), compared with about $348 on Connecteam and about $663 on SalaryBox, based on public pricing in October 2026."
+        "text": "The first 10 users are free. Beyond that it is $1 (₹100) per user per month, capped at $399 a year, or $199 in the first year. For a 30-user team that is about $240 a year ($199 in the first year), compared with about $348 on Connecteam, $663 on SalaryBox, $868 on Truein, $1,800 on Timeero, $2,876 on Clockify and $3,840 on QuickBooks Time, based on public pricing in October 2026."
       }
     },
     {
       "@type": "Question",
-      "name": "Is TrackFolks an alternative to Connecteam, Homebase, Deputy or When I Work?",
+      "name": "Is TrackFolks an alternative to QuickBooks Time, Connecteam, Clockify, Jibble, Hubstaff or Timeero?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Those are team-management and shift-scheduling tools with a time clock that records location. TrackFolks is built for field staff: selfie punch-in, live GPS, route replay with distance, customer visit logs and expense receipts. Connecteam and Homebase also have free plans for 10 users, and they add scheduling that TrackFolks does not have. Homebase and When I Work are reported to record location only at clock-in and clock-out."
+        "text": "Those are time tracking and team management apps from outside India that include GPS, often on higher plans or with add-ons. TrackFolks is built for field staff: selfie punch-in, live GPS, route replay with distance, customer visit check-ins and expense receipts. They offer scheduling, payroll, offline clock-in and geofencing that TrackFolks does not have yet."
       }
     },
     {
       "@type": "Question",
-      "name": "How does TrackFolks compare with SalaryBox and Trackobit?",
+      "name": "How does TrackFolks compare with SalaryBox, PagarBook, FieldSense, Unolo and Truein?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "SalaryBox and Trackobit are Indian apps that also offer leave management and geofencing, and SalaryBox adds payroll. TrackFolks has no leave, payroll or geofencing yet; geofencing is coming soon. On price, SalaryBox costs about ₹175 ($1.84) per user per month with live location and has no free plan, and Trackobit lists $5 per user with a 10-user minimum. TrackFolks is free for 10 users and then $1 per user."
+        "text": "These are Indian apps. SalaryBox and PagarBook add leave management, payroll and biometric or QR attendance, and Truein adds face-recognition attendance with offline clock-in, none of which TrackFolks has; FieldSense and Unolo are field-first, like TrackFolks. On price, SalaryBox is about ₹175 ($1.84) per user per month with live location and has no free plan, Truein charges a ₹69,000 yearly base fee, PagarBook and Unolo do not publish prices, and a FieldSense customer reports ₹1,000 per user per year in year 1 and ₹3,000 after renewal. TrackFolks is free for 10 users and then $1 per user, capped at $399 a year."
       }
     },
     {
       "@type": "Question",
-      "name": "Is TrackFolks cheaper than Hubstaff, Timeero, Workyard, Buddy Punch or QuickBooks Workforce?",
+      "name": "Does TrackFolks drain the battery or track staff when they are off duty?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. With GPS included, those cost roughly $5 to $21 per user per month for a 30-user team: Timeero about $5, Buddy Punch about $7.62, Workyard about $7.67, Hubstaff $10 plus a Locations add-on, and QuickBooks Workforce about $21. They also have web dashboards, which TrackFolks does not."
+        "text": "No. TrackFolks collects one location point a minute and uploads every 15 minutes, which is as light as it can be while still showing managers near-real-time data. Location is collected only while a user is punched in; background permission is needed so tracking continues while the app is in the background during a shift."
       }
     },
     {
       "@type": "Question",
-      "name": "How does TrackFolks compare with Jibble and Clockify?",
+      "name": "Does TrackFolks work on iPhone and Android? Do I need a web dashboard?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Jibble's free plan allows unlimited users and includes clock-in location and geofencing, but live location needs its paid Ultimate plan. Clockify's free plan covers 5 users without GPS, and GPS starts on its $7.99 Pro plan. TrackFolks' free plan covers 10 users and includes live GPS, route replay, selfie punch-in and visit logging."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does TrackFolks work on iPhone and Android?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. TrackFolks has apps for both Android and iPhone, and the whole team runs it from the app. There is no web dashboard to set up."
+        "text": "TrackFolks has apps for both Android and iPhone, and everything is done from the app, including exporting CSV reports for payroll. There is no web dashboard by design: managers never need one to get their work done."
       }
     },
     {
@@ -1024,7 +984,15 @@
       "name": "What can TrackFolks not do yet?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "TrackFolks has no web dashboard (everything is in the mobile app), no offline mode, no leave or payroll, and no regional-language support. Geofencing is coming soon. If you need those, another app in our comparison may suit you better."
+        "text": "TrackFolks has no leave or roster management and no biometric or QR attendance. Geofencing is coming soon. Payroll is handled by exporting a CSV, and location is gathered offline and synced later, while punch-in needs a connection so the manager is notified straight away. It is also a new entrant with no store ratings yet."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What do users complain about in other attendance and field force tracking apps?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "In app store reviews of the most-used apps, the most common complaints are crashes and login errors after updates, price and renewal surprises, always-on location tracking, battery drain, inaccurate distance, and slow support. See our article on alternatives to the top attendance and field force tracking apps."
       }
     },
     {
@@ -1032,7 +1000,7 @@
       "name": "Where can I see all these apps compared side by side?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Our feature-by-feature comparison of 14 field force tracking apps lists attendance, selfie check, live location, route history, geofencing, visits, expenses, payroll, offline use, free plans, cost per user and app store ratings."
+        "text": "Our comparison of the top 11 field force tracking apps lists selfie check, live location, route history, geofencing, visits, expenses, leave, payroll, offline use, biometric attendance, free plans, price per user in year 1 and after renewal, and app store ratings, and our article on alternatives covers what each app's users complain about and the best alternative to each."
       }
     }
   ]
@@ -1077,134 +1045,5 @@
     }
   </script>
 
-  <script>
-    // Price per year (USD) by team size, from each vendor's public pricing, Oct 2026 (Rs 95 = $1).
-    (function () {
-      var users = [10, 20, 30, 50, 100];
-      var series = [
-        { name: 'TrackFolks',             color: '#8B1A1A', dash: '',    w: 3.5, v: [0, 120, 240, 399, 399] },
-        { name: 'TrackFolks, first year', color: '#8B1A1A', dash: '6 4', w: 2.5, v: [0, 120, 199, 199, 199] },
-        { name: 'Connecteam',             color: '#2a78d6', dash: '',    w: 2,   v: [0, 348, 348, 540, 1020] },
-        { name: 'Homebase',               color: '#eda100', dash: '',    w: 2.5, v: [0, 360, 360, 360, 360] },
-        { name: 'SalaryBox',              color: '#6250d6', dash: '',    w: 2,   v: [221, 442, 663, 1105, 2210] },
-        { name: 'Jibble',                 color: '#1baf7a', dash: '',    w: 2,   v: [959, 1918, 2876, 4794, 9588] },
-        { name: 'QuickBooks Workforce',   color: '#eb6834', dash: '',    w: 2,   v: [3648, 5688, 7728, 11808, 22008] }
-      ];
-      var W = 700, H = 372, L = 58, R = 200, T = 48, B = 46, YMAX = 2400;
-      var pw = W - L - R, ph = H - T - B;
-      var NS = 'http://www.w3.org/2000/svg';
-      var host = document.getElementById('cost-chart');
-      if (!host) return;
-      function el(tag, attrs, text) {
-        var e = document.createElementNS(NS, tag);
-        for (var k in attrs) e.setAttribute(k, attrs[k]);
-        if (text != null) e.textContent = text;
-        return e;
-      }
-      function X(u) { return L + (u - users[0]) / (users[users.length - 1] - users[0]) * pw; }
-      function Y(v) { return T + ph - v / YMAX * ph; }
-      function money(v) { return '$' + v.toLocaleString('en-US'); }
-      var last = users.length - 1;
-      function offScale(s) { return s.v[last] > YMAX; }
-
-      var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img',
-        'aria-label': 'Line chart of price per year in US dollars against number of users for TrackFolks, Connecteam, Homebase, SalaryBox, Jibble and QuickBooks Workforce. TrackFolks is lowest at every size above 10 users. Jibble and QuickBooks Workforce run off the top of the chart. The same numbers are in the table below.' });
-      var defs = el('defs', {});
-      var clip = el('clipPath', { id: 'plot-clip' });
-      clip.appendChild(el('rect', { x: L - 4, y: T, width: pw + 8, height: ph }));
-      defs.appendChild(clip); svg.appendChild(defs);
-      [0, 600, 1200, 1800, 2400].forEach(function (t) {
-        svg.appendChild(el('line', { x1: L, x2: L + pw, y1: Y(t), y2: Y(t), stroke: '#EDE0E0', 'stroke-width': 1 }));
-        svg.appendChild(el('text', { x: L - 8, y: Y(t) + 4, 'text-anchor': 'end', 'font-size': 11, fill: '#6B5050' }, money(t)));
-      });
-      users.forEach(function (u) {
-        svg.appendChild(el('text', { x: X(u), y: T + ph + 18, 'text-anchor': 'middle', 'font-size': 11, fill: '#6B5050' }, String(u)));
-      });
-      svg.appendChild(el('text', { x: L + pw / 2, y: H - 6, 'text-anchor': 'middle', 'font-size': 11, fill: '#6B5050' }, 'Number of users'));
-      svg.appendChild(el('text', { transform: 'translate(13,' + (T + ph / 2) + ') rotate(-90)', 'text-anchor': 'middle', 'font-size': 11, fill: '#6B5050' }, 'Price per year (USD)'));
-
-      var lines = el('g', { 'clip-path': 'url(#plot-clip)' });
-      series.slice().reverse().forEach(function (s) {
-        var d = s.v.map(function (v, i) { return (i ? 'L' : 'M') + X(users[i]).toFixed(1) + ' ' + Y(v).toFixed(1); }).join(' ');
-        var attrs = { d: d, fill: 'none', stroke: s.color, 'stroke-width': s.w, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' };
-        if (s.dash) attrs['stroke-dasharray'] = s.dash;
-        lines.appendChild(el('path', attrs));
-      });
-      svg.appendChild(lines);
-
-      // Series that run off the top: a labelled arrow on the top edge, where the line leaves the chart.
-      var topRow = 0;
-      series.filter(offScale).sort(function (a, b) { return b.v[0] - a.v[0]; }).forEach(function (s) {
-        var ux = users[0];
-        for (var i = 1; i < users.length; i++) {
-          if (s.v[i - 1] <= YMAX && s.v[i] > YMAX) { ux = users[i - 1] + (YMAX - s.v[i - 1]) / (s.v[i] - s.v[i - 1]) * (users[i] - users[i - 1]); break; }
-        }
-        var x = X(ux), y = T - 6 - topRow * 17;
-        svg.appendChild(el('line', { x1: x, x2: x, y1: T, y2: y + 3, stroke: s.color, 'stroke-width': 1.5 }));
-        svg.appendChild(el('text', { x: x + 6, y: y, 'font-size': 11, fill: '#1A0A0A' }, '↑ ' + s.name + ' ' + money(s.v[last]) + ' at 100 users'));
-        topRow++;
-      });
-
-      // Direct labels at the right end for lines still on the chart, nudged apart so none overlap.
-      var labels = series.filter(function (s) { return !offScale(s); }).map(function (s) { return { s: s, y: Y(s.v[last]) }; }).sort(function (a, b) { return a.y - b.y; });
-      for (var i = 1; i < labels.length; i++) if (labels[i].y - labels[i - 1].y < 15) labels[i].y = labels[i - 1].y + 15;
-      labels.forEach(function (l) {
-        svg.appendChild(el('line', { x1: L + pw + 6, x2: L + pw + 20, y1: l.y, y2: l.y, stroke: l.s.color, 'stroke-width': 3, 'stroke-dasharray': l.s.dash }));
-        svg.appendChild(el('text', { x: L + pw + 26, y: l.y + 4, 'font-size': 12, fill: '#1A0A0A', 'font-weight': l.s.name === 'TrackFolks' ? 700 : 400 },
-          l.s.name + ' ' + money(l.s.v[last])));
-      });
-
-      var guide = el('line', { y1: T, y2: T + ph, stroke: '#6B5050', 'stroke-width': 1, 'stroke-dasharray': '3 3', visibility: 'hidden' });
-      var dots = series.map(function (s) { return el('circle', { r: 5, fill: s.color, stroke: '#fff', 'stroke-width': 2, visibility: 'hidden' }); });
-      svg.appendChild(guide); dots.forEach(function (c) { svg.appendChild(c); });
-      var hit = el('rect', { x: L - 10, y: T, width: pw + 20, height: ph, fill: 'transparent', tabindex: 0,
-        'aria-label': 'Chart values. Use left and right arrow keys to move between team sizes.' });
-      svg.appendChild(hit);
-
-      var tip = document.createElement('div'); tip.className = 'chart-tip';
-      var wrap = document.createElement('div'); wrap.className = 'chart-wrap';
-      var scroll = document.createElement('div'); scroll.className = 'chart-scroll';
-      scroll.appendChild(svg); wrap.appendChild(scroll); wrap.appendChild(tip); host.appendChild(wrap);
-
-      function show(idx) {
-        var x = X(users[idx]);
-        guide.setAttribute('x1', x); guide.setAttribute('x2', x); guide.setAttribute('visibility', 'visible');
-        series.forEach(function (s, i) {
-          var onChart = s.v[idx] <= YMAX;
-          dots[i].setAttribute('cx', x); dots[i].setAttribute('cy', Y(s.v[idx]));
-          dots[i].setAttribute('visibility', onChart ? 'visible' : 'hidden');
-        });
-        tip.textContent = '';
-        var head = document.createElement('div'); head.className = 'tip-head'; head.textContent = users[idx] + ' users, per year'; tip.appendChild(head);
-        series.map(function (s) { return { s: s, v: s.v[idx] }; }).sort(function (a, b) { return a.v - b.v; }).forEach(function (r) {
-          var row = document.createElement('div'); row.className = 'tip-row';
-          var key = document.createElement('span'); key.className = 'tip-key'; key.style.borderTopColor = r.s.color; if (r.s.dash) key.style.borderTopStyle = 'dashed';
-          var nm = document.createElement('span'); nm.className = 'tip-name'; nm.textContent = r.s.name;
-          var val = document.createElement('span'); val.className = 'tip-val'; val.textContent = money(r.v);
-          row.appendChild(key); row.appendChild(nm); row.appendChild(val); tip.appendChild(row);
-        });
-        tip.style.display = 'block';
-        var box = svg.getBoundingClientRect(), wb = wrap.getBoundingClientRect(), k = box.width / W;
-        var left = box.left - wb.left + x * k + 14;
-        if (left + tip.offsetWidth > wb.width) left = box.left - wb.left + x * k - tip.offsetWidth - 14;
-        tip.style.left = Math.max(0, left) + 'px'; tip.style.top = (box.top - wb.top + T * k) + 'px';
-      }
-      function hide() { guide.setAttribute('visibility', 'hidden'); dots.forEach(function (c) { c.setAttribute('visibility', 'hidden'); }); tip.style.display = 'none'; }
-      var cur = 0;
-      function nearest(evt) {
-        var box = svg.getBoundingClientRect(), px = (evt.clientX - box.left) / (box.width / W), best = 0;
-        users.forEach(function (u, i) { if (Math.abs(X(u) - px) < Math.abs(X(users[best]) - px)) best = i; });
-        return best;
-      }
-      hit.addEventListener('pointermove', function (e) { cur = nearest(e); show(cur); });
-      hit.addEventListener('pointerleave', hide);
-      hit.addEventListener('focus', function () { show(cur); });
-      hit.addEventListener('blur', hide);
-      hit.addEventListener('keydown', function (e) {
-        if (e.key === 'ArrowRight') { cur = Math.min(users.length - 1, cur + 1); show(cur); e.preventDefault(); }
-        if (e.key === 'ArrowLeft') { cur = Math.max(0, cur - 1); show(cur); e.preventDefault(); }
-      });
-    })();
-  </script>
 </body>
 </html>

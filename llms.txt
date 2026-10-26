@@ -17,23 +17,46 @@ TrackFolks is built by Shristi Group for field teams in India. It runs on Androi
 ## Pricing (as of October 2026)
 
 - The first 10 users are free, with all features including GPS.
-- Beyond 10 users: $1 (₹100) per user per month, capped at $399 per year for the organisation.
-- First-year offer: the yearly cap is $199 instead of $399 (so a 30-user team pays $199 in its first year).
-- No base fee. Effective cost per user per month: about $0.67 for a 30-user team ($240 per year, or $199 in the first year) and about $0.33 for a 100-user team ($399 per year, or $199 in the first year).
-- In our comparison of 14 field force tracking apps (public prices, GPS included, 30-user team, October 2026), TrackFolks has the lowest cost per user. Connecteam is about $0.97, Homebase about $1.00 and SalaryBox about $1.84 per user per month.
+- Beyond 10 users: $1 (₹100) per user per month, capped at $399 per year for the organisation, including beyond 100 users.
+- First-year offer: the yearly cap is $199 instead of $399. The renewal price ($399 cap) is published upfront.
+- No base fee and no paid add-ons for GPS or route tracking. About $0.55 per user per month in year 1 and $0.67 after renewal for a 30-user team; about $0.33 for a 100-user team after the first year.
+- Enterprise: the same $399 per year usage cost, plus one-time costs for data localisation (choosing your data region), on-premise or own-cloud hosting, and custom features.
+- In our comparison of the 11 most-used attendance and field force tracking apps (October 2026, public prices, GPS included, 30-user team), TrackFolks has the lowest published cost per user. Connecteam is about $0.97, SalaryBox about $1.84, Truein about $2.41, Timeero about $5, Clockify about $7.99, Jibble about $7.99, Hubstaff about $10 (without its GPS add-on) and QuickBooks Time about $10.67 per user per month. A FieldSense customer reports Rs 1,000 per user per year in year 1 and Rs 3,000 after renewal. PagarBook and Unolo do not publish prices.
+
+## What TrackFolks offers
+
+- Selfie punch-in, live GPS location, route replay with daily distance, customer visit check-in form, expense receipts, team view with reporting hierarchy, and CSV export used for payroll.
+- Location is collected only while the user is punched in (no off-duty tracking). One location point a minute, uploaded every 15 minutes, so managers see near-real-time data with about a 15 minute delay and the battery impact is kept low.
+- Everything is managed from the mobile app (no web dashboard by design). Location data is gathered offline and synced later; punch-in needs a connection so the manager is notified straight away.
+- No crashes have been reported by the roughly 50 people who have used the app so far. Personal support from the creator, mostly needed only during onboarding.
+- Not available: leave or roster management and biometric or QR attendance. Geofencing is coming soon. TrackFolks is a new entrant with no store ratings yet.
 
 ## Alternatives and comparisons
 
-TrackFolks is an alternative to, and is compared feature by feature with, these apps: Connecteam, Homebase, Deputy, When I Work, SalaryBox, Trackobit, Hubstaff, Timeero, Workyard, Buddy Punch, QuickBooks Workforce (formerly QuickBooks Time), Jibble and Clockify. Use the comparison guide for a side-by-side table of attendance, selfie check, live location, route history and distance, geofencing, visit logging, expenses, leave and payroll, offline use, free plans, cost per user and app store ratings.
+TrackFolks is compared with the 11 most-used attendance and field force tracking apps: QuickBooks Time, PagarBook, Connecteam, SalaryBox, FieldSense, Clockify, Jibble, Unolo, Truein, Hubstaff, Timeero. Each has its own page covering the top 3 complaints in its app store reviews, which alternatives we think fit (other than TrackFolks), and how TrackFolks compares:
+
+- [Alternative to QuickBooks Time](https://tf.shristigroup.com/comparison/alternative-to-quickbooks-time-field-force-tracking-app.html)
+- [Alternative to PagarBook](https://tf.shristigroup.com/comparison/alternative-to-pagarbook-field-force-tracking-app.html)
+- [Alternative to Connecteam](https://tf.shristigroup.com/comparison/alternative-to-connecteam-field-force-tracking-app.html)
+- [Alternative to SalaryBox](https://tf.shristigroup.com/comparison/alternative-to-salarybox-field-force-tracking-app.html)
+- [Alternative to FieldSense](https://tf.shristigroup.com/comparison/alternative-to-fieldsense-field-force-tracking-app.html)
+- [Alternative to Clockify](https://tf.shristigroup.com/comparison/alternative-to-clockify-field-force-tracking-app.html)
+- [Alternative to Jibble](https://tf.shristigroup.com/comparison/alternative-to-jibble-field-force-tracking-app.html)
+- [Alternative to Unolo](https://tf.shristigroup.com/comparison/alternative-to-unolo-field-force-tracking-app.html)
+- [Alternative to Truein](https://tf.shristigroup.com/comparison/alternative-to-truein-field-force-tracking-app.html)
+- [Alternative to Hubstaff](https://tf.shristigroup.com/comparison/alternative-to-hubstaff-field-force-tracking-app.html)
+- [Alternative to Timeero](https://tf.shristigroup.com/comparison/alternative-to-timeero-field-force-tracking-app.html)
+
+- [Alternatives to the Top 11 Attendance and Field Force Tracking Apps](https://tf.shristigroup.com/comparison/alternatives-to-top-field-force-tracking-apps.html): the top complaints for each app and the best alternative to each, with a summary table.
+- [Comparing the Top 11 Field Force Tracking Apps](https://tf.shristigroup.com/comparison/field-force-tracking-apps-compared.html): 11 most-used apps compared on features, price per user and store ratings.
 
 Where TrackFolks is a good fit: field sales, service and delivery teams that want selfie attendance, live GPS, route and distance reports, customer visit logs and expense receipts at the lowest price, managed entirely from a phone.
-
-Where another app is a better fit: TrackFolks has no web dashboard, no offline mode, no leave or payroll, no regional-language support, and geofencing is not available yet. Teams that need shift scheduling (Connecteam, Homebase, Deputy, When I Work), payroll (SalaryBox, QuickBooks Workforce, Jibble) or geofenced job sites today should consider those apps.
+Where another app is a better fit: teams that need leave or roster management, biometric or QR attendance, built-in payroll, shift scheduling or geofenced job sites today.
 
 ## Links
 
 - [Website and downloads](https://tf.shristigroup.com/): product overview, FAQ and download links for Android and iOS.
-- [Comparison of field force tracking apps](https://tf.shristigroup.com/comparison/how-to-choose-a-field-force-tracking-app.html): 14 apps compared on features, cost per user in USD and app store ratings.
+- [Comparing the Top 11 Field Force Tracking Apps](https://tf.shristigroup.com/comparison/field-force-tracking-apps-compared.html): 11 most-used apps compared on features, price per user and store ratings.
 - [Privacy policy](https://tf.shristigroup.com/privacy/): what data TrackFolks collects and how it is used and deleted.
 - [Demo video](https://www.youtube.com/watch?v=8dkmj1N7yp8): a short walkthrough of the app.
 

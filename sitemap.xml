@@ -3,7 +3,7 @@
         xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
   <url>
     <loc>https://tf.shristigroup.com/</loc>
-    <lastmod>2026-10-25</lastmod>
+    <lastmod>2026-10-26</lastmod>
     <video:video>
       <video:thumbnail_loc>https://i.ytimg.com/vi/8dkmj1N7yp8/hqdefault.jpg</video:thumbnail_loc>
       <video:title>Track Your Team's Attendance &amp; Travel Location | TrackFolks mobile app demo</video:title>
@@ -12,11 +12,59 @@
     </video:video>
   </url>
   <url>
-    <loc>https://tf.shristigroup.com/comparison/how-to-choose-a-field-force-tracking-app.html</loc>
-    <lastmod>2026-10-25</lastmod>
+    <loc>https://tf.shristigroup.com/comparison/field-force-tracking-apps-compared.html</loc>
+    <lastmod>2026-10-26</lastmod>
+  </url>
+  <url>
+    <loc>https://tf.shristigroup.com/comparison/alternatives-to-top-field-force-tracking-apps.html</loc>
+    <lastmod>2026-10-26</lastmod>
+  </url>
+  <url>
+    <loc>https://tf.shristigroup.com/comparison/alternative-to-quickbooks-time-field-force-tracking-app.html</loc>
+    <lastmod>2026-10-26</lastmod>
+  </url>
+  <url>
+    <loc>https://tf.shristigroup.com/comparison/alternative-to-pagarbook-field-force-tracking-app.html</loc>
+    <lastmod>2026-10-26</lastmod>
+  </url>
+  <url>
+    <loc>https://tf.shristigroup.com/comparison/alternative-to-connecteam-field-force-tracking-app.html</loc>
+    <lastmod>2026-10-26</lastmod>
+  </url>
+  <url>
+    <loc>https://tf.shristigroup.com/comparison/alternative-to-salarybox-field-force-tracking-app.html</loc>
+    <lastmod>2026-10-26</lastmod>
+  </url>
+  <url>
+    <loc>https://tf.shristigroup.com/comparison/alternative-to-fieldsense-field-force-tracking-app.html</loc>
+    <lastmod>2026-10-26</lastmod>
+  </url>
+  <url>
+    <loc>https://tf.shristigroup.com/comparison/alternative-to-clockify-field-force-tracking-app.html</loc>
+    <lastmod>2026-10-26</lastmod>
+  </url>
+  <url>
+    <loc>https://tf.shristigroup.com/comparison/alternative-to-jibble-field-force-tracking-app.html</loc>
+    <lastmod>2026-10-26</lastmod>
+  </url>
+  <url>
+    <loc>https://tf.shristigroup.com/comparison/alternative-to-unolo-field-force-tracking-app.html</loc>
+    <lastmod>2026-10-26</lastmod>
+  </url>
+  <url>
+    <loc>https://tf.shristigroup.com/comparison/alternative-to-truein-field-force-tracking-app.html</loc>
+    <lastmod>2026-10-26</lastmod>
+  </url>
+  <url>
+    <loc>https://tf.shristigroup.com/comparison/alternative-to-hubstaff-field-force-tracking-app.html</loc>
+    <lastmod>2026-10-26</lastmod>
+  </url>
+  <url>
+    <loc>https://tf.shristigroup.com/comparison/alternative-to-timeero-field-force-tracking-app.html</loc>
+    <lastmod>2026-10-26</lastmod>
   </url>
   <url>
     <loc>https://tf.shristigroup.com/privacy/</loc>
-    <lastmod>2026-10-25</lastmod>
+    <lastmod>2026-10-26</lastmod>
   </url>
 </urlset>

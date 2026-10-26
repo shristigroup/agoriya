@@ -1,0 +1,13 @@
+<div id="cost-chart" data-highlight="{highlight}"></div>
+<script type="application/json" id="cost-data">{data}</script>
+<p class="viz-note">Yearly price in USD with GPS location tracking included, from each vendor's public pricing in {checked} (rupees at ₹95 = $1). The vertical axis is logarithmic, so each step up is a multiple of the one below, which lets every provider fit; $0 is drawn at the bottom. We could not find a public price for {unpriced}, so {unpriced_verb} not on the chart.</p>
+<details>
+<summary>View the numbers as a table</summary>
+<div class="pricing-table-wrap">
+<div class="pricing-table-scroll"><table class="pricing-table"><thead><tr><th>Users</th>{head}</tr></thead>
+<tbody>
+{rows}</tbody></table></div>
+<p class="pricing-note">{note}</p>
+</div>
+</details>
+<script src="/assets/js/cost-chart.js" defer></script>
