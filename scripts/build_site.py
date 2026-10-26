@@ -125,7 +125,7 @@ def why_html():
             if v is None:
                 cells += '<td class="n">Not published</td>'
             else:
-                cls = "y" if v <= 2 else "p" if v <= 8 else "x"
+                cls = {"g": "y", "o": "p", "r": "x"}[price_class(v)]
                 cells += f'<td class="{cls}{" tf" if c["key"] == "trackfolks" else ""}">{money(v)}{c.get("mark", "")}</td>'
         body += f'<tr><th scope="row">{label}</th>{cells}</tr>\n'
     claim_cards = "".join(f'<div class="claim"><h3>{esc(CLAIMS[k][0])}</h3><p>{esc(CLAIMS[k][1])}</p></div>'

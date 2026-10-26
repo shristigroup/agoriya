@@ -25,12 +25,13 @@ def build_comparison():
     <p>These follow the columns of the table below, in the same order.</p>
     <div class="factors">{factors}</div>
     <h2>Top {N} field force tracking apps compared</h2>
-    <p class="legend">Green = included. Amber = partial, an add-on, a higher plan or reported by users. Red = not available. Grey = not stated in the vendor's public material, which is not the same as missing. Providers are listed alphabetically.</p>
+    <p class="legend">Green = included. Amber = partial, an add-on, a higher plan or reported by users. Red = not available. Grey = not stated in the vendor's public material, which is not the same as missing. Prices per user per month are green up to $2, amber up to $3 and red above $3. Providers are listed alphabetically.</p>
+    <p class="legend"><strong>Score:</strong> every colour-coded cell in a provider's row (the 11 features, the year 1 and renewal prices and the two store ratings, 15 in all) scores green 5, amber 3, red or grey 1, so the maximum is 75. Grey counts as 1 because a feature we could not confirm cannot earn credit, which also means TrackFolks scores 1 for each of its two store ratings because it has none yet. The score weighs every column equally and says nothing about which features matter to you, so use it as a rough guide next to the table.</p>
     {matrix()}
     <p class="legend">Price is the approximate USD per user per month for a 30-user team on the cheapest plan with GPS, with any add-on and base fee included. * FieldSense: worked out from what a FieldSense customer told us (Rs 25,000 for 25 users in year 1, Rs 75,000 after renewal). ✱ Jibble and Hubstaff: the vendor's pages did not list a full price table, so the figures are from third-party sources or exclude an add-on whose price we could not find. We could not find a public price for PagarBook or Unolo. TrackFolks is free for up to 10 users, then $1 per user per month, capped at $399 a year ($199 in the first year).</p>
     <h2>Top picks by category</h2>
-    <p>The first app in each list is linked so you can go straight to it. The popularity and ratings lists use Google Play and App Store ratings (TrackFolks is too new to have any). For each feature, the apps that offer it (fully or in part) are ordered by price per user in the first year, and apps with no published price come last. Ratings measure usage and satisfaction, not the features above, so an app can top one list and trail another. Each list shows at most five apps.</p>
-    {top_by_price()}
+    <p>The first app in each list is linked so you can go straight to it. Each list shows the top five. Popularity and likeability use Google Play and App Store ratings, so TrackFolks, which has no ratings yet, is not in those two. Feature richness is the score in the table above, and cost effectiveness is the lowest price per user per month after renewal for a 30-user team, among apps that publish a price. A tie on score is broken by popularity. An app can top one list and trail another.</p>
+    {top_picks()}
     <h2>What would you pay?</h2>
     {pricing_block()}
     <h2>Alternatives, app by app</h2>

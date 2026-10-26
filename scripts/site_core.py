@@ -111,14 +111,39 @@ def fcell(code, text):
     return f'<td class="{CODE_CLASS[code]}">{esc(text)}</td>'
 
 
+def price_class(v):
+    """Per user per month: green up to $2, amber up to $3, red above $3."""
+    return "g" if v <= 2 else "o" if v <= 3 else "r"
+
+
+SCORE_POINTS = {"g": 5, "o": 3, "r": 1, "n": 1}  # green 5, amber 3, red or grey 1
+
+
+def star_class(score):
+    return "g" if score >= 4.5 else "o" if score >= 4.0 else "r"
+
+
 def star_cell(score, count):
-    cls = "g" if score >= 4.5 else "o" if score >= 4.0 else "r"
-    return f'<td class="{cls}">{score:.1f} ★ ({count:,})</td>'
+    return f'<td class="{star_class(score)}">{score:.1f} ★ ({count:,})</td>'
+
+
+def row_score(p):
+    """Sum of points over every colour-coded cell in the provider's row: the 11 feature columns, both prices and both store ratings."""
+    classes = [CODE_CLASS[p["f"][k][0]] for k, _ in FEATURES]
+    if p["key"] == "trackfolks":
+        classes += ["g", "g", "n", "n"]
+    else:
+        if p["y1"] is None:
+            classes += ["n", "n"]
+        else:
+            classes += [price_class(p["y1"]), price_class(p["renew"])]
+        classes += [star_class(p["play"][0]), star_class(p["ios"][0])]
+    return sum(SCORE_POINTS[c] for c in classes), len(classes) * 5
 
 
 def matrix():
-    head = "<th>Provider</th>" + "".join(f"<th>{esc(label)}</th>" for _, label in FEATURES)
-    head += "<th>Price per user per month, year 1</th><th>Price per user per month, after renewal</th><th>Main features</th><th>Android rating (Google Play)</th><th>iPhone rating (App Store)</th>"
+    head = "<th>Provider and score</th>" + "".join(f"<th>{esc(label)}</th>" for _, label in FEATURES)
+    head += "<th>Price per user per month, year 1</th><th>Price per user per month, after renewal</th><th>Android rating (Google Play)</th><th>iPhone rating (App Store)</th>"
     rows = ""
     for p in sorted(list(P.values()) + [TF], key=lambda x: x["name"].lower()):
         cells = "".join(fcell(*p["f"][k]) for k, _ in FEATURES)
@@ -131,11 +156,11 @@ def matrix():
                 pc1 = pc2 = "n"
             else:
                 y1, rn = money(p["y1"]) + p["mark"], money(p["renew"]) + p["mark"]
-                pc1 = "g" if p["y1"] <= 2 else "o" if p["y1"] <= 8 else "r"
-                pc2 = "g" if p["renew"] <= 2 else "o" if p["renew"] <= 8 else "r"
+                pc1, pc2 = price_class(p["y1"]), price_class(p["renew"])
             rt = star_cell(*p["play"][:2]) + star_cell(*p["ios"][:2])
-        rows += (f'<tr{" class=tf" if p["key"] == "trackfolks" else ""}><th scope="row">{esc(p["name"])}</th>{cells}'
-                 f'<td class="{pc1}">{esc(y1)}</td><td class="{pc2}">{esc(rn)}</td><td class="n">{esc(", ".join(p["key_features"]))}</td>{rt}</tr>\n')
+        score, top = row_score(p)
+        rows += (f'<tr{" class=tf" if p["key"] == "trackfolks" else ""}><th scope="row">{esc(p["name"])}<span class="score">Score {score} / {top}</span></th>{cells}'
+                 f'<td class="{pc1}">{esc(y1)}</td><td class="{pc2}">{esc(rn)}</td>{rt}</tr>\n')
     return f'<div class="scroll"><table><thead><tr>{head}</tr></thead><tbody>\n{rows}</tbody></table></div>'
 
 
@@ -156,22 +181,22 @@ def _items(rows):
     return out
 
 
-def top_by_price():
+def top_picks():
+    """Four short lists: most popular, most liked, most feature rich (highest score) and most cost effective (lowest price)."""
     out = ""
-    pool = list(P.values()) + [TF]
     pop = sorted(P.values(), key=lambda p: -(p["play"][1] + p["ios"][1]))
     out += "<h3>Most popular (most ratings on both stores combined)</h3>\n<ol class=\"ranked\">\n" + _items([
         (p, f'{p["play"][1] + p["ios"][1]:,} ratings', f'{p["play"][1]:,} on Google Play, {p["ios"][1]:,} on the App Store') for p in pop]) + "</ol>\n"
     liked = sorted(P.values(), key=lambda p: -((p["play"][0] + p["ios"][0]) / 2))
     out += "<h3>Most liked (average of the Google Play and App Store ratings)</h3>\n<ol class=\"ranked\">\n" + _items([
         (p, f'{(p["play"][0] + p["ios"][0]) / 2:.2f} stars on average', f'{p["play"][0]:.1f} on Google Play, {p["ios"][0]:.1f} on the App Store ({p["ios"][1]:,} App Store ratings)') for p in liked]) + "</ol>\n"
-    for key, label in FEATURES:
-        if key == "free":
-            continue
-        have = [p for p in pool if p["f"][key][0] in ("y", "p")]
-        have.sort(key=lambda p: (p["y1"] is None, p["y1"] if p["y1"] is not None else 0, p["name"]))
-        rows = [(p, "price not published" if p["y1"] is None else per_user(p) + " per user per month", p["f"][key][1]) for p in have]
-        out += f"<h3>{esc(label)}, cheapest first</h3>\n<ol class=\"ranked\">\n{_items(rows)}</ol>\n"
+    pool = list(P.values()) + [TF]
+    rich = sorted(pool, key=lambda p: (-row_score(p)[0], p.get("rank", 0)))
+    out += "<h3>Most feature rich (highest score in the table above)</h3>\n<ol class=\"ranked\">\n" + _items([
+        (p, f"score {row_score(p)[0]} out of {row_score(p)[1]}", ", ".join(p["key_features"])) for p in rich]) + "</ol>\n"
+    priced = sorted([p for p in pool if p["y1"] is not None], key=lambda p: (p["renew"], p["y1"]))
+    out += "<h3>Most cost effective (lowest price per user after renewal, 30-user team)</h3>\n<ol class=\"ranked\">\n" + _items([
+        (p, per_user(p) + " per user per month", "free for up to 10 users, capped at $399 a year" if p["key"] == "trackfolks" else p["price"]["label"]) for p in priced]) + "</ol>\n"
     return out
 
 
