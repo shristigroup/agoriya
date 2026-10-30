@@ -13,7 +13,7 @@ const stripeKey = defineSecret("STRIPE_SECRET_KEY");
 const webhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 
 const SITE = "https://tf.shristigroup.com";
-const ALLOWED_ORIGINS = [SITE, "http://localhost:8000", "http://127.0.0.1:8000"]; // the last two are for local testing
+const ALLOWED_ORIGINS = [SITE];
 const REGION = "asia-south1";
 
 exports.createCheckoutSession = onRequest(
@@ -44,7 +44,6 @@ exports.createCheckoutSession = onRequest(
     if (dryRun) { res.status(200).json(quote); return; }
 
     const stripe = new Stripe(stripeKey.value());
-    const returnTo = ALLOWED_ORIGINS.includes(req.headers.origin) ? req.headers.origin : SITE; // lets a local test come back to localhost
     const description = `TrackFolks for organisation ${code}: ${users} users for one year`;
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -63,8 +62,8 @@ exports.createCheckoutSession = onRequest(
       metadata: { code, users: String(users), firstYear: String(firstYear) },
       invoice_creation: { enabled: true, invoice_data: { description, metadata: { code, users: String(users) } } },
       custom_text: { submit: { message: `Refunds: full refund if requested within 15 days of payment; after that, pro-rata for the unused days less Stripe's processing fee. Details: ${SITE}/refund/` } },
-      success_url: `${returnTo}/payment/success.html?code=${code}`,
-      cancel_url: `${returnTo}/payment/cancelled.html`,
+      success_url: `${SITE}/payment/success.html?code=${code}`,
+      cancel_url: `${SITE}/payment/cancelled.html`,
     });
     res.status(200).json({ ...quote, url: session.url });
   }

@@ -4,8 +4,7 @@
 (function () {
   var root = document.getElementById('pay-box');
   if (!root) return;
-  var LOCAL = ['localhost', '127.0.0.1'].indexOf(location.hostname) > -1; // local test: use the Firebase emulator
-  var API = LOCAL ? 'http://127.0.0.1:5001/agoriya-app/asia-south1/createCheckoutSession' : 'https://asia-south1-agoriya-app.cloudfunctions.net/createCheckoutSession';
+  var API = 'https://asia-south1-agoriya-app.cloudfunctions.net/createCheckoutSession';
   var codeEl = root.querySelector('[name=code]'), usersEl = root.querySelector('[name=users]');
   var quoteEl = root.querySelector('.pay-quote'), btn = root.querySelector('button[type=submit]'), form = root.querySelector('form');
   var timer = null, ok = false;
