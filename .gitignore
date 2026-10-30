@@ -61,3 +61,6 @@ play-api*.json
 assets/images/*.MP4
 assets/images/*.PNG
 __pycache__/
+
+# Stripe keys for the local emulator
+functions/.secret.local
