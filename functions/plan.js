@@ -6,7 +6,7 @@ const FREE_USERS = 10;
 const PER_USER_YEAR_CENTS = 1200;
 const CAP_FIRST_YEAR_CENTS = 19900;
 const CAP_RENEWAL_CENTS = 39900;
-const MAX_USERS = 100000;
+const MAX_USERS = 100; // above this, buyers email for a custom quote and cannot pay online
 
 function planAmountCents(users, firstYear) {
   const paidUsers = Math.max(0, users - FREE_USERS);

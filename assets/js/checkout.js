@@ -20,11 +20,12 @@
     clearTimeout(timer);
     ok = false; btn.disabled = true;
     var code = codeEl.value.trim().toUpperCase(), users = parseInt(usersEl.value, 10);
+    if (users > 100) { quoteEl.innerHTML = 'For more than 100 users we prepare a custom quote. Please email <a href="mailto:developer@shristigroup.com">developer@shristigroup.com</a> with your organisation code and team size.'; quoteEl.className = 'pay-quote'; return; }
     if (code.length !== 6 || !(users > 10)) { say(code.length === 6 && users <= 10 ? 'The first 10 users are free. Enter a team size above 10.' : 'Enter your organisation code and team size to see the price.', false); return; }
     say('Checking…', false);
     timer = setTimeout(function () {
       post({ code: code, users: users, dryRun: true }).then(function (r) {
-        if (!r.ok) { say(r.body.error || 'Something went wrong. Please try again.', true); return; }
+        if (!r.ok) { say(r.body.error || 'Something went wrong. Please try again.', !r.body.custom); return; }
         var q = r.body;
         say('Organisation ' + q.code + ' (now ' + q.currentLimit + ' users). ' + usd(q.amountCents) + ' for ' + q.users + ' users for one year' +
             (q.firstYear ? ' (first-year price, capped at $199)' : ' (renewal price, capped at $399)') +

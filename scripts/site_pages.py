@@ -223,3 +223,31 @@ def build_alt(p):
     w(alt_path(p), page(f"Alternative to {n} for Field Force Tracking",
                         f"Alternative to {n}? Users report {a_}, {b_} and {c_}. See better-reviewed options and how TrackFolks compares.",
                         alt_path(p), body, ld))
+
+
+# ------------------------------------------------------------------ refund policy
+def build_refund():
+    body = f'''    <h1>Refund Policy</h1>
+    <p class="meta">Last updated 30 October 2026</p>
+    <p>TrackFolks is free for up to 10 users. If you need more, you pay once for a year of service for your organisation, by card through Stripe. Nothing renews automatically: we send you an invoice before the year ends. This policy applies to every payment.</p>
+    <h2>Full refund within 15 days</h2>
+    <p>If you ask for a refund within 15 days of paying, we refund 100% of what you paid. We bear Stripe's processing fee, so you get back every dollar.</p>
+    <h2>After 15 days: pro-rata refund, less Stripe's fee</h2>
+    <p>If you ask after 15 days, we refund the unused part of your year, counted in whole days, minus the processing fee that Stripe charged on your payment. Stripe does not return its fee to us when a payment is refunded, so we deduct it.</p>
+    <ul>
+      <li><strong>Term:</strong> 365 days from the day you paid.</li>
+      <li><strong>Unused days:</strong> the days from the day after your request until the term ends.</li>
+      <li><strong>Refund</strong> = amount paid × (unused days ÷ 365) − Stripe's processing fee. If the fee is larger than the pro-rata amount, no refund is due.</li>
+    </ul>
+    <p><strong>Example:</strong> you paid $199 and ask on day 100 of your term. 265 days are unused, so the pro-rata amount is $199 × 265 ÷ 365 = $144.48. If Stripe's fee on your payment was $6.00 (for illustration only; the fee is on your Stripe receipt), you receive $138.48.</p>
+    <h2>How to ask</h2>
+    <p>Email <a href="mailto:{EMAIL}">{EMAIL}</a> with your organisation code and, if you can, the email address you paid with. We confirm by email and refund to the card you paid with. Your bank may take 5 to 10 business days to show it.</p>
+    <h2>After a refund</h2>
+    <p>Your organisation returns to the free plan of up to 10 users from the date of the refund. We do not delete your data because of a refund; you can delete your account from within the app at any time.</p>
+    <h2>Renewals</h2>
+    <p>Renewals are never automatic. When your year is nearly over we send you an invoice for the next year. If you do not pay it, nothing is charged. The same refund terms apply to each payment.</p>
+    <h2>Your legal rights</h2>
+    <p>This policy does not limit any rights you have under the law where you live.</p>
+    <h2>Contact</h2>
+    <p>Ashish Sharma, 141 Barrier Point Road, London, UK – E16 2SE. <a href="mailto:{EMAIL}">{EMAIL}</a></p>'''
+    w("refund/index.html", page("Refund Policy | TrackFolks", "TrackFolks refund policy: a full refund within 15 days of payment, and a pro-rata refund by the day after that, less Stripe's processing fee.", "refund/", body))

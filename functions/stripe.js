@@ -25,7 +25,11 @@ exports.createCheckoutSession = onRequest(
     const dryRun = !!(req.body && req.body.dryRun);
 
     if (!/^[A-Z0-9]{6}$/.test(code)) { res.status(400).json({ error: "Enter your 6-character organisation code." }); return; }
-    if (!Number.isInteger(users) || users <= FREE_USERS || users > MAX_USERS) {
+    if (Number.isInteger(users) && users > MAX_USERS) {
+      res.status(400).json({ custom: true, error: `For more than ${MAX_USERS} users we prepare a custom quote. Please email developer@shristigroup.com with your organisation code and team size.` });
+      return;
+    }
+    if (!Number.isInteger(users) || users <= FREE_USERS) {
       res.status(400).json({ error: `Enter a team size above ${FREE_USERS}. The first ${FREE_USERS} users are free.` });
       return;
     }
@@ -56,6 +60,7 @@ exports.createCheckoutSession = onRequest(
       }],
       metadata: { code, users: String(users), firstYear: String(firstYear) },
       invoice_creation: { enabled: true, invoice_data: { description, metadata: { code, users: String(users) } } },
+      custom_text: { submit: { message: `Refunds: full refund if requested within 15 days of payment; after that, pro-rata for the unused days less Stripe's processing fee. Details: ${SITE}/refund/` } },
       success_url: `${SITE}/payment/success.html?code=${code}`,
       cancel_url: `${SITE}/payment/cancelled.html`,
     });
