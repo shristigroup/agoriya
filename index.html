@@ -419,6 +419,17 @@
     @media (max-width: 800px) { .claim-grid { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 520px) { .claim-grid { grid-template-columns: 1fr; } }
 
+    .pay-box { margin-top: 18px; background: var(--surface); border: 1.5px solid var(--divider); border-radius: 18px; padding: 20px 22px; }
+    .pay-box h3 { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+    .pay-box > p { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-bottom: 12px; }
+    .pay-box form { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+    .pay-box label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .pay-box input { font-family: inherit; font-size: 15px; padding: 10px 12px; border: 1.5px solid var(--divider); border-radius: 10px; width: 160px; background: var(--bg); color: var(--text); }
+    .pay-box input:focus { outline: none; border-color: var(--red); }
+    .pay-box button { font-family: inherit; font-size: 14px; font-weight: 700; padding: 11px 20px; border: none; border-radius: 10px; background: var(--red); color: #fff; cursor: pointer; }
+    .pay-box button:disabled { background: #cfc3c3; cursor: not-allowed; }
+    .pay-quote { margin-top: 10px; font-size: 13px; color: var(--text); min-height: 20px; } .pay-quote.bad { color: #b3261e; }
+
     /* ── FAQ ── */
     .faq-section { padding: 0 20px 52px; max-width: 860px; margin: 0 auto; }
     .faq-list { display: flex; flex-direction: column; gap: 10px; }
@@ -752,6 +763,18 @@
         <strong>How to claim:</strong> reach out at <a href="mailto:developer@shristigroup.com" style="color:var(--red);font-weight:600;text-decoration:none;">developer@shristigroup.com</a> and we'll expand your limit the same day.
       </div>
     </div>
+
+    <div class="pay-box" id="pay-box">
+      <h3>Need more than 10 users? Pay securely with Stripe</h3>
+      <p>Enter your organisation code (shown in the app) and your team size. You pay once for a year, and we send you an invoice before it ends: nothing renews automatically. Your user limit goes up as soon as the payment is confirmed.</p>
+      <form>
+        <label>Organisation code<input name="code" maxlength="6" autocomplete="off" placeholder="ABC234" /></label>
+        <label>Team size (users)<input name="users" type="number" min="11" max="100000" placeholder="30" /></label>
+        <button type="submit" disabled>Pay with Stripe</button>
+      </form>
+      <div class="pay-quote" aria-live="polite"></div>
+    </div>
+
   </div>
 
   <!-- ── Why TrackFolks over Alternatives ── -->
@@ -1045,5 +1068,6 @@
     }
   </script>
 
+  <script src="/assets/js/checkout.js" defer></script>
 </body>
 </html>
