@@ -64,3 +64,8 @@ __pycache__/
 
 # Stripe keys for the local emulator
 functions/.secret.local
+
+# Local secrets pushed by deploy-functions.sh, and emulator logs
+.secrets
+.secrets.state
+*-debug.log

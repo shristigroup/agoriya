@@ -9,15 +9,13 @@ Pricing (see `plan.js`): first 10 users free, then $12 per user per year, capped
 - `payment/success.html`, `payment/cancelled.html`: where Checkout sends the buyer.
 
 ## Setup (test mode first)
-1. `firebase functions:secrets:set STRIPE_SECRET_KEY` (paste `sk_test_...` when asked; never commit it).
-2. `firebase functions:secrets:set STRIPE_WEBHOOK_SECRET` with any placeholder for now.
-3. `firebase deploy --only functions:createCheckoutSession,functions:stripeWebhook --project agoriya-app`
-4. Stripe dashboard > Developers > Webhooks > Add endpoint: `https://asia-south1-agoriya-app.cloudfunctions.net/stripeWebhook`, event `checkout.session.completed`. Copy its signing secret (`whsec_...`).
-5. `firebase functions:secrets:set STRIPE_WEBHOOK_SECRET` again with the real value, then redeploy `functions:stripeWebhook`.
-6. Pay with test card `4242 4242 4242 4242` (any future date, any CVC) on the website; check the code's limit in Firestore.
-7. Going live: repeat with `sk_live_...` and a live-mode webhook endpoint.
-
-Writes to `Codes`, `Payments` and `StripeEvents` happen only through these functions (the Firestore rules deny the app).
+Keys live in a gitignored `.secrets` file at the repo root and are pushed to Google Secret Manager by `./deploy-functions.sh`. They are never committed, never in the deployed source, and never in `functions/.env` (which `deploy.sh` compiles into the mobile app).
+1. `cp .secrets.example .secrets` and fill in `STRIPE_SECRET_KEY` (`sk_test_...`). Leave `STRIPE_WEBHOOK_SECRET` as a placeholder for now.
+2. `./deploy-functions.sh functions:createCheckoutSession,functions:stripeWebhook` (changed secrets are pushed first, then the functions deploy; add `DRY_RUN=1` to see the commands without running them).
+3. Stripe dashboard > Developers > Webhooks > Add endpoint: `https://asia-south1-agoriya-app.cloudfunctions.net/stripeWebhook`, event `checkout.session.completed`. Copy its signing secret (`whsec_...`).
+4. Put it in `STRIPE_WEBHOOK_SECRET` in `.secrets` and run `./deploy-functions.sh functions:stripeWebhook`.
+5. Pay with test card `4242 4242 4242 4242` (any future date, any CVC) on the website; check the code's limit in Firestore. A test payment writes to the real Firestore: use a code you own and set `totalUserCount` back to 10 afterwards.
+6. Going live: change the two values in `.secrets` to `sk_live_...` and the live-mode webhook's `whsec_...`, and run `./deploy-functions.sh functions:createCheckoutSession,functions:stripeWebhook`.
 
 ## Rules
 - Self-serve is limited to 11-100 users. Above 100, `createCheckoutSession` answers with `custom: true` and the page tells the buyer to email for a custom quote; they cannot pay online.
