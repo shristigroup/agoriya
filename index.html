@@ -419,16 +419,32 @@
     @media (max-width: 800px) { .claim-grid { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 520px) { .claim-grid { grid-template-columns: 1fr; } }
 
-    .pay-box { margin-top: 18px; background: var(--surface); border: 1.5px solid var(--divider); border-radius: 18px; padding: 20px 22px; }
-    .pay-box h3 { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
-    .pay-box > p { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-bottom: 12px; }
-    .pay-box form { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
-    .pay-box label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-    .pay-box input { font-family: inherit; font-size: 15px; padding: 10px 12px; border: 1.5px solid var(--divider); border-radius: 10px; width: 160px; background: var(--bg); color: var(--text); }
-    .pay-box input:focus { outline: none; border-color: var(--red); }
-    .pay-box button { font-family: inherit; font-size: 14px; font-weight: 700; padding: 11px 20px; border: none; border-radius: 10px; background: var(--red); color: #fff; cursor: pointer; }
-    .pay-box button:disabled { background: #cfc3c3; cursor: not-allowed; }
-    .pay-quote { margin-top: 10px; font-size: 13px; color: var(--text); min-height: 20px; } .pay-quote.bad { color: #b3261e; }
+    .pay-box { margin-top: 18px; background: var(--surface); border: 1.5px solid var(--divider); border-radius: 18px; padding: 24px 22px; text-align: center; }
+    .pay-box h3 { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+    .pay-box > p { font-size: 12.5px; color: var(--muted); line-height: 1.6; max-width: 640px; margin: 0 auto 16px; }
+    .pay-big {
+      font-family: inherit; font-size: 22px; font-weight: 800; letter-spacing: -0.2px;
+      width: 100%; max-width: 440px; padding: 20px 28px; border: none; border-radius: 16px;
+      background: var(--red); color: #fff; cursor: pointer; box-shadow: 0 8px 22px rgba(139,26,26,0.35);
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+    }
+    .pay-big:hover { background: var(--red-dark); transform: translateY(-1px); box-shadow: 0 10px 26px rgba(139,26,26,0.42); }
+    .pay-big:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+    .pay-modal { position: fixed; inset: 0; z-index: 1000; background: rgba(26,10,10,0.62); display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+    .pay-modal[hidden] { display: none; }
+    .pay-modal-card { position: relative; background: var(--surface); border-radius: 20px; padding: 30px 28px 26px; width: 100%; max-width: 480px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
+    .pay-modal-card h3 { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 6px; padding-right: 28px; }
+    .pay-modal-card > p { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+    .pay-close { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border: none; border-radius: 50%; background: var(--bg); color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; }
+    .pay-close:hover { background: var(--divider); color: var(--text); }
+    .pay-modal form { display: flex; gap: 12px; flex-direction: column; }
+    .pay-modal label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .pay-modal input { font-family: inherit; font-size: 16px; padding: 12px 14px; border: 1.5px solid var(--divider); border-radius: 10px; width: 100%; background: var(--bg); color: var(--text); text-transform: none; }
+    .pay-modal input:focus { outline: none; border-color: var(--red); }
+    .pay-modal button[type=submit] { font-family: inherit; font-size: 16px; font-weight: 800; padding: 14px 20px; border: none; border-radius: 12px; background: var(--red); color: #fff; cursor: pointer; }
+    .pay-modal button[type=submit]:disabled { background: #cfc3c3; cursor: not-allowed; }
+    .pay-quote { margin-top: 12px; font-size: 13px; color: var(--text); min-height: 20px; line-height: 1.55; } .pay-quote.bad { color: #b3261e; }
+    body.pay-open { overflow: hidden; }
 
     /* ── FAQ ── */
     .faq-section { padding: 0 20px 52px; max-width: 860px; margin: 0 auto; }
@@ -765,14 +781,23 @@
     </div>
 
     <div class="pay-box" id="pay-box">
-      <h3>Need more than 10 users? Pay securely with Stripe</h3>
-      <p>Enter your organisation code (shown in the app) and your team size. You pay once for a year, and we send you an invoice before it ends: nothing renews automatically. Your user limit goes up as soon as the payment is confirmed. For more than 100 users, email <a href="mailto:developer@shristigroup.com">developer@shristigroup.com</a> for a custom quote. See our <a href="/refund/">refund policy</a>: full refund within 15 days.</p>
-      <form>
-        <label>Organisation code<input name="code" maxlength="6" autocomplete="off" placeholder="ABC234" /></label>
-        <label>Team size (users)<input name="users" type="number" min="11" max="100" placeholder="30" /></label>
-        <button type="submit" disabled>Pay with Stripe</button>
-      </form>
-      <div class="pay-quote" aria-live="polite"></div>
+      <h3>Need more than 10 users?</h3>
+      <p>Pay once for a year, securely with Stripe. Nothing renews automatically: we send you an invoice before the year ends. Your user limit goes up as soon as the payment is confirmed. See our <a href="/refund/">refund policy</a>: full refund within 15 days.</p>
+      <button type="button" class="pay-big" id="open-pay">Pay with Stripe</button>
+    </div>
+
+    <div class="pay-modal" id="pay-modal" role="dialog" aria-modal="true" aria-labelledby="pay-title" hidden>
+      <div class="pay-modal-card">
+        <button type="button" class="pay-close" aria-label="Close">&times;</button>
+        <h3 id="pay-title">Pay for your TrackFolks plan</h3>
+        <p>Enter your organisation code (shown in the app) and your team size. The first 10 users are free; for more than 100 users, email <a href="mailto:developer@shristigroup.com">developer@shristigroup.com</a> for a custom quote. You will finish on Stripe's secure payment page.</p>
+        <form>
+          <label>Organisation code<input name="code" maxlength="6" autocomplete="off" placeholder="ABC234" /></label>
+          <label>Team size (users)<input name="users" type="number" min="11" max="100" placeholder="30" /></label>
+          <button type="submit" disabled>Pay with Stripe</button>
+        </form>
+        <div class="pay-quote" aria-live="polite"></div>
+      </div>
     </div>
 
   </div>

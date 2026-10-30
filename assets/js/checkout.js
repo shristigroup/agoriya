@@ -2,8 +2,8 @@
 // The server decides the price (assets here only display it). Rules: first 10 users free, then $12 per user per year,
 // capped at $199 in the first year and $399 on renewal. Renewals are invoiced by hand, not automatic.
 (function () {
-  var root = document.getElementById('pay-box');
-  if (!root) return;
+  var root = document.getElementById('pay-modal'), opener = document.getElementById('open-pay');
+  if (!root || !opener) return;
   var API = 'https://asia-south1-agoriya-app.cloudfunctions.net/createCheckoutSession';
   var codeEl = root.querySelector('[name=code]'), usersEl = root.querySelector('[name=users]');
   var quoteEl = root.querySelector('.pay-quote'), btn = root.querySelector('button[type=submit]'), form = root.querySelector('form');
@@ -46,5 +46,13 @@
       btn.textContent = 'Pay with Stripe'; btn.disabled = false;
     }).catch(function () { say('Could not reach the server. Please try again.', true); btn.textContent = 'Pay with Stripe'; btn.disabled = false; });
   });
-  refresh();
+  function openModal() {
+    root.hidden = false; document.body.classList.add('pay-open'); refresh();
+    setTimeout(function () { codeEl.focus(); }, 30);
+  }
+  function closeModal() { root.hidden = true; document.body.classList.remove('pay-open'); opener.focus(); }
+  opener.addEventListener('click', openModal);
+  root.querySelector('.pay-close').addEventListener('click', closeModal);
+  root.addEventListener('mousedown', function (e) { if (e.target === root) closeModal(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !root.hidden) closeModal(); });
 })();
