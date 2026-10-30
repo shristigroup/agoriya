@@ -59,8 +59,8 @@ def cost_series():
     n = USERS
     r = lambda v: int(round(v))
     return [
-        dict(key="trackfolks", name="TrackFolks", color="#8B1A1A", dash="", w=3.5, v=[0, 120, 240, 399, 399]),
-        dict(key="trackfolks", name="TrackFolks, first year", color="#8B1A1A", dash="6 4", w=2.5, v=[0, 120, 199, 199, 199]),
+        dict(key="trackfolks", name="TrackFolks", color="#8B1A1A", dash="", w=3.5, v=[0, 126, 252, 499, 499]),
+        dict(key="trackfolks", name="TrackFolks, first year", color="#8B1A1A", dash="6 4", w=2.5, v=[0, 126, 249, 249, 249]),
         dict(key="connecteam", name="Connecteam", color="#2a78d6", dash="", w=2, v=[0, 348, 348, 540, 1020]),
         dict(key="salarybox", name="SalaryBox", color="#6250d6", dash="", w=2, v=[r(u * 175 / 95 * 12) for u in n]),
         dict(key="truein", name="Truein", color="#8d6e4a", dash="", w=2, v=[r((69000 + 450 * u) / 95) for u in n]),
@@ -196,7 +196,7 @@ def top_picks():
         (p, f"score {row_score(p)[0]} out of {row_score(p)[1]}", ", ".join(p["key_features"])) for p in rich]) + "</ol>\n"
     priced = sorted([p for p in pool if p["y1"] is not None], key=lambda p: (p["renew"], p["y1"]))
     out += "<h3>Most cost effective (lowest price per user after renewal, 30-user team)</h3>\n<ol class=\"ranked\">\n" + _items([
-        (p, per_user(p) + " per user per month", "free for up to 10 users, capped at $399 a year" if p["key"] == "trackfolks" else p["price"]["label"]) for p in priced]) + "</ol>\n"
+        (p, per_user(p) + " per user per month", "free for up to 10 users, capped at $499 a year" if p["key"] == "trackfolks" else p["price"]["label"]) for p in priced]) + "</ol>\n"
     return out
 
 
@@ -262,7 +262,7 @@ TAG_LABEL = {"reliability": "crashes and login errors", "pricing": "price and re
              "distance": "distance and GPS accuracy complaints", "support": "support complaints"}
 TF_CLAIM = {"reliability": "no crashes reported by the roughly 50 people who have used it so far",
             "privacy": "location is collected only while you are punched in",
-            "pricing": "the price is published upfront and capped at $399 a year ($199 in the first year)",
+            "pricing": "the price is published upfront and capped at $499 a year ($249 in the first year)",
             "support": "the creator gives personal support, and most teams need it only while onboarding",
             "battery": "one location point a minute, uploaded every 15 minutes: as light as it can be while still giving near-real-time data",
             "distance": "distance is measured along the route staff travelled, with stray GPS points removed"}

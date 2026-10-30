@@ -29,7 +29,7 @@
   function money(v) { return '$' + v.toLocaleString('en-US'); }
 
   var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img',
-    'aria-label': 'Line chart, on a logarithmic scale, of price per year in US dollars against number of users. TrackFolks is capped at $399 a year. The same numbers are in the table below the chart.' });
+    'aria-label': 'Line chart, on a logarithmic scale, of price per year in US dollars against number of users. TrackFolks is capped at $499 a year. The same numbers are in the table below the chart.' });
   var clip = el('clipPath', { id: 'plot-clip' });
   clip.appendChild(el('rect', { x: L - 4, y: T, width: pw + 8, height: ph }));
   var defs = el('defs', {}); defs.appendChild(clip); svg.appendChild(defs);

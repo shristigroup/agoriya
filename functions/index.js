@@ -932,3 +932,8 @@ exports.getOrgMembers = onRequest(
     res.status(200).json({ members });
   }
 );
+
+// ─── Stripe payments (see stripe.js) ────────────────────────────────────────
+const stripePayments = require("./stripe");
+exports.createCheckoutSession = stripePayments.createCheckoutSession;
+exports.stripeWebhook = stripePayments.stripeWebhook;

@@ -61,3 +61,9 @@ play-api*.json
 assets/images/*.MP4
 assets/images/*.PNG
 __pycache__/
+
+
+# Local secrets pushed by deploy-functions.sh, and emulator logs
+.secrets
+.secrets.state
+*-debug.log

@@ -17,10 +17,10 @@ TrackFolks is built by Shristi Group for field teams in India. It runs on Androi
 ## Pricing (as of October 2026)
 
 - The first 10 users are free, with all features including GPS.
-- Beyond 10 users: $1 (₹100) per user per month, capped at $399 per year for the organisation, including beyond 100 users.
-- First-year offer: the yearly cap is $199 instead of $399. The renewal price ($399 cap) is published upfront.
-- No base fee and no paid add-ons for GPS or route tracking. About $0.55 per user per month in year 1 and $0.67 after renewal for a 30-user team; about $0.33 for a 100-user team after the first year.
-- Enterprise: the same $399 per year usage cost, plus one-time costs for data localisation (choosing your data region), on-premise or own-cloud hosting, and custom features.
+- Beyond 10 users: $1.05 (₹100) per user per month, billed yearly, capped at $499 per year for the organisation, including beyond 100 users.
+- First-year offer: the yearly cap is $249 instead of $499. The renewal price ($499 cap) is published upfront.
+- No base fee and no paid add-ons for GPS or route tracking. About $0.69 per user per month in year 1 and $0.70 after renewal for a 30-user team; about $0.42 for a 100-user team after the first year.
+- Enterprise: the same $499 per year usage cost, plus one-time costs for data localisation (choosing your data region), on-premise or own-cloud hosting, and custom features.
 - In our comparison of the 11 most-used attendance and field force tracking apps (October 2026, public prices, GPS included, 30-user team), TrackFolks has the lowest published cost per user. Connecteam is about $0.97, SalaryBox about $1.84, Truein about $2.41, Timeero about $5, Clockify about $7.99, Jibble about $7.99, Hubstaff about $10 (without its GPS add-on) and QuickBooks Time about $10.67 per user per month. A FieldSense customer reports Rs 1,000 per user per year in year 1 and Rs 3,000 after renewal. PagarBook and Unolo do not publish prices.
 
 ## What TrackFolks offers

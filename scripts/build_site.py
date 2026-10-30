@@ -10,11 +10,11 @@ import re
 
 from site_core import *  # noqa: F401,F403
 from site_css import LANDING_CSS, ENTERPRISE
-from site_pages import build_comparison, build_hub, build_alt
+from site_pages import build_comparison, build_hub, build_alt, build_refund
 
 
 def build_sitemap():
-    urls = [("", True), (COMPARE_PATH, False), (HUB_PATH, False)] + [(alt_path(p), False) for p in BY_RANK] + [("privacy/", False)]
+    urls = [("", True), (COMPARE_PATH, False), (HUB_PATH, False)] + [(alt_path(p), False) for p in BY_RANK] + [("privacy/", False), ("refund/", False)]
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"', '        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">']
     for path, video in urls:
@@ -38,10 +38,10 @@ def build_llms():
     names = ", ".join(p["name"] for p in BY_RANK)
     L = ["## Pricing (as of October 2026)", "",
          "- The first 10 users are free, with all features including GPS.",
-         "- Beyond 10 users: $1 (₹100) per user per month, capped at $399 per year for the organisation, including beyond 100 users.",
-         "- First-year offer: the yearly cap is $199 instead of $399. The renewal price ($399 cap) is published upfront.",
-         "- No base fee and no paid add-ons for GPS or route tracking. About $0.55 per user per month in year 1 and $0.67 after renewal for a 30-user team; about $0.33 for a 100-user team after the first year.",
-         "- Enterprise: the same $399 per year usage cost, plus one-time costs for data localisation (choosing your data region), on-premise or own-cloud hosting, and custom features.",
+         "- Beyond 10 users: $1.05 (₹100) per user per month, billed yearly, capped at $499 per year for the organisation, including beyond 100 users.",
+         "- First-year offer: the yearly cap is $249 instead of $499. The renewal price ($499 cap) is published upfront.",
+         "- No base fee and no paid add-ons for GPS or route tracking. About $0.69 per user per month in year 1 and $0.70 after renewal for a 30-user team; about $0.42 for a 100-user team after the first year.",
+         "- Enterprise: the same $499 per year usage cost, plus one-time costs for data localisation (choosing your data region), on-premise or own-cloud hosting, and custom features.",
          f"- In our comparison of the {N} most-used attendance and field force tracking apps ({CHECKED}, public prices, GPS included, 30-user team), TrackFolks has the lowest published cost per user. "
          "Connecteam is about $0.97, SalaryBox about $1.84, Truein about $2.41, Timeero about $5, Clockify about $7.99, Jibble about $7.99, Hubstaff about $10 (without its GPS add-on) and QuickBooks Time about $10.67 per user per month. "
          "A FieldSense customer reports Rs 1,000 per user per year in year 1 and Rs 3,000 after renewal. PagarBook and Unolo do not publish prices.",
@@ -73,7 +73,7 @@ WHY_TEMPLATE = """  <!-- ── Why TrackFolks over Alternatives ── -->
 
       <div class="switch-card">
         <h3>The most cost-effective option</h3>
-        <p>Free for 10 users, then $1 per user per month, and never more than $399 a year ($199 in your first year). Here is what teams of different sizes would pay per year, against the {n} most-used apps.</p>
+        <p>Free for 10 users, then $1.05 per user per month, billed yearly, and never more than $499 a year ($249 in your first year). Here is what teams of different sizes would pay per year, against the {n} most-used apps.</p>
         {pricing}
       </div>
 
@@ -94,8 +94,8 @@ WHY_TEMPLATE = """  <!-- ── Why TrackFolks over Alternatives ── -->
         <h3>Transparent pricing that does not climb with your team</h3>
         <div class="split">
           <div class="split-text">
-            <p>Most field tracking apps charge per user, so your bill keeps growing with every person you add. With TrackFolks the first 10 users are free, then it is $1 per user per month, and your bill stops at $399 a year however large the team gets, including beyond 100 users.</p>
-            <p>Some vendors also start with an introductory price that goes up later. Ours is published here upfront: capped at $199 in your first year and at $399 after that, with no base fee and no paid add-ons for GPS or route tracking. Data localisation, on-premise hosting and custom features are one-time costs; the usage cost stays at $399. There is nothing to find out at renewal.</p>
+            <p>Most field tracking apps charge per user, so your bill keeps growing with every person you add. With TrackFolks the first 10 users are free, then it is $1.05 per user per month, billed yearly, and your bill stops at $499 a year however large the team gets, including beyond 100 users.</p>
+            <p>Some vendors also start with an introductory price that goes up later. Ours is published here upfront: capped at $249 in your first year and at $499 after that, with no base fee and no paid add-ons for GPS or route tracking. Data localisation, on-premise hosting and custom features are one-time costs; the usage cost stays at $499. There is nothing to find out at renewal.</p>
           </div>
           <img class="pricing-art" src="assets/media/transparent-pricing.jpg" width="600" height="1075" loading="lazy" alt="Infographic: transparent pricing with no surprises, with clear upfront costs, a pre-defined yearly renewal, no hidden fees and complete visibility" />
         </div>
@@ -135,11 +135,11 @@ def why_html():
 
 FAQ = [
     ("How much does TrackFolks cost compared with other field force tracking apps?",
-     "The first 10 users are free. Beyond that it is $1 (₹100) per user per month, capped at $399 a year, or $199 in the first year. For a 30-user team that is about $240 a year ($199 in the first year), compared with about $348 on Connecteam, $663 on SalaryBox, $868 on Truein, $1,800 on Timeero, $2,876 on Clockify and $3,840 on QuickBooks Time, based on public pricing in " + CHECKED + "."),
+     "The first 10 users are free. Beyond that it is $1.05 (₹100) per user per month, billed yearly, capped at $499 a year, or $249 in the first year. For a 30-user team that is about $252 a year ($249 in the first year), compared with about $348 on Connecteam, $663 on SalaryBox, $868 on Truein, $1,800 on Timeero, $2,876 on Clockify and $3,840 on QuickBooks Time, based on public pricing in " + CHECKED + "."),
     ("Is TrackFolks an alternative to QuickBooks Time, Connecteam, Clockify, Jibble, Hubstaff or Timeero?",
      "Those are time tracking and team management apps from outside India that include GPS, often on higher plans or with add-ons. TrackFolks is built for field staff: selfie punch-in, live GPS, route replay with distance, customer visit check-ins and expense receipts. They offer scheduling, payroll, offline clock-in and geofencing that TrackFolks does not have yet."),
     ("How does TrackFolks compare with SalaryBox, PagarBook, FieldSense, Unolo and Truein?",
-     "These are Indian apps. SalaryBox and PagarBook add leave management, payroll and biometric or QR attendance, and Truein adds face-recognition attendance with offline clock-in, none of which TrackFolks has; FieldSense and Unolo are field-first, like TrackFolks. On price, SalaryBox is about ₹175 ($1.84) per user per month with live location and has no free plan, Truein charges a ₹69,000 yearly base fee, PagarBook and Unolo do not publish prices, and a FieldSense customer reports ₹1,000 per user per year in year 1 and ₹3,000 after renewal. TrackFolks is free for 10 users and then $1 per user, capped at $399 a year."),
+     "These are Indian apps. SalaryBox and PagarBook add leave management, payroll and biometric or QR attendance, and Truein adds face-recognition attendance with offline clock-in, none of which TrackFolks has; FieldSense and Unolo are field-first, like TrackFolks. On price, SalaryBox is about ₹175 ($1.84) per user per month with live location and has no free plan, Truein charges a ₹69,000 yearly base fee, PagarBook and Unolo do not publish prices, and a FieldSense customer reports ₹1,000 per user per year in year 1 and ₹3,000 after renewal. TrackFolks is free for 10 users and then $1.05 per user per month (billed yearly), capped at $499 a year."),
     ("Does TrackFolks drain the battery or track staff when they are off duty?",
      "No. TrackFolks collects one location point a minute and uploads every 15 minutes, which is as light as it can be while still showing managers near-real-time data. Location is collected only while a user is punched in; background permission is needed so tracking continues while the app is in the background during a shift."),
     ("Does TrackFolks work on iPhone and Android? Do I need a web dashboard?",
@@ -200,6 +200,7 @@ if __name__ == "__main__":
             os.remove(os.path.join(ROOT, r))
     build_comparison()
     build_hub()
+    build_refund()
     for p in P.values():
         build_alt(p)
     build_sitemap()

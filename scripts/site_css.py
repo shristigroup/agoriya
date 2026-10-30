@@ -92,10 +92,10 @@ ENTERPRISE = """      <!-- Enterprise -->
       <div class="pricing-card enterprise">
         <div class="pricing-badge badge-enterprise">Enterprise</div>
         <div class="pricing-seats">100+ <span>users</span></div>
-        <div class="pricing-price">$399 per year</div>
+        <div class="pricing-price">$499 per year</div>
         <hr class="pricing-divider"/>
         <div class="pricing-perks">
-          <div class="perk"><div class="perk-dot red">✓</div>The usage cost stays at $399 a year, however large your team gets.</div>
+          <div class="perk"><div class="perk-dot red">✓</div>The usage cost stays at $499 a year, however large your team gets.</div>
           <div class="perk"><div class="perk-dot red">✓</div>One-time cost: data localisation, so your data is stored in the region you choose.</div>
           <div class="perk"><div class="perk-dot red">✓</div>One-time cost: on-premise hosting or your own cloud setup.</div>
           <div class="perk"><div class="perk-dot red">✓</div>One-time cost: custom features, API integrations and business-specific workflows.</div>
