@@ -1,6 +1,6 @@
 // Pay for more users: asks the createCheckoutSession function for a quote, then sends the buyer to Stripe Checkout.
-// The server decides the price (assets here only display it). Rules: first 10 users free, then $12 per user per year,
-// capped at $199 in the first year and $399 on renewal. Renewals are invoiced by hand, not automatic.
+// The server decides the price (assets here only display it). Rules: first 10 users free, then $12.60 per user per year,
+// capped at $249 in the first year and $499 on renewal. Renewals are invoiced by hand, not automatic.
 (function () {
   var root = document.getElementById('pay-modal'), opener = document.getElementById('open-pay');
   if (!root || !opener) return;
@@ -28,7 +28,7 @@
         if (!r.ok) { say(r.body.error || 'Something went wrong. Please try again.', !r.body.custom); return; }
         var q = r.body;
         say('Organisation ' + q.code + ' (now ' + q.currentLimit + ' users). ' + usd(q.amountCents) + ' for ' + q.users + ' users for one year' +
-            (q.firstYear ? ' (first-year price, capped at $199)' : ' (renewal price, capped at $399)') +
+            (q.firstYear ? ' (first-year price, capped at $249)' : ' (renewal price, capped at $499)') +
             (q.testMode ? '. Test mode: no real charge.' : '.'), false);
         ok = true; btn.disabled = false;
       }).catch(function () { say('Could not reach the server. Please try again.', true); });

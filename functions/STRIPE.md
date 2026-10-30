@@ -1,7 +1,7 @@
 # Stripe payments
 
 One-time yearly payment per organisation code. No auto-renewal: renewals are invoiced by hand.
-Pricing (see `plan.js`): first 10 users free, then $12 per user per year, capped at $199 in the first year and $399 on renewal.
+Pricing (see `plan.js`): first 10 users free, then $12.60 per user per year, capped at $249 in the first year and $499 on renewal.
 
 ## Pieces
 - `createCheckoutSession` (HTTPS): the website's pay box (`assets/js/checkout.js`) sends `{ code, users }`. Add `dryRun: true` for a quote only. Returns a Stripe Checkout URL.

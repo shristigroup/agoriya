@@ -28,7 +28,7 @@ def build_comparison():
     <p class="legend">Green = included. Amber = partial, an add-on, a higher plan or reported by users. Red = not available. Grey = not stated in the vendor's public material, which is not the same as missing. Prices per user per month are green up to $2, amber up to $3 and red above $3. Providers are listed alphabetically.</p>
     <p class="legend"><strong>Score:</strong> every colour-coded cell in a provider's row (the 11 features, the year 1 and renewal prices and the two store ratings, 15 in all) scores green 5, amber 3, red or grey 1, so the maximum is 75. Grey counts as 1 because a feature we could not confirm cannot earn credit, which also means TrackFolks scores 1 for each of its two store ratings because it has none yet. The score weighs every column equally and says nothing about which features matter to you, so use it as a rough guide next to the table.</p>
     {matrix()}
-    <p class="legend">Price is the approximate USD per user per month for a 30-user team on the cheapest plan with GPS, with any add-on and base fee included. * FieldSense: worked out from what a FieldSense customer told us (Rs 25,000 for 25 users in year 1, Rs 75,000 after renewal). ✱ Jibble and Hubstaff: the vendor's pages did not list a full price table, so the figures are from third-party sources or exclude an add-on whose price we could not find. We could not find a public price for PagarBook or Unolo. TrackFolks is free for up to 10 users, then $1 per user per month, capped at $399 a year ($199 in the first year).</p>
+    <p class="legend">Price is the approximate USD per user per month for a 30-user team on the cheapest plan with GPS, with any add-on and base fee included. * FieldSense: worked out from what a FieldSense customer told us (Rs 25,000 for 25 users in year 1, Rs 75,000 after renewal). ✱ Jibble and Hubstaff: the vendor's pages did not list a full price table, so the figures are from third-party sources or exclude an add-on whose price we could not find. We could not find a public price for PagarBook or Unolo. TrackFolks is free for up to 10 users, then $1.05 per user per month, billed yearly, capped at $499 a year ($249 in the first year).</p>
     <h2>Top picks by category</h2>
     <p>The first app in each list is linked so you can go straight to it. Each list shows the top five. Popularity and likeability use Google Play and App Store ratings, so TrackFolks, which has no ratings yet, is not in those two. Feature richness is the score in the table above, and cost effectiveness is the lowest price per user per month after renewal for a 30-user team, among apps that publish a price. A tie on score is broken by popularity. An app can top one list and trail another.</p>
     {top_picks()}
@@ -122,7 +122,7 @@ def build_hub():
     <h2>What the complaints add up to</h2>
     <ul>{lines}</ul>
     <h2>How TrackFolks addresses them</h2>
-    <p>TrackFolks is a mobile-first field force tracker: selfie punch-in, live GPS, route replay with distance, a visit check-in form, expense receipts and CSV export for payroll, all managed from the phone. It is free for up to 10 users, then $1 per user per month, never more than $399 a year ($199 in the first year), with the renewal price published upfront. Support comes from its creator personally.</p>
+    <p>TrackFolks is a mobile-first field force tracker: selfie punch-in, live GPS, route replay with distance, a visit check-in form, expense receipts and CSV export for payroll, all managed from the phone. It is free for up to 10 users, then $1.05 per user per month, billed yearly, never more than $499 a year ($249 in the first year), with the renewal price published upfront. Support comes from its creator personally.</p>
     <p>It is a new entrant with no store ratings yet, so these points are the creator's claims rather than review data, and it has gaps: it has no {esc(tf_lack)}, and geofencing is coming soon. But if the complaints above sound familiar, it is worth a shot: it is free for 10 users and needs no talking to anyone to start.</p>
     <div class="cta"><strong>Try TrackFolks free.</strong> Download the app, share your code with your team and start.<br /><a class="btn" href="/#download">Download TrackFolks</a></div>
     {disclosure()}'''
@@ -165,14 +165,14 @@ def build_alt(p):
     fixes = "".join(f'<div class="fix"><h3>{esc(cap(TAG_LABEL[t]))}</h3><p>{esc(cap(TF_CLAIM[t]))}.</p></div>' for t in tags)
     better = []
     if p["y1"] is not None:
-        better.append(f'Price: for a 30-user team TrackFolks costs about $0.55 per user per month in the first year and $0.67 after renewal, against about {per_user(p).replace(p["mark"], "")} for {n}'
+        better.append(f'Price: for a 30-user team TrackFolks costs about $0.69 per user per month in the first year and $0.70 after renewal, against about {per_user(p).replace(p["mark"], "")} for {n}'
                       + (" (a figure from a customer)" if p["mark"] == "*" else "") + ".")
     else:
-        better.append(f"Price: {n} does not publish a price. TrackFolks publishes its own: free for 10 users, then $1 per user per month, never more than $399 a year.")
+        better.append(f"Price: {n} does not publish a price. TrackFolks publishes its own: free for 10 users, then $1.05 per user per month, billed yearly, never more than $499 a year.")
     for d in alts:
         a = d["a"]
         if a["y1"] is not None and a["y1"] > 0.67:
-            better.append(f'Against {a["name"]} at about {per_user(a).replace(a["mark"], "")} per user per month, TrackFolks is cheaper at about $0.67 after the first year.')
+            better.append(f'Against {a["name"]} at about {per_user(a).replace(a["mark"], "")} per user per month, TrackFolks is cheaper at about $0.70 after the first year.')
     if p["f"]["free"][0] in ("x", "n"):
         better.append(f"Free start: TrackFolks is free for up to 10 users with every feature, while {n} offers "
                       + (p["f"]["free"][1].lower() if p["f"]["free"][0] == "x" else "no free plan we could confirm") + ".")
@@ -185,10 +185,10 @@ def build_alt(p):
     rows = "".join(f'<tr><th scope="row">{esc(label)}</th>{fcell(*p["f"][k])}{fcell(*TF["f"][k])}</tr>\n' for k, label in FEATURES)
     hl = ",".join([p["key"]] + [d["a"]["key"] for d in alts])
     if p["y1"] is None:
-        price_p = (f"We could not find a public price for {n}, so it is not on the chart. TrackFolks is free for 10 users, then $1 per user per month, capped at $399 a year ($199 in the first year).")
+        price_p = (f"We could not find a public price for {n}, so it is not on the chart. TrackFolks is free for 10 users, then $1.05 per user per month, billed yearly, capped at $499 a year ($249 in the first year).")
     else:
         price_p = (f"{n}: {p['price']['label']}. For a 30-user team that is about {per_user(p).replace(p['mark'], '')} per user per month. "
-                   f"TrackFolks: free for 10 users, then $1 per user per month capped at $399 a year, about $0.55 per user per month in year 1 and $0.67 after renewal for 30 users.")
+                   f"TrackFolks: free for 10 users, then $1.05 per user per month, billed yearly capped at $499 a year, about $0.69 per user per month in year 1 and $0.70 after renewal for 30 users.")
     body = f'''    <p class="crumbs"><a href="/{HUB_PATH}">Alternatives to the top {N} apps</a> › Alternative to {esc(n)}</p>
     <h1>Alternative to {esc(n)} for Attendance and Field Force Tracking</h1>
     <p class="meta">Last checked {CHECKED} · Based on public prices, store ratings and the latest {sm["n"]} user reviews</p>
@@ -239,7 +239,7 @@ def build_refund():
       <li><strong>Unused days:</strong> the days from the day after your request until the term ends.</li>
       <li><strong>Refund</strong> = amount paid × (unused days ÷ 365) − Stripe's processing fee. If the fee is larger than the pro-rata amount, no refund is due.</li>
     </ul>
-    <p><strong>Example:</strong> you paid $199 and ask on day 100 of your term. 265 days are unused, so the pro-rata amount is $199 × 265 ÷ 365 = $144.48. If Stripe's fee on your payment was $6.00 (for illustration only; the fee is on your Stripe receipt), you receive $138.48.</p>
+    <p><strong>Example:</strong> you paid $249 and ask on day 100 of your term. 265 days are unused, so the pro-rata amount is $249 × 265 ÷ 365 = $180.78. If Stripe's fee on your payment was $8.00 (for illustration only; the fee is on your Stripe receipt), you receive $172.78.</p>
     <h2>How to ask</h2>
     <p>Email <a href="mailto:{EMAIL}">{EMAIL}</a> with your organisation code and, if you can, the email address you paid with. We confirm by email and refund to the card you paid with. Your bank may take 5 to 10 business days to show it.</p>
     <h2>After a refund</h2>

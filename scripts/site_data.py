@@ -333,13 +333,13 @@ TF = dict(
            offline=("p", "Location gathered offline; punch-in needs a connection"),
            biometric=("x", "Not available"), free=("y", "Up to 10 users")),
     key_features=["Selfie punch-in", "Live location", "Route replay and daily distance", "Visit check-in form", "Expense receipts and CSV export"],
-    y1=0.55, renew=0.67,
+    y1=0.69, renew=0.70,
 )
 
 # Claims the creator has confirmed; used verbatim-in-spirit on the site.
 CLAIMS = {
     "pricing": ("Pricing you can plan around",
-                "Free for 10 users, then $1 per user per month, never more than $399 a year ($199 in your first year). The renewal price is published upfront, and the same cap holds for teams beyond 100 users."),
+                "Free for 10 users, then $1.05 per user per month, billed yearly, never more than $499 a year ($249 in your first year). The renewal price is published upfront, and the same cap holds for teams beyond 100 users."),
     "privacy": ("Privacy first",
                 "Location is collected only while you are punched in. There is no tracking when staff are off duty."),
     "distance": ("Accurate distance measurement",
