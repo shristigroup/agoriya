@@ -39,6 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
   List<UserModel> _orgMembers = [];
 
   String? _selectedManagerId;
+  Set<String> _reportIds = {}; // people below this user: not valid managers
   String? _selfId; // current user's doc ID — excluded from manager dropdown
   String _appVersion = '';
   bool _prefillingUser = false;
@@ -80,6 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _firstNameController.text = existing.firstName;
           _lastNameController.text = existing.lastName;
           _selfId = existing.id;
+          _reportIds = existing.reportIds;
         });
         if (existing.code != null && existing.code!.isNotEmpty) {
           _codeController.text = existing.code!;
@@ -120,6 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _orgCodeDoc = orgCode;
           _orgMembers = members;
           _selectedManagerId = preSelectManagerId != null &&
+                  !_reportIds.contains(preSelectManagerId) &&
                   members.any((m) => m.id == preSelectManagerId)
               ? preSelectManagerId
               : null;
@@ -508,7 +511,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                                 child: Text('No Manager'),
                                               ),
                                               ..._orgMembers
-                                                  .where((u) => u.id != _selfId)
+                                                  .where((u) => u.id != _selfId && !_reportIds.contains(u.id))
                                                   .map((u) => DropdownMenuItem<String?>(
                                                         value: u.id,
                                                         child: Text(u.fullName,

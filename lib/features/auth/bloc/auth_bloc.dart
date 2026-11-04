@@ -118,6 +118,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             _pendingPhoneNumber!,
           );
 
+      // A manager who reports (at any depth) to this user would make a reporting loop.
+      final pickedManager = event.managerId;
+      if (pickedManager != null &&
+          (pickedManager == docId || (existing?.reportIds.contains(pickedManager) ?? false))) {
+        emit(AuthError('You can not choose this person as manager, as they are reporting to you directly/indirectly. Remove them from your reporting chain & then you can add them as manager.'));
+        return;
+      }
+
       // Set userId custom claim before any Firestore reads/writes that rely on it.
       await _setUserClaim(docId);
       await _auth.currentUser!.getIdToken(true); // force token refresh

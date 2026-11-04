@@ -22,6 +22,21 @@ class UserModel {
   });
 
   String get fullName => '$firstName $lastName';
+
+  /// Ids of everyone below this user in the reporting tree, at any depth.
+  /// A user must never pick one of them as their manager: that creates a loop.
+  Set<String> get reportIds {
+    final ids = <String>{};
+    void walk(Map<String, dynamic> tree) {
+      for (final e in tree.entries) {
+        ids.add(e.key);
+        final sub = e.value is Map ? (e.value as Map)['reports'] : null;
+        if (sub is Map) walk(Map<String, dynamic>.from(sub));
+      }
+    }
+    walk(reports);
+    return ids;
+  }
   String get displayPhone => phoneNumber;
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
