@@ -122,7 +122,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final pickedManager = event.managerId;
       if (pickedManager != null &&
           (pickedManager == docId || (existing?.reportIds.contains(pickedManager) ?? false))) {
-        emit(AuthError('That manager reports to you, directly or through someone else. Please choose a different manager.'));
+        emit(AuthError('You can not choose this person as manager, as they are reporting to you directly/indirectly. Remove them from your reporting chain & then you can add them as manager.'));
         return;
       }
 
