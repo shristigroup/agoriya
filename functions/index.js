@@ -274,7 +274,21 @@ exports.locationTrackingWatchdog = onSchedule(
       // it worked.
       const nextPingCount = (data.watchdogPingCount || 0) + 1;
 
-      if (pingedAtMs !== null && nextPingCount >= WATCHDOG_PING_COUNT_THRESHOLD) {
+      // Users flagged `autoPunchOutDisabled: true` on their Users doc (set by
+      // hand for people whose phone can't be made to keep tracking alive) are
+      // never auto-closed. We still keep waking their app every cycle, so
+      // tracking resumes as soon as the phone lets it.
+      const giveUp = pingedAtMs !== null && nextPingCount >= WATCHDOG_PING_COUNT_THRESHOLD;
+      let closeAllowed = giveUp;
+      if (giveUp) {
+        const userSnap = await db.collection("Users").doc(userId).get();
+        if (userSnap.exists && userSnap.data().autoPunchOutDisabled === true) {
+          closeAllowed = false;
+          console.log(`[locationTrackingWatchdog] auto punch-out skipped (autoPunchOutDisabled) → ${userId} (${doc.id})`);
+        }
+      }
+
+      if (closeAllowed) {
         await doc.ref.update({
           stopTime: admin.firestore.Timestamp.now(),
           isPunchedIn: false,
@@ -935,5 +949,46 @@ exports.getOrgMembers = onRequest(
 
 // ─── Stripe payments (see stripe.js) ────────────────────────────────────────
 const stripePayments = require("./stripe");
+// ─── 10. checkAppVersion — punch-in gate for outdated app builds ─────────────
+// Called by the app right before a punch-in (before the selfie step). Reads
+// Config/app, a server-only doc (no client rule matches /Config, so only the
+// Admin SDK can touch it):
+//   {
+//     android: { minBuild: 16, latestBuild: 16, storeUrl: "https://play.google.com/..." },
+//     ios:     { minBuild: 16, latestBuild: 16, storeUrl: "https://apps.apple.com/..." }
+//   }
+// minBuild gates punch-in (mandatory update); latestBuild is only used by
+// scripts/notify_app_update.js to decide who to nudge. A missing doc or
+// minBuild means "no enforcement", so this can be deployed before the doc
+// exists. Responds 426 + { code: "update_required" } for a too-old build —
+// the app recognises that code and shows the update dialog.
+exports.checkAppVersion = onRequest(
+  { region: "asia-south1", cors: true },
+  async (req, res) => {
+    const src = req.method === "GET" ? req.query : (req.body || {});
+    const platform = String(src.platform || "").toLowerCase();
+    const buildNumber = parseInt(src.buildNumber, 10);
+    if (!["android", "ios"].includes(platform) || Number.isNaN(buildNumber)) {
+      res.status(400).json({ error: "platform (android|ios) and buildNumber required" });
+      return;
+    }
+
+    const cfgDoc = await db.collection("Config").doc("app").get();
+    const cfg = cfgDoc.exists ? (cfgDoc.data()[platform] || {}) : {};
+    const minBuild = Number(cfg.minBuild || 0);
+
+    if (buildNumber < minBuild) {
+      res.status(426).json({
+        code: "update_required",
+        message: "A newer version of TrackFolks is required to punch in. Please update the app.",
+        minBuild,
+        storeUrl: cfg.storeUrl || null,
+      });
+      return;
+    }
+    res.status(200).json({ ok: true });
+  }
+);
+
 exports.createCheckoutSession = stripePayments.createCheckoutSession;
 exports.stripeWebhook = stripePayments.stripeWebhook;

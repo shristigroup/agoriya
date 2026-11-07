@@ -376,6 +376,12 @@ class FirestoreRepository {
   Future<void> saveFcmToken(String userId, String token) async {
     await _users.doc(userId).update({'fcmToken': token});
   }
+
+  /// App build / device / permission snapshot on the Users doc — see
+  /// DeviceInfoService. Merge-update only; never touches other fields.
+  Future<void> updateDeviceInfo(String userId, Map<String, dynamic> info) async {
+    await _users.doc(userId).update(info);
+  }
   // ─── Org Codes ───────────────────────────────────────────────────────────
   CollectionReference get _codes =>
       _db.collection(AppConstants.codesCollection);

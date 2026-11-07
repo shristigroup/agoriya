@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
+import '../core/constants/app_constants.dart';
 import '../firebase_options.dart';
 import 'location_sync_service.dart';
 
@@ -48,6 +50,30 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     }
 
+    // Acknowledge the wake-up on the Tracking doc so the server side can tell
+    // "message never reached the phone" from "reached it but tracking would
+    // not restart". Not awaited: offline, a Firestore write only completes
+    // once it reaches the server, and recovery must not wait on that.
+    final trackingRef = FirebaseFirestore.instance
+        .collection(AppConstants.usersCollection)
+        .doc(userId)
+        .collection(AppConstants.trackingCollection)
+        .doc(trackingId);
+    Future<void> ack(Map<String, dynamic> fields) async {
+      try {
+        await trackingRef.update(fields).timeout(const Duration(seconds: 5));
+      } catch (e) {
+        print('[FCM] wake-up ack not written: $e');
+      }
+    }
+
+    // ignore: unawaited_futures
+    ack({
+      'wakeupReceivedAt': Timestamp.now(),
+      'wakeupCount': FieldValue.increment(1),
+      'wakeupResult': 'received',
+    });
+
     // This handler is its own fresh engine, which never ran the app's
     // normal main(), so it always needs its own initialize()+start() —
     // safe to call even if the service was already alive (start() no-ops
@@ -74,9 +100,26 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     }
 
     print('[FCM] location_wakeup handled successfully');
+    await ack({'wakeupResult': 'restarted'});
   } catch (e, st) {
     print('[FCM] location_wakeup error: $e\n$st');
+    final msg = e.toString();
+    await _ackFailure(userId, trackingId,
+        msg.length > 200 ? msg.substring(0, 200) : msg);
   }
+}
+
+/// Failure ack from the catch block, where the `ack` closure above is out of
+/// scope. Best effort — Firebase may be what failed.
+Future<void> _ackFailure(String userId, String trackingId, String reason) async {
+  try {
+    await FirebaseFirestore.instance
+        .collection(AppConstants.usersCollection)
+        .doc(userId)
+        .collection(AppConstants.trackingCollection)
+        .doc(trackingId)
+        .update({'wakeupResult': 'failed: $reason'}).timeout(const Duration(seconds: 5));
+  } catch (_) {}
 }
 
 class NotificationService {

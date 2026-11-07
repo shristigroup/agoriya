@@ -26,6 +26,8 @@ import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_event.dart';
 import '../../reports/screens/reports_screen.dart';
 import '../../history/screens/history_screen.dart';
+import '../../../services/app_version_service.dart';
+import '../../../services/device_info_service.dart';
 import '../../../services/notification_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -365,6 +367,21 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _handlePunchIn(HomeLoaded state) async {
+    // Server-side minimum-build gate, before any permission prompt or selfie
+    // so an outdated app fails fast. Fails open if the check can't run.
+    _showLoadingDialog('Checking app version...');
+    final update = await AppVersionService.checkPunchInAllowed();
+    if (mounted) _dismissLoadingDialog();
+    if (update != null) {
+      if (mounted) await AppVersionService.showUpdateRequiredDialog(context, update);
+      return;
+    }
+    // Refresh the user's device/permission snapshot as they start a session.
+    final currentUser = LocalStorageService.getUser();
+    if (currentUser != null) {
+      DeviceInfoService.report(currentUser.id, force: true);
+    }
+
     if (!await _ensureLocationPermission()) return;
     if (!await _ensurePunchInPermissions()) return;
 
