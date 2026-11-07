@@ -225,6 +225,61 @@ def build_alt(p):
                         alt_path(p), body, ld))
 
 
+# ------------------------------------------------------------------ terms of service
+def build_terms():
+    body = f'''    <h1>Terms of Service</h1>
+    <p class="meta">Last updated 8 November 2026</p>
+    <p>These terms cover your use of the TrackFolks mobile app and this website, run by Shrishti Group ("we", "us"). By signing in to the app or using the website you agree to them. If you do not agree, please do not use TrackFolks. If you use TrackFolks for an organisation, you confirm that you are allowed to accept these terms for it.</p>
+    <h2>What TrackFolks is</h2>
+    <p>TrackFolks is a field force attendance and location tracking app. Teams use it to punch in and out with a selfie, to share live location and routes while punched in, to log customer visits and expenses, and to see their team's records. An organisation, usually an employer, sets it up and invites its people to join. Our <a href="/privacy/">Privacy Policy</a> explains what data is collected and how it is used.</p>
+    <h2>Accounts</h2>
+    <ul>
+      <li>You sign in with your phone number. You must be 18 or older.</li>
+      <li>Keep your phone and sign-in codes to yourself. You are responsible for what happens under your account. Tell us if you think someone else is using it.</li>
+      <li>Signing up creates an organisation and an organisation code. The person who created the code, the organisation owner, is responsible for the people they invite with it.</li>
+    </ul>
+    <h2>Tracking people: the organisation's responsibility</h2>
+    <p>TrackFolks records a person's location while they are punched in and shows it to their manager and the managers above them. If you run an organisation on TrackFolks, you are responsible for:</p>
+    <ul>
+      <li>having a lawful basis, and any consent or notice the law where you operate requires, before you track your people;</li>
+      <li>telling them what is tracked, when, and who can see it;</li>
+      <li>using the information only for legitimate work purposes, such as attendance, safety and visit records.</li>
+    </ul>
+    <p>TrackFolks collects location only while a person is punched in, and punching out stops it. You must not use TrackFolks to track anyone who does not know about it, or outside working hours. We are not an employer and we are not part of any employment relationship. Questions about attendance, pay or discipline are between the organisation and its people.</p>
+    <h2>Using TrackFolks properly</h2>
+    <p>You agree not to:</p>
+    <ul>
+      <li>break the law or anyone's rights, or use TrackFolks to harass or spy on someone;</li>
+      <li>give false attendance or location information, for example by faking your location or using someone else's selfie;</li>
+      <li>try to reach other people's or other organisations' data, or interfere with, overload or reverse engineer the app or our systems;</li>
+      <li>copy, resell or use TrackFolks to build a competing service.</li>
+    </ul>
+    <h2>How well tracking works</h2>
+    <p>Tracking depends on your phone, GPS signal, network, battery and background-app settings, and some phones stop apps from reporting location. If TrackFolks stops receiving location for an extended period, it tries to wake the app and, if that fails, punches you out automatically and tells you and your manager. You can then punch in again.</p>
+    <p>Distances and routes are estimates built from GPS fixes and a third-party road-matching service, and can be wrong. Treat TrackFolks records as helpful information, not as a guaranteed or legally certified record. The organisation decides how to use them.</p>
+    <h2>Plans and payment</h2>
+    <p>TrackFolks is free for up to 10 users in an organisation, with all features. For more users, the organisation buys a year of service by card through Stripe, at the price shown on our website when it pays. Nothing renews automatically: we send an invoice before the year ends, and nothing is charged unless you pay it. Your user limit goes up when the payment is confirmed. Refunds are covered by our <a href="/refund/">Refund Policy</a>.</p>
+    <p>We may change our plans and prices. A change applies to purchases made after it and never alters a year you have already paid for.</p>
+    <h2>Your content</h2>
+    <p>The selfies, receipt photos, visit notes, comments and other content you add stay yours, or your organisation's. You allow us to store and process it, and to show it to the people in your organisation who are meant to see it, only to run TrackFolks. We do not sell it. See the <a href="/privacy/">Privacy Policy</a>.</p>
+    <h2>Other services</h2>
+    <p>TrackFolks relies on other providers, such as Google Firebase for hosting and sign-in, Stripe for card payments, and a routing service that matches routes to roads. They are listed in the Privacy Policy. They have their own terms, and we are not responsible for their outages or actions.</p>
+    <h2>Availability and changes</h2>
+    <p>We work to keep TrackFolks running, but we do not promise it will always be available or free of errors. We may update, change or remove features, and may pause the service for maintenance. Punching in needs an internet connection so that your manager is told straight away. Location collected without a connection is uploaded later.</p>
+    <h2>Ending your use</h2>
+    <p>You can stop using TrackFolks at any time. You can delete your account from inside the app (menu, then Delete Account), or by emailing us from your registered phone number, as the Privacy Policy describes. Deletion is permanent.</p>
+    <p>We may suspend or end access if these terms are broken, if the law requires it, or if use puts other people or the service at risk. Where we reasonably can, we will tell you why. If we end a paid organisation's service when it has not broken these terms, we refund the unused part of its year.</p>
+    <h2>Our responsibility</h2>
+    <p>We provide TrackFolks "as is". As far as the law allows: we give no warranty about accuracy, availability or fitness for a particular purpose; we are not liable for indirect or consequential loss, lost profits, lost data, or disputes between an organisation and its people about attendance or pay; and our total liability for anything connected with TrackFolks is limited to the amount your organisation paid us for it in the 12 months before the claim.</p>
+    <p>Nothing in these terms limits liability that the law does not allow us to limit, such as for fraud or for death or personal injury caused by negligence, or any rights you have as a consumer under the law where you live.</p>
+    <h2>Changes to these terms</h2>
+    <p>We may update these terms. The date at the top changes when we do. If a change is significant, we will make reasonable efforts to tell you, for example in the app or by email. Using TrackFolks after a change means you accept it.</p>
+    <h2>Questions or problems</h2>
+    <p>Email <a href="mailto:{EMAIL}">{EMAIL}</a> first. We would rather fix a problem than argue about it.</p>
+    <p>Ashish Sharma, 141 Barrier Point Road, London, UK – E16 2SE. <a href="mailto:{EMAIL}">{EMAIL}</a></p>'''
+    w("terms/index.html", page("Terms of Service | TrackFolks", "TrackFolks Terms of Service: who can use the app, how organisations and their people are tracked, plans and payment, and the limits of our responsibility.", "terms/", body))
+
+
 # ------------------------------------------------------------------ refund policy
 def build_refund():
     body = f'''    <h1>Refund Policy</h1>

@@ -10,11 +10,11 @@ import re
 
 from site_core import *  # noqa: F401,F403
 from site_css import LANDING_CSS, ENTERPRISE
-from site_pages import build_comparison, build_hub, build_alt, build_refund
+from site_pages import build_comparison, build_hub, build_alt, build_refund, build_terms
 
 
 def build_sitemap():
-    urls = [("", True), (COMPARE_PATH, False), (HUB_PATH, False)] + [(alt_path(p), False) for p in BY_RANK] + [("privacy/", False), ("refund/", False)]
+    urls = [("", True), (COMPARE_PATH, False), (HUB_PATH, False)] + [(alt_path(p), False) for p in BY_RANK] + [("privacy/", False), ("refund/", False), ("terms/", False)]
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"', '        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">']
     for path, video in urls:
@@ -201,6 +201,7 @@ if __name__ == "__main__":
     build_comparison()
     build_hub()
     build_refund()
+    build_terms()
     for p in P.values():
         build_alt(p)
     build_sitemap()

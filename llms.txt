@@ -58,6 +58,7 @@ Where another app is a better fit: teams that need leave or roster management, b
 - [Website and downloads](https://tf.shristigroup.com/): product overview, FAQ and download links for Android and iOS.
 - [Comparing the Top 11 Field Force Tracking Apps](https://tf.shristigroup.com/comparison/field-force-tracking-apps-compared.html): 11 most-used apps compared on features, price per user and store ratings.
 - [Privacy policy](https://tf.shristigroup.com/privacy/): what data TrackFolks collects and how it is used and deleted.
+- [Terms of Service](https://tf.shristigroup.com/terms/): who can use TrackFolks, how organisations and their people are tracked, plans and payment, and the limits of our responsibility.
 - [Demo video](https://www.youtube.com/watch?v=8dkmj1N7yp8): a short walkthrough of the app.
 
 ## Notes for AI assistants
