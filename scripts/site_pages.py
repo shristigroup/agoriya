@@ -229,7 +229,7 @@ def build_alt(p):
 def build_terms():
     body = f'''    <h1>Terms of Service</h1>
     <p class="meta">Last updated 8 November 2026</p>
-    <p>These terms cover your use of the TrackFolks mobile app and this website, run by Shrishti Group ("we", "us"). By signing in to the app or using the website you agree to them. If you do not agree, please do not use TrackFolks. If you use TrackFolks for an organisation, you confirm that you are allowed to accept these terms for it.</p>
+    <p>These terms cover your use of the TrackFolks mobile app and this website, run by {COMPANY_HTML} ("we", "us"). By signing in to the app or using the website you agree to them. If you do not agree, please do not use TrackFolks. If you use TrackFolks for an organisation, you confirm that you are allowed to accept these terms for it.</p>
     <h2>What TrackFolks is</h2>
     <p>TrackFolks is a field force attendance and location tracking app. Teams use it to punch in and out with a selfie, to share live location and routes while punched in, to log customer visits and expenses, and to see their team's records. An organisation, usually an employer, sets it up and invites its people to join. Our <a href="/privacy/">Privacy Policy</a> explains what data is collected and how it is used.</p>
     <h2>Accounts</h2>
@@ -274,9 +274,11 @@ def build_terms():
     <p>Nothing in these terms limits liability that the law does not allow us to limit, such as for fraud or for death or personal injury caused by negligence, or any rights you have as a consumer under the law where you live.</p>
     <h2>Changes to these terms</h2>
     <p>We may update these terms. The date at the top changes when we do. If a change is significant, we will make reasonable efforts to tell you, for example in the app or by email. Using TrackFolks after a change means you accept it.</p>
+    <h2>Governing law</h2>
+    <p>These terms are governed by the laws of India. The courts at Raipur, Chhattisgarh, India have jurisdiction over any dispute about them. This does not take away any rights you have as a consumer under the law where you live.</p>
     <h2>Questions or problems</h2>
     <p>Email <a href="mailto:{EMAIL}">{EMAIL}</a> first. We would rather fix a problem than argue about it.</p>
-    <p>Ashish Sharma, 141 Barrier Point Road, London, UK – E16 2SE. <a href="mailto:{EMAIL}">{EMAIL}</a></p>'''
+    <p>{COMPANY_HTML}, {COMPANY_ADDRESS}. <a href="mailto:{EMAIL}">{EMAIL}</a></p>'''
     w("terms/index.html", page("Terms of Service | TrackFolks", "TrackFolks Terms of Service: who can use the app, how organisations and their people are tracked, plans and payment, and the limits of our responsibility.", "terms/", body))
 
 

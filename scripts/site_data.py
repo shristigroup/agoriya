@@ -6,6 +6,9 @@ Edit the numbers here and re-run scripts/build_site.py. Prices are public list p
 
 CHECKED = "October 2026"
 EMAIL = "developer@shristigroup.com"
+COMPANY = "Shristi Health & Power Solutions Private Limited"
+COMPANY_HTML = COMPANY.replace("&", "&amp;")
+COMPANY_ADDRESS = "3rd Floor, Unit No. 3078–3084, Currency Tower, VIP Road, Vishal Nagar, Telibandha, Raipur, Chhattisgarh – 492006, India"
 SITE = "https://tf.shristigroup.com"
 TOP10_SLUG = "top-10-field-force-tracking-apps"
 OLD_SLUG = "how-to-choose-a-field-force-tracking-app"
