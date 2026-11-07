@@ -85,3 +85,6 @@ class ReconcileWithServerEvent extends HomeEvent {}
 
 /// The user dismissed the "punched out automatically" notice.
 class AutoPunchOutAcknowledgedEvent extends HomeEvent {}
+
+/// The user dismissed the "punched out — permissions missing" notice.
+class PermissionPunchOutAcknowledgedEvent extends HomeEvent {}

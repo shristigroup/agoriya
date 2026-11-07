@@ -1,13 +1,13 @@
 import 'package:latlong2/latlong.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/app_utils.dart';
-import '../core/utils/gps_outlier.dart';
 import '../data/data_manager.dart';
 import '../data/local/local_storage_service.dart';
 import '../data/local/locations_box_lock.dart';
 import '../data/models/location_model.dart';
 import 'location_tracking_service.dart';
 import 'osrm_service.dart';
+import 'route_builder.dart';
 
 class LocationSyncResult {
   final List<LocationPoint> finalLocations;
@@ -110,7 +110,7 @@ class LocationSyncService {
           snap: snap,
           finalLocations: finalLocations,
           finalLocationsDistance: finalLocationsDistance,
-          holdBackSuspiciousTail: !forceSync,
+          holdBackTail: !forceSync,
         );
         if (synced != null) {
           final (syncedFinalLocations, syncedFinalDistance) = synced;
@@ -162,7 +162,7 @@ class LocationSyncService {
     }
   }
 
-  /// Snaps the isolate's pending batch via OSRM, persists the merged array
+  /// Snaps the isolate's pending points via OSRM, persists the merged array
   /// to Firestore+Hive, and confirms success back to the isolate so it can
   /// trim currentBatch. Wrapped in its own try/catch (rather than letting
   /// [processBatchAndEmitLatestLocationData] see the exception) so a
@@ -170,59 +170,84 @@ class LocationSyncService {
   /// DataManager.persistLocations already flags internally — degrades to
   /// "nothing synced this round" instead of losing the as-read fallback
   /// data the caller still has.
+  ///
+  /// How a sync works:
+  ///  * The newest point can't be judged yet — a stray there would become the
+  ///    anchor for the next batch — so unless it has already been confirmed by
+  ///    a later stationary tick (durationSeconds > 0), it is HELD BACK: left in
+  ///    the isolate's currentBatch, and it starts the next sync. Forced
+  ///    flushes (punch-out) send everything, as no next sample is coming.
+  ///  * OSRM accepts at most [AppConstants.osrmMaxCoordinates] points per
+  ///    request, so the points are sent in chunks. Every chunk starts with the
+  ///    last point already stored (the "carry"), so each road path begins
+  ///    exactly where the previous one ended.
+  ///  * One stored point per point sent, always with its REAL timestamp:
+  ///    moved onto the road if OSRM matched it, left as the raw fix if not.
+  ///    OSRM's road path is attached to the point where it starts (see
+  ///    [RouteBuilder]), so drawing follows the roads where OSRM could match
+  ///    and falls back to straight lines where it could not — no points are
+  ///    ever dropped because OSRM could not use them.
   static Future<(List<LocationPoint>, double)?> _syncPendingBatch({
     required String userId,
     required String trackingId,
     required TrackingSnapshot? snap,
     required List<LocationPoint> finalLocations,
     required double finalLocationsDistance,
-    bool holdBackSuspiciousTail = false,
+    bool holdBackTail = false,
   }) async {
     try {
-      var batchToProcess = snap?.currentBatch ?? <LocationPoint>[];
-      if (batchToProcess.isEmpty && finalLocations.isEmpty) return null;
+      final pending = List<LocationPoint>.from(snap?.currentBatch ?? const [])
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      final lastStored =
+          finalLocations.isNotEmpty ? finalLocations.last.timestamp : null;
+      var toSend = lastStored != null
+          ? pending.where((p) => p.timestamp.isAfter(lastStored)).toList()
+          : pending;
+      if (toSend.isEmpty && finalLocations.isEmpty) return null;
 
-      // The last point of a batch can't be judged yet — a stray there would
-      // become the anchor for the next batch. If it's a big jump from the
-      // point before it, leave it out of this sync: it stays in the isolate's
-      // currentBatch (confirmBatchSynced only trims up to the last point we
-      // DO sync), and the real-time spike check in handleSample judges it
-      // when the next sample arrives. Skipped for forced flushes (punch-out),
-      // where no next sample is coming.
-      if (holdBackSuspiciousTail && batchToProcess.isNotEmpty) {
-        final tail = batchToProcess.last;
-        final prev = batchToProcess.length >= 2
-            ? batchToProcess[batchToProcess.length - 2]
-            : (snap?.lastConfirmedPoint ??
-                (finalLocations.isNotEmpty ? finalLocations.last : null));
-        if (prev != null &&
-            (tail.durationSeconds ?? 0) == 0 &&
-            GpsOutlier.isJump(prev.position, tail.position)) {
-          print('[LocationSync] Holding back last point of batch '
-              '(${AppUtils.haversineMeters(prev.position, tail.position).round()} m '
-              'jump) until the next sample confirms it');
-          batchToProcess =
-              batchToProcess.sublist(0, batchToProcess.length - 1);
-        }
+      if (holdBackTail &&
+          toSend.isNotEmpty &&
+          (toSend.last.durationSeconds ?? 0) == 0) {
+        print('[LocationSync] Holding back the newest point until the next '
+            'sample confirms it');
+        toSend = toSend.sublist(0, toSend.length - 1);
       }
 
-      double osrmDistance = 0.0;
-      List<LocationPoint> snappedBatch = [];
-      if (batchToProcess.isNotEmpty) {
-        final snapResult =
-            await _snapBatch(batch: batchToProcess, finalLocations: finalLocations);
-        if (snapResult != null) {
-          (snappedBatch, osrmDistance) = snapResult;
+      var allLocations = List<LocationPoint>.from(finalLocations);
+      var batchKm = 0.0;
+      String? failure;
+      var sentAny = false;
+
+      var i = 0;
+      while (i < toSend.length) {
+        final carry = allLocations.isNotEmpty ? allLocations.last : null;
+        final room = AppConstants.osrmMaxCoordinates - (carry != null ? 1 : 0);
+        final end = (i + room).clamp(0, toSend.length);
+        final chunk = toSend.sublist(i, end);
+        final inputs = [if (carry != null) carry, ...chunk];
+
+        final trace = inputs.length < 2
+            ? OsrmTrace.failed('batch_too_small', inputs.length)
+            : await OsrmService.matchTrace(
+                inputs.map((p) => p.position).toList(),
+                inputs.map((p) => p.timestamp).toList(),
+              );
+        final built =
+            RouteBuilder.build(carry: carry, raw: chunk, trace: trace);
+
+        if (built.carry != null) {
+          allLocations[allLocations.length - 1] = built.carry!;
         }
+        allLocations.addAll(built.stored);
+        batchKm += built.distanceKm;
+        if (!trace.ok) failure ??= trace.reason;
+        sentAny = true;
+        i = end;
       }
 
-      final newFinalDistance = finalLocationsDistance + osrmDistance;
-      var allLocations = [...finalLocations, ...snappedBatch];
-
-      // Pure stationary flush (currentBatch was empty): fold in the
-      // isolate's anchor durationSeconds, since that's the only thing that
-      // changed — nothing new was appended to sync.
-      if (snappedBatch.isEmpty &&
+      // Pure stationary flush (nothing new to store): fold in the isolate's
+      // anchor durationSeconds, since that's the only thing that changed.
+      if (!sentAny &&
           snap?.lastConfirmedPoint?.durationSeconds != null &&
           allLocations.isNotEmpty &&
           allLocations.last.durationSeconds !=
@@ -236,17 +261,22 @@ class LocationSyncService {
 
       if (allLocations.isEmpty) return null;
 
+      final newFinalDistance = finalLocationsDistance + batchKm;
       allLocations = [
         ...allLocations.take(allLocations.length - 1),
         allLocations.last.copyWith(
           cumulativeDistanceKm: newFinalDistance,
-          batchDistanceKm: osrmDistance,
+          batchDistanceKm: batchKm,
+          // Why OSRM was or wasn't used, on the batch's last point: the first
+          // failure if any request failed, else `ok`.
+          snapReason: sentAny ? (failure ?? 'ok') : null,
         ),
       ];
 
       print(
           '[LocationSync] Syncing ${allLocations.length} total points to Firestore '
-          '(+${snappedBatch.length} new, distance: ${newFinalDistance.toStringAsFixed(3)} km)');
+          '(+${toSend.length} new, distance: ${newFinalDistance.toStringAsFixed(3)} km'
+          '${failure != null ? ', snap: $failure' : ''})');
       await DataManager.persistLocations(
         userId: userId,
         trackingId: trackingId,
@@ -257,7 +287,8 @@ class LocationSyncService {
 
       // Confirm success so the tracking isolate (sole owner of the cursor
       // box) can trim currentBatch up to this point and adopt it as the
-      // new anchor — anything it appended concurrently is left intact.
+      // new anchor — anything it appended concurrently, including the point
+      // held back above, is left intact.
       LocationTrackingService.confirmBatchSynced(allLocations.last,
           distanceKm: newFinalDistance);
 
@@ -345,119 +376,5 @@ class LocationSyncService {
           1000.0;
     }
     return sum;
-  }
-
-  /// Snaps [batch] to roads via OSRM, anchored against the last already-
-  /// synced point in [finalLocations] (needed both to de-dupe against
-  /// already-synced points and to correctly chain the distance calc from
-  /// where the last sync left off).
-  ///
-  /// The batch is replaced by OSRM's simplified (Douglas-Peucker reduced)
-  /// road geometry rather than just repositioning each raw sample 1:1 — so
-  /// the stored path actually hugs the road when the UI connects the dots,
-  /// not just straight lines between sparse samples. Intermediate points
-  /// get an interpolated timestamp (proportional to cumulative distance
-  /// along the path, i.e. assuming constant speed across the batch) since
-  /// they're not real GPS fixes — only for display, nothing reads them.
-  /// The first and last point keep their REAL timestamp, and the last also
-  /// keeps its real durationSeconds, since track_tab.dart's "last update"
-  /// display depends on the last point's timestamp/duration being accurate.
-  static Future<(List<LocationPoint>, double)?> _snapBatch({
-    required List<LocationPoint> batch,
-    required List<LocationPoint> finalLocations,
-  }) async {
-    if (batch.isEmpty) return null;
-
-    final sorted = List<LocationPoint>.from(batch)
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-    final lastSyncedTs =
-        finalLocations.isNotEmpty ? finalLocations.last.timestamp : null;
-    final valid = lastSyncedTs != null
-        ? sorted.where((p) => p.timestamp.isAfter(lastSyncedTs)).toList()
-        : sorted;
-
-    if (valid.isEmpty) return null;
-
-    final match = await OsrmService.matchSimplifiedGeometry(
-      valid.map((p) => p.position).toList(),
-    );
-    final geometry = match.geometry;
-
-    var snapped = (geometry != null && geometry.isNotEmpty)
-        ? _interpolateFromGeometry(geometry, valid)
-        // OSRM failed or the batch was too small to match — keep the raw
-        // points as-is rather than losing them.
-        : valid.map((p) => p.copyWith(isSnapped: false)).toList();
-
-    // Record why OSRM was or wasn't used, on the batch's last point.
-    if (snapped.isNotEmpty) {
-      snapped = [
-        ...snapped.take(snapped.length - 1),
-        snapped.last.copyWith(snapReason: match.reason),
-      ];
-    }
-
-    double distance = 0.0;
-    final prevPoint = finalLocations.isNotEmpty ? finalLocations.last : null;
-    final distInput = [if (prevPoint != null) prevPoint, ...snapped];
-    for (int i = 0; i < distInput.length - 1; i++) {
-      distance += AppUtils.haversineMeters(
-              distInput[i].position, distInput[i + 1].position) /
-          1000.0;
-    }
-
-    return (snapped, distance);
-  }
-
-  /// Builds the final point list from OSRM's simplified road [geometry],
-  /// assigning each intermediate point a timestamp interpolated between
-  /// [valid]'s real first/last timestamps, proportional to cumulative
-  /// distance along the path — see [_snapBatch] doc for why only the first
-  /// and last points keep their real timestamp/duration.
-  static List<LocationPoint> _interpolateFromGeometry(
-    List<LatLng> geometry,
-    List<LocationPoint> valid,
-  ) {
-    if (geometry.length == 1) {
-      return [valid.last.copyWith(position: geometry.first, isSnapped: true)];
-    }
-
-    final cumulative = <double>[0.0];
-    for (int i = 1; i < geometry.length; i++) {
-      cumulative.add(cumulative[i - 1] +
-          AppUtils.haversineMeters(geometry[i - 1], geometry[i]));
-    }
-    final totalDistance = cumulative.last;
-
-    final firstTs = valid.first.timestamp;
-    final lastTs = valid.last.timestamp;
-    final totalMicros = lastTs.difference(firstTs).inMicroseconds;
-
-    final result = <LocationPoint>[];
-    for (int i = 0; i < geometry.length; i++) {
-      if (i == 0) {
-        result.add(LocationPoint(
-          position: geometry[i],
-          timestamp: firstTs,
-          isSnapped: true,
-        ));
-        continue;
-      }
-      if (i == geometry.length - 1) {
-        result.add(LocationPoint(
-          position: geometry[i],
-          timestamp: lastTs,
-          isSnapped: true,
-          durationSeconds: valid.last.durationSeconds,
-        ));
-        continue;
-      }
-      final fraction = totalDistance > 0 ? cumulative[i] / totalDistance : 0.0;
-      final ts =
-          firstTs.add(Duration(microseconds: (totalMicros * fraction).round()));
-      result.add(LocationPoint(position: geometry[i], timestamp: ts, isSnapped: true));
-    }
-    return result;
   }
 }

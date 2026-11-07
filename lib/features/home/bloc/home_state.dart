@@ -35,14 +35,11 @@ class HomeLoaded extends HomeState {
   final bool isSnapping; // true while OSRM snap is in flight
   final bool isPunchingOut;
 
-  /// True when punched in but "Allow all the time" location and/or
-  /// notification permission is missing — both are mandatory (without
-  /// notification permission, the manager never gets punch/visit
-  /// notifications). HomeBloc can only check permission status, not show
-  /// the request/settings-redirect UI (no BuildContext), so this flag is
-  /// how it tells home_screen.dart to block the screen with the permission
-  /// overlay until the user fixes it.
-  final bool permissionsRequired;
+  /// Set when this phone punched the user out itself because a permission
+  /// required while punched in was missing (e.g. after a reinstall restored
+  /// an open session). Holds the missing permissions' names; home_screen.dart
+  /// shows a one-time notice and clears it.
+  final List<String>? permissionPunchOut;
 
   /// Set when the server closed the session (watchdog) while this phone still
   /// believed it was punched in; home_screen.dart shows a one-time notice and
@@ -65,7 +62,7 @@ class HomeLoaded extends HomeState {
     this.isRefreshing = false,
     this.isSnapping = false,
     this.isPunchingOut = false,
-    this.permissionsRequired = false,
+    this.permissionPunchOut,
     this.autoPunchedOutAt,
     this.finalLocationsDistance = 0.0,
     this.currentBatchDistance = 0.0,
@@ -90,12 +87,13 @@ class HomeLoaded extends HomeState {
     bool? isRefreshing,
     bool? isSnapping,
     bool? isPunchingOut,
-    bool? permissionsRequired,
+    List<String>? permissionPunchOut,
     DateTime? autoPunchedOutAt,
     double? finalLocationsDistance,
     double? currentBatchDistance,
     bool clearLastKnown = false,
     bool clearAutoPunchedOut = false,
+    bool clearPermissionPunchOut = false,
   }) =>
       HomeLoaded(
         tracking: tracking ?? this.tracking,
@@ -109,8 +107,9 @@ class HomeLoaded extends HomeState {
         isRefreshing: isRefreshing ?? this.isRefreshing,
         isSnapping: isSnapping ?? this.isSnapping,
         isPunchingOut: isPunchingOut ?? this.isPunchingOut,
-        permissionsRequired:
-            permissionsRequired ?? this.permissionsRequired,
+        permissionPunchOut: clearPermissionPunchOut
+            ? null
+            : (permissionPunchOut ?? this.permissionPunchOut),
         autoPunchedOutAt: clearAutoPunchedOut
             ? null
             : (autoPunchedOutAt ?? this.autoPunchedOutAt),

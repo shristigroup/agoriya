@@ -245,6 +245,7 @@ class DataManager {
     required String userId,
     required TrackingModel currentTracking,
     required DateTime timestamp,
+    String? reason,
   }) async {
     // If the doc is already known to be at the size limit, go straight to
     // the space-freeing write — no point attempting the plain one first.
@@ -252,14 +253,17 @@ class DataManager {
     // write is what first hits the limit (e.g. the locations array was
     // right at the edge and stopTime tipped it over).
     if (LocalStorageService.isLocationSizeLimitHit()) {
-      await _repo.closeTrackingFreeingSpace(userId, currentTracking.id, timestamp);
+      await _repo.closeTrackingFreeingSpace(userId, currentTracking.id, timestamp,
+          reason: reason);
     } else {
       try {
-        await _repo.closeTracking(userId, currentTracking.id, timestamp);
+        await _repo.closeTracking(userId, currentTracking.id, timestamp,
+            reason: reason);
       } on FirestoreDocumentSizeLimitException {
         await LocalStorageService.markLocationSizeLimitHitIfNew();
         await _repo.closeTrackingFreeingSpace(
-            userId, currentTracking.id, timestamp);
+            userId, currentTracking.id, timestamp,
+            reason: reason);
       }
     }
     final updated = currentTracking.copyWith(stopTime: timestamp);

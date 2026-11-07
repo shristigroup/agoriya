@@ -1,5 +1,6 @@
 const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { classifyAutoClose, isDeadTokenError } = require("./autoClose");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 
@@ -12,12 +13,6 @@ const messaging = admin.messaging();
 const LOCATION_SAMPLE_INTERVAL_MINUTE = Number(process.env.LOCATION_SAMPLE_INTERVAL_MINUTE || 1);
 const WATCHDOG_SCHEDULE_MINUTES = Number(process.env.WATCHDOG_SCHEDULE_MINUTES || 5);
 const WATCHDOG_PING_COUNT_THRESHOLD = Number(process.env.WATCHDOG_PING_COUNT_THRESHOLD || 2);
-
-// ─── Helper: get FCM token for a user ────────────────────────────────────────
-async function getUserToken(userId) {
-  const doc = await db.collection("Users").doc(userId).get();
-  return doc.exists ? doc.data().fcmToken : null;
-}
 
 // ─── Helper: send FCM notification ──────────────────────────────────────────
 async function sendNotification(token, title, body, data = {}) {
@@ -253,6 +248,12 @@ exports.locationTrackingWatchdog = onSchedule(
 
       if (now - heartbeatAt < HEARTBEAT_STALE_THRESHOLD_MS) return;
 
+      // Users flagged `autoPunchOutDisabled: true` on their Users doc (set by
+      // hand for people whose phone can't be made to keep tracking alive) are
+      // left alone entirely: no wake-up pings and no auto punch-out.
+      const userSnap = await db.collection("Users").doc(userId).get();
+      if (userSnap.exists && userSnap.data().autoPunchOutDisabled === true) return;
+
       const pingedAtMs = data.watchdogPingedAt ? data.watchdogPingedAt.toMillis() : null;
 
       // Recovered since the last ping — fresh heartbeat arrived, clear
@@ -261,6 +262,7 @@ exports.locationTrackingWatchdog = onSchedule(
         await doc.ref.update({
           watchdogPingedAt: admin.firestore.FieldValue.delete(),
           watchdogPingCount: admin.firestore.FieldValue.delete(),
+          watchdogTokenState: admin.firestore.FieldValue.delete(),
         });
         return;
       }
@@ -275,16 +277,29 @@ exports.locationTrackingWatchdog = onSchedule(
       const nextPingCount = (data.watchdogPingCount || 0) + 1;
 
       if (pingedAtMs !== null && nextPingCount >= WATCHDOG_PING_COUNT_THRESHOLD) {
+        // tokenState is recorded when a ping could not be sent at all: the
+        // user has no token ("missing") or FCM said it is dead ("unregistered").
+        const tokenState = data.watchdogTokenState || "ok";
         await doc.ref.update({
           stopTime: admin.firestore.Timestamp.now(),
           isPunchedIn: false,
           watchdogPingedAt: admin.firestore.FieldValue.delete(),
           watchdogPingCount: admin.firestore.FieldValue.delete(),
+          watchdogTokenState: admin.firestore.FieldValue.delete(),
           autoClosedReason: "no_location_data",
+          // Why the phone never resumed — see functions/autoClose.js.
+          autoClosedDetail: classifyAutoClose({
+            tracking: data,
+            user: userSnap.exists ? userSnap.data() : null,
+            tokenState,
+          }),
         });
         // Manager notification fires automatically via onTrackingWrite's
-        // stopTime branch above — this only needs to tell the worker.
-        const userToken = await getUserToken(userId);
+        // stopTime branch above — this only needs to tell the worker (and
+        // only if there is a live token to tell).
+        const userToken = tokenState === "ok"
+          ? (userSnap.exists ? userSnap.data().fcmToken : null)
+          : null;
         const closedAt = new Date().toLocaleTimeString("en-IN", {
           hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata",
         });
@@ -300,8 +315,18 @@ exports.locationTrackingWatchdog = onSchedule(
       }
 
       // Never pinged yet, or still under threshold — (re)ping.
-      const token = await getUserToken(userId);
-      if (!token) return;
+      const token = userSnap.exists ? userSnap.data().fcmToken : null;
+      if (!token) {
+        // Nothing to wake. Count it as a ping so the session is closed after
+        // the usual window instead of staying open (and being retried) forever.
+        await doc.ref.update({
+          watchdogPingedAt: admin.firestore.FieldValue.serverTimestamp(),
+          watchdogPingCount: nextPingCount,
+          watchdogTokenState: "missing",
+        });
+        console.log(`[locationTrackingWatchdog] no FCM token → ${userId} (${doc.id}), attempt ${nextPingCount}`);
+        return;
+      }
 
       try {
         await messaging.send({
@@ -319,7 +344,23 @@ exports.locationTrackingWatchdog = onSchedule(
         });
         console.log(`[locationTrackingWatchdog] wakeup sent → ${userId} (${doc.id}), attempt ${nextPingCount}`);
       } catch (err) {
-        console.error(`[locationTrackingWatchdog] send error for ${userId}:`, err.message);
+        if (isDeadTokenError(err)) {
+          // The app was uninstalled / its data cleared: the token will never
+          // work again. Drop it, and count the ping so this session closes
+          // after the usual window rather than being retried every cycle.
+          await Promise.all([
+            userSnap.ref.update({ fcmToken: admin.firestore.FieldValue.delete() }),
+            doc.ref.update({
+              watchdogPingedAt: admin.firestore.FieldValue.serverTimestamp(),
+              watchdogPingCount: nextPingCount,
+              watchdogTokenState: "unregistered",
+            }),
+          ]);
+          console.log(`[locationTrackingWatchdog] dead FCM token removed → ${userId} (${doc.id}), attempt ${nextPingCount}`);
+        } else {
+          // Transient (network, FCM outage): leave state alone, retry next cycle.
+          console.error(`[locationTrackingWatchdog] send error for ${userId}:`, err.message);
+        }
       }
     }));
   }
@@ -935,5 +976,46 @@ exports.getOrgMembers = onRequest(
 
 // ─── Stripe payments (see stripe.js) ────────────────────────────────────────
 const stripePayments = require("./stripe");
+// ─── 10. checkAppVersion — punch-in gate for outdated app builds ─────────────
+// Called by the app right before a punch-in (before the selfie step). Reads
+// Config/app, a server-only doc (no client rule matches /Config, so only the
+// Admin SDK can touch it):
+//   {
+//     android: { minBuild: 16, latestBuild: 16, storeUrl: "https://play.google.com/..." },
+//     ios:     { minBuild: 16, latestBuild: 16, storeUrl: "https://apps.apple.com/..." }
+//   }
+// minBuild gates punch-in (mandatory update); latestBuild is only used by
+// scripts/notify_app_update.js to decide who to nudge. A missing doc or
+// minBuild means "no enforcement", so this can be deployed before the doc
+// exists. Responds 426 + { code: "update_required" } for a too-old build —
+// the app recognises that code and shows the update dialog.
+exports.checkAppVersion = onRequest(
+  { region: "asia-south1", cors: true },
+  async (req, res) => {
+    const src = req.method === "GET" ? req.query : (req.body || {});
+    const platform = String(src.platform || "").toLowerCase();
+    const buildNumber = parseInt(src.buildNumber, 10);
+    if (!["android", "ios"].includes(platform) || Number.isNaN(buildNumber)) {
+      res.status(400).json({ error: "platform (android|ios) and buildNumber required" });
+      return;
+    }
+
+    const cfgDoc = await db.collection("Config").doc("app").get();
+    const cfg = cfgDoc.exists ? (cfgDoc.data()[platform] || {}) : {};
+    const minBuild = Number(cfg.minBuild || 0);
+
+    if (buildNumber < minBuild) {
+      res.status(426).json({
+        code: "update_required",
+        message: "A newer version of TrackFolks is required to punch in. Please update the app.",
+        minBuild,
+        storeUrl: cfg.storeUrl || null,
+      });
+      return;
+    }
+    res.status(200).json({ ok: true });
+  }
+);
+
 exports.createCheckoutSession = stripePayments.createCheckoutSession;
 exports.stripeWebhook = stripePayments.stripeWebhook;

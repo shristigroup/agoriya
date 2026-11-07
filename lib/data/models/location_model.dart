@@ -26,6 +26,15 @@ class LocationPoint {
   /// `no_match`, `http_<code>`, `timeout` or `error`. Diagnostic only.
   final String? snapReason;
 
+  /// OSRM's road path starting at this point, as an encoded polyline (precision
+  /// 5), and the timestamp (ms since epoch) of the stored point where that
+  /// path ends. Set only on the first point of each OSRM matching with 2+
+  /// points; the points in between lie on the path. Absent everywhere OSRM
+  /// couldn't help — consumers then draw straight lines between points. See
+  /// RoutePath.build.
+  final String? road;
+  final int? roadEndMs;
+
   const LocationPoint({
     required this.position,
     required this.timestamp,
@@ -34,6 +43,8 @@ class LocationPoint {
     this.batchDistanceKm,
     this.durationSeconds,
     this.snapReason,
+    this.road,
+    this.roadEndMs,
   });
 
   factory LocationPoint.fromFirestore(Map<String, dynamic> map) {
@@ -47,6 +58,8 @@ class LocationPoint {
       batchDistanceKm: (map['batchDistanceKm'] as num?)?.toDouble(),
       durationSeconds: (map['durationSeconds'] as num?)?.toInt(),
       snapReason: map['snapReason'] as String?,
+      road: map['road'] as String?,
+      roadEndMs: (map['roadEnd'] as num?)?.toInt(),
     );
   }
 
@@ -60,6 +73,10 @@ class LocationPoint {
     if (batchDistanceKm != null) m['batchDistanceKm'] = batchDistanceKm;
     if (durationSeconds != null && durationSeconds! > 0) m['durationSeconds'] = durationSeconds;
     if (snapReason != null) m['snapReason'] = snapReason;
+    if (road != null && roadEndMs != null) {
+      m['road'] = road;
+      m['roadEnd'] = roadEndMs;
+    }
     return m;
   }
 
@@ -73,6 +90,8 @@ class LocationPoint {
         batchDistanceKm: (json['batchDistanceKm'] as num?)?.toDouble(),
         durationSeconds: (json['durationSeconds'] as num?)?.toInt(),
         snapReason: json['snapReason'] as String?,
+        road: json['road'] as String?,
+        roadEndMs: (json['roadEnd'] as num?)?.toInt(),
       );
 
   Map<String, dynamic> toJson() {
@@ -86,8 +105,27 @@ class LocationPoint {
     if (batchDistanceKm != null) m['batchDistanceKm'] = batchDistanceKm;
     if (durationSeconds != null && durationSeconds! > 0) m['durationSeconds'] = durationSeconds;
     if (snapReason != null) m['snapReason'] = snapReason;
+    if (road != null && roadEndMs != null) {
+      m['road'] = road;
+      m['roadEnd'] = roadEndMs;
+    }
     return m;
   }
+
+  /// A copy with a new position (when non-null) and snapped flag — the raw
+  /// point's timestamp, duration and everything else are kept.
+  LocationPoint copyWithPosition({LatLng? position, required bool isSnapped}) =>
+      LocationPoint(
+        position: position ?? this.position,
+        timestamp: timestamp,
+        isSnapped: isSnapped,
+        cumulativeDistanceKm: cumulativeDistanceKm,
+        batchDistanceKm: batchDistanceKm,
+        durationSeconds: durationSeconds,
+        snapReason: snapReason,
+        road: road,
+        roadEndMs: roadEndMs,
+      );
 
   LocationPoint copyWith({
     LatLng? position,
@@ -97,6 +135,8 @@ class LocationPoint {
     double? batchDistanceKm,
     int? durationSeconds,
     String? snapReason,
+    String? road,
+    int? roadEndMs,
   }) =>
       LocationPoint(
         position: position ?? this.position,
@@ -106,6 +146,8 @@ class LocationPoint {
         batchDistanceKm: batchDistanceKm ?? this.batchDistanceKm,
         durationSeconds: durationSeconds ?? this.durationSeconds,
         snapReason: snapReason ?? this.snapReason,
+        road: road ?? this.road,
+        roadEndMs: roadEndMs ?? this.roadEndMs,
       );
 }
 

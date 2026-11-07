@@ -1,7 +1,7 @@
 name: agoriya
 description: Agoriya v1.0 - Field Force Tracking App
 publish_to: 'none'
-version: 2.1.2+16
+version: 3.0.0+20
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -62,6 +62,8 @@ dependencies:
   shimmer: ^3.0.0
   badges: ^3.1.2
   share_plus: ^13.2.1
+  device_info_plus: ^13.3.0
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:
