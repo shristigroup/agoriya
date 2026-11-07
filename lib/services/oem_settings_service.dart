@@ -237,10 +237,6 @@ class _OemGuideDialogState extends State<_OemGuideDialog>
         child: Text(
           'On ${widget.brand.name} phones, the system can stop TrackFolks in '
           'the background, which punches you out automatically.\n\n'
-          'Why we ask: TrackFolks records your location only while you are '
-          'punched in, and these phone settings let it keep doing that when '
-          'the screen is off. They do not give TrackFolks access to any '
-          'other data, and you can change them back anytime in Settings.\n\n'
           'Please change these settings:\n\n$steps',
         ),
       ),
