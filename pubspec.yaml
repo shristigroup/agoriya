@@ -1,7 +1,7 @@
 name: agoriya
 description: Agoriya v1.0 - Field Force Tracking App
 publish_to: 'none'
-version: 2.1.2+15
+version: 2.1.2+16
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -95,6 +95,8 @@ flutter_native_splash:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/
+    # List files explicitly: a whole-folder entry bundles every local file in
+    # assets/images/ (gitignored demo videos made the app 170+ MB).
+    - assets/images/app_icon.png
     - assets/animations/
-    - assets/logo/
+    - assets/logo/tf-logo.png
