@@ -27,6 +27,8 @@ import '../../auth/bloc/auth_event.dart';
 import '../../reports/screens/reports_screen.dart';
 import '../../history/screens/history_screen.dart';
 import '../../../services/app_version_service.dart';
+import '../../../services/auto_punch_out_report.dart';
+import '../../../services/oem_settings_service.dart';
 import '../../../services/device_info_service.dart';
 import '../../../services/notification_service.dart';
 
@@ -366,6 +368,55 @@ class _HomeScreenState extends State<HomeScreen>
     return true;
   }
 
+  /// Advisory steps shown just before the selfie. Never blocks punch-in.
+  ///  - Android phone brands that kill background apps: a guide to the
+  ///    vendor's autostart/battery screens — first time, and again whenever
+  ///    the latest session was auto-closed after the user last confirmed.
+  ///  - iPhone: a one-time "don't force-close the app" note.
+  Future<void> _maybeShowPunchInGuides() async {
+    final user = LocalStorageService.getUser();
+    if (user == null) return;
+
+    if (Platform.isAndroid) {
+      DateTime? lastAutoClosedAt;
+      try {
+        final latest = await FirestoreRepository()
+            .getLatestTracking(user.id)
+            .timeout(const Duration(seconds: 4));
+        if (latest != null && latest.wasAutoClosed) {
+          lastAutoClosedAt = latest.stopTime;
+        }
+      } catch (_) {}
+      final brand = await OemSettingsService.brandIfGuideNeeded(
+          lastAutoClosedAt: lastAutoClosedAt);
+      if (brand != null && mounted) {
+        await OemSettingsService.showGuide(context, user.id, brand);
+      }
+    } else if (Platform.isIOS) {
+      const key = 'ios_force_close_note_seen';
+      if (LocalStorageService.getSetting<bool>(key) != true && mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Keep TrackFolks open in the background'),
+            content: const Text(
+              'While you are punched in, please do not swipe TrackFolks away '
+              'from the app switcher. Closing it that way stops location '
+              'tracking and you will be punched out automatically.',
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        await LocalStorageService.setSetting(key, true);
+      }
+    }
+  }
+
   Future<void> _handlePunchIn(HomeLoaded state) async {
     // Server-side minimum-build gate, before any permission prompt or selfie
     // so an outdated app fails fast. Fails open if the check can't run.
@@ -384,6 +435,8 @@ class _HomeScreenState extends State<HomeScreen>
 
     if (!await _ensureLocationPermission()) return;
     if (!await _ensurePunchInPermissions()) return;
+    await _maybeShowPunchInGuides();
+    if (!mounted) return;
 
     final file = await Navigator.of(context).push<File>(
       MaterialPageRoute(builder: (_) => const PunchInCameraScreen()),
@@ -608,6 +661,13 @@ class _HomeScreenState extends State<HomeScreen>
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Close'),
+          ),
+          // Sends support the phone/permission details over WhatsApp so a
+          // persistent case can be exempted from auto punch-out.
+          TextButton(
+            onPressed: () =>
+                AutoPunchOutReport.open(dialogContext, autoPunchedOutAt: at),
+            child: const Text('Report problem'),
           ),
           ElevatedButton(
             onPressed: () {
