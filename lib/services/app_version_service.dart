@@ -20,10 +20,9 @@ class AppVersionService {
   static const _checkUrl =
       'https://asia-south1-agoriya-app.cloudfunctions.net/checkAppVersion';
 
-  /// Used when the server doesn't send a store URL. There is no iOS fallback:
-  /// the App Store URL has to come from Config/app.
-  static const _androidStoreUrl =
-      'https://play.google.com/store/apps/details?id=com.agoriya.app';
+  /// Page with the Play Store and TestFlight / App Store buttons. Used for the
+  /// update push, and as the fallback when the server sends no store link.
+  static const downloadPageUrl = 'https://tf.shristigroup.com/#download';
 
   static String get _platform => Platform.isIOS ? 'ios' : 'android';
 
@@ -60,11 +59,11 @@ class AppVersionService {
     }
   }
 
-  /// Opens this platform's store page. [url] is the server-provided link;
-  /// null falls back to the Play Store page on Android.
+  /// Opens the store page for the "update required" dialog. [url] is the
+  /// server-provided link; without one, the download page (which has both
+  /// stores' buttons) is opened.
   static Future<void> openStore([String? url]) async {
-    final target = url ?? (Platform.isAndroid ? _androidStoreUrl : null);
-    if (target == null) return;
+    final target = url ?? downloadPageUrl;
     try {
       await launchUrl(Uri.parse(target), mode: LaunchMode.externalApplication);
     } catch (e) {
@@ -72,10 +71,10 @@ class AppVersionService {
     }
   }
 
-  /// Tap handler for the one-time `app_update` push. The message carries both
-  /// platforms' links; this phone picks its own.
-  static Future<void> openStoreFromPush(Map<String, dynamic> data) {
-    final url = (Platform.isIOS ? data['iosUrl'] : data['androidUrl']) as String?;
+  /// Tap handler for the one-time `app_update` push: opens the download page
+  /// (or the push's own `url`) so the user picks the right button there.
+  static Future<void> openDownloadPage(Map<String, dynamic> data) {
+    final url = data['url'] as String?;
     return openStore((url == null || url.isEmpty) ? null : url);
   }
 

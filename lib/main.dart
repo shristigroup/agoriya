@@ -69,9 +69,9 @@ void _handleNotificationTap(Map<String, dynamic> data) {
       }
       break;
     case 'app_update':
-      // One-time "please update" push (scripts/notify_app_update.js) — the
-      // message carries both stores' links, this phone opens its own.
-      AppVersionService.openStoreFromPush(data);
+      // One-time "please update" push (scripts/notify_app_update.js): open the
+      // download page, which has both stores' buttons.
+      AppVersionService.openDownloadPage(data);
       break;
     case 'auto_punch_out':
       // About the tapping user's own account — no targetUserId needed. Pop

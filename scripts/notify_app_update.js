@@ -12,18 +12,23 @@
  * necessarily one with no `appBuild`, so is always included.
  *
  * Config/app (server-only doc, create it in the Firebase console):
- *   android: { latestBuild: 17, minBuild: 0, storeUrl: "https://play.google.com/store/apps/details?id=com.agoriya.app" }
- *   ios:     { latestBuild: 17, minBuild: 0, storeUrl: "https://apps.apple.com/app/id..." }
+ *   android: { latestBuild: 20, minBuild: 0, storeUrl: "https://play.google.com/store/apps/details?id=com.agoriya.app" }
+ *   ios:     { latestBuild: 20, minBuild: 0, storeUrl: "https://apps.apple.com/app/id..." }
+ *   downloadUrl (optional): overrides the page the push opens.
+ * (storeUrl is used by the punch-in version gate, not by this script.)
  *
- * The push carries both store links and the app picks its own on tap
- * (main.dart `app_update`). Builds that predate that handler open the app
- * instead of the store — so the text names the store to use.
+ * Tapping the push opens the download page (DEFAULT_DOWNLOAD_URL), which has
+ * both the Play Store and TestFlight buttons. Builds that predate the
+ * `app_update` handler just open the app instead — so the text also names the
+ * page, for them to type.
  *
  * Auth: Application Default Credentials (`gcloud auth application-default login`),
  * project agoriya-app. Uses firebase-admin from functions/node_modules.
  */
 const path = require("path");
 const admin = require(path.join(__dirname, "..", "functions", "node_modules", "firebase-admin"));
+
+const DEFAULT_DOWNLOAD_URL = "https://tf.shristigroup.com/#download";
 
 const args = process.argv.slice(2);
 const SEND = args.includes("--send");
@@ -52,8 +57,7 @@ const db = admin.firestore();
     console.error("Config/app has no latestBuild for either platform — nothing to compare against.");
     process.exit(1);
   }
-  const androidUrl = (cfg.android || {}).storeUrl || "";
-  const iosUrl = (cfg.ios || {}).storeUrl || "";
+  const downloadUrl = cfg.downloadUrl || DEFAULT_DOWNLOAD_URL;
   console.log(`Latest builds → android: ${latest.android || "(unset)"}, ios: ${latest.ios || "(unset)"}`);
 
   const query = ORG_CODE ? db.collection("Users").where("code", "==", ORG_CODE) : db.collection("Users");
@@ -93,10 +97,10 @@ const db = admin.firestore();
 
   const notification = {
     title: "Update TrackFolks",
-    body: "A new version of TrackFolks is available. Please update it from the " +
-      "Play Store (Android) or App Store (iPhone) for reliable tracking.",
+    body: "A new version of TrackFolks is available. Tap here, or open " +
+      "tf.shristigroup.com and tap Download, to update for reliable tracking.",
   };
-  const data = { type: "app_update", androidUrl, iosUrl };
+  const data = { type: "app_update", url: downloadUrl };
 
   let ok = 0;
   const failed = [];
