@@ -299,9 +299,9 @@ void _onStart(ServiceInstance service) async {
     final anchor = LocalStorageService.getLastConfirmedPoint();
 
     // Stray-fix check: this new sample (C) is the first moment the previous
-    // point (B) can be judged. If B jumped far out and the track came straight
-    // back (A and C close together), B was a stray — drop it before it can
-    // inflate distance or become an anchor. Only an isolated B is considered:
+    // point (B) can be judged. If the speed into B and out of B are each
+    // several times the speed of going straight from A to C, B was a stray —
+    // drop it before it can inflate distance or become an anchor. Only an isolated B is considered:
     // one that already has stationary ticks is a real place. B is only in
     // currentBatch while unsynced; once synced it can't be retracted here.
     if (currentBatch.isNotEmpty && (currentBatch.last.durationSeconds ?? 0) == 0) {
@@ -309,13 +309,22 @@ void _onStart(ServiceInstance service) async {
       final a = currentBatch.length >= 2
           ? currentBatch[currentBatch.length - 2]
           : anchor;
+      // Travel times: A→B counts from when the rider LEFT A (its timestamp
+      // plus any stationary duration); B is isolated so B→C is plain.
       if (a != null &&
-          GpsOutlier.isSpike(a.position, b.position, newPosition)) {
+          GpsOutlier.isSpike(
+            a.position,
+            b.position,
+            newPosition,
+            ab: b.timestamp.difference(
+                a.timestamp.add(Duration(seconds: a.durationSeconds ?? 0))),
+            bc: timestamp.difference(b.timestamp),
+          )) {
         currentBatch = currentBatch.sublist(0, currentBatch.length - 1);
         await LocalStorageService.saveCurrentBatch(currentBatch);
         print('[LocationService ${_ts()}] dropped stray point '
             '${b.position.latitude}, ${b.position.longitude} '
-            '(jumped away and came back)');
+            '(path through it far faster than the route actually travelled)');
       }
     }
 
