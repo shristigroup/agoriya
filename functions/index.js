@@ -253,6 +253,12 @@ exports.locationTrackingWatchdog = onSchedule(
 
       if (now - heartbeatAt < HEARTBEAT_STALE_THRESHOLD_MS) return;
 
+      // Users flagged `autoPunchOutDisabled: true` on their Users doc (set by
+      // hand for people whose phone can't be made to keep tracking alive) are
+      // left alone entirely: no wake-up pings and no auto punch-out.
+      const userSnap = await db.collection("Users").doc(userId).get();
+      if (userSnap.exists && userSnap.data().autoPunchOutDisabled === true) return;
+
       const pingedAtMs = data.watchdogPingedAt ? data.watchdogPingedAt.toMillis() : null;
 
       // Recovered since the last ping — fresh heartbeat arrived, clear
@@ -274,21 +280,7 @@ exports.locationTrackingWatchdog = onSchedule(
       // it worked.
       const nextPingCount = (data.watchdogPingCount || 0) + 1;
 
-      // Users flagged `autoPunchOutDisabled: true` on their Users doc (set by
-      // hand for people whose phone can't be made to keep tracking alive) are
-      // never auto-closed. We still keep waking their app every cycle, so
-      // tracking resumes as soon as the phone lets it.
-      const giveUp = pingedAtMs !== null && nextPingCount >= WATCHDOG_PING_COUNT_THRESHOLD;
-      let closeAllowed = giveUp;
-      if (giveUp) {
-        const userSnap = await db.collection("Users").doc(userId).get();
-        if (userSnap.exists && userSnap.data().autoPunchOutDisabled === true) {
-          closeAllowed = false;
-          console.log(`[locationTrackingWatchdog] auto punch-out skipped (autoPunchOutDisabled) → ${userId} (${doc.id})`);
-        }
-      }
-
-      if (closeAllowed) {
+      if (pingedAtMs !== null && nextPingCount >= WATCHDOG_PING_COUNT_THRESHOLD) {
         await doc.ref.update({
           stopTime: admin.firestore.Timestamp.now(),
           isPunchedIn: false,
