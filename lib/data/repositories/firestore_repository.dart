@@ -147,11 +147,13 @@ class FirestoreRepository {
 
   /// Sets stopTime on the Tracking doc (punch-out).
   Future<void> closeTracking(
-      String userId, String trackingId, DateTime stopTime) async {
+      String userId, String trackingId, DateTime stopTime,
+      {String? reason}) async {
     try {
       await _trackingDoc(userId, trackingId).update({
         'stopTime': Timestamp.fromDate(stopTime),
         'isPunchedIn': false,
+        if (reason != null) 'punchOutReason': reason,
       });
     } on FirebaseException catch (e) {
       if (_isDocumentSizeLimitError(e)) {
@@ -167,7 +169,8 @@ class FirestoreRepository {
   /// space, then writes stopTime in the same update — so punch-out can
   /// still succeed even though the locations array is at capacity.
   Future<void> closeTrackingFreeingSpace(
-      String userId, String trackingId, DateTime stopTime) async {
+      String userId, String trackingId, DateTime stopTime,
+      {String? reason}) async {
     final doc = await _trackingDoc(userId, trackingId).get();
     final data = doc.data() as Map<String, dynamic>?;
     final locations =
@@ -178,6 +181,7 @@ class FirestoreRepository {
       'locations': locations,
       'stopTime': Timestamp.fromDate(stopTime),
       'isPunchedIn': false,
+      if (reason != null) 'punchOutReason': reason,
     });
   }
 
