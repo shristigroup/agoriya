@@ -12,9 +12,14 @@ import '../data/repositories/firestore_repository.dart';
 /// that confirmation brings the guide back (see [shouldShowGuide]).
 class OemBrand {
   final String name;
+
+  /// Dialog title: names the setting to change, so it is actionable before
+  /// the steps are even read.
+  final String title;
   final List<String> steps;
   final bool hasBatterySaverScreen; // Xiaomi/HyperOS only
-  const OemBrand(this.name, this.steps, {this.hasBatterySaverScreen = false});
+  const OemBrand(this.name, this.title, this.steps,
+      {this.hasBatterySaverScreen = false});
 }
 
 class OemSettingsService {
@@ -23,6 +28,7 @@ class OemSettingsService {
 
   static const _xiaomi = OemBrand(
     'Xiaomi / Redmi / POCO',
+    'Turn on Autostart and set Battery saver to No restrictions',
     [
       'Turn ON "Autostart" for TrackFolks.',
       'Open Battery saver and choose "No restrictions" for TrackFolks.',
@@ -30,24 +36,29 @@ class OemSettingsService {
     ],
     hasBatterySaverScreen: true,
   );
-  static const _oppo = OemBrand('Oppo / Realme / OnePlus', [
+  static const _oppo = OemBrand(
+      'Oppo / Realme / OnePlus', 'Allow Auto-launch and background activity', [
     'Allow "Auto-launch" / "Startup" for TrackFolks.',
     'In Battery settings, allow background activity for TrackFolks.',
   ]);
-  static const _vivo = OemBrand('Vivo / iQOO', [
+  static const _vivo =
+      OemBrand('Vivo / iQOO', 'Allow Autostart and background power use', [
     'Allow "Autostart" / "Background startup" for TrackFolks.',
     'In Battery settings, allow high background power use for TrackFolks.',
   ]);
-  static const _huawei = OemBrand('Huawei / Honor', [
+  static const _huawei =
+      OemBrand('Huawei / Honor', 'Turn on Auto-launch and Run in background', [
     'Open App launch → TrackFolks → Manage manually.',
     'Turn ON Auto-launch, Secondary launch and Run in background.',
   ]);
-  static const _samsung = OemBrand('Samsung', [
+  static const _samsung =
+      OemBrand('Samsung', 'Remove TrackFolks from Sleeping apps', [
     'Open Battery → Background usage limits.',
     'Remove TrackFolks from "Sleeping apps" and "Deep sleeping apps".',
     'Add TrackFolks to "Never sleeping apps".',
   ]);
-  static const _transsion = OemBrand('Infinix / Tecno / itel', [
+  static const _transsion =
+      OemBrand('Infinix / Tecno / itel', 'Turn on Autostart for TrackFolks', [
     'Turn ON "Autostart" for TrackFolks.',
     'Allow TrackFolks to run in the background in the battery settings.',
   ]);
@@ -99,7 +110,8 @@ class OemSettingsService {
   /// auto-closed AFTER their last confirmation (it didn't work — go again).
   /// [lastAutoClosedAt] is the stop time of the latest session if the server
   /// auto-closed it, else null.
-  static Future<OemBrand?> brandIfGuideNeeded({DateTime? lastAutoClosedAt}) async {
+  static Future<OemBrand?> brandIfGuideNeeded(
+      {DateTime? lastAutoClosedAt}) async {
     final brand = await detectBrand();
     if (brand == null) return null;
     final confirmed = confirmedAt;
@@ -124,7 +136,8 @@ class OemSettingsService {
   /// {backgroundRestricted: bool?, standbyBucket: int?} — read-only.
   static Future<Map<String, dynamic>> backgroundState() async {
     try {
-      final m = await _channel.invokeMapMethod<String, dynamic>('backgroundState');
+      final m =
+          await _channel.invokeMapMethod<String, dynamic>('backgroundState');
       return {
         if (m?['backgroundRestricted'] != null)
           'backgroundRestricted': m!['backgroundRestricted'],
@@ -137,7 +150,8 @@ class OemSettingsService {
 
   static Future<void> _recordConfirmation(String userId, OemBrand brand) async {
     final now = DateTime.now();
-    await LocalStorageService.setSetting(_confirmedAtKey, now.toIso8601String());
+    await LocalStorageService.setSetting(
+        _confirmedAtKey, now.toIso8601String());
     try {
       await FirestoreRepository().updateDeviceInfo(userId, {
         'oemSetupConfirmedAt': FieldValue.serverTimestamp(),
@@ -212,7 +226,7 @@ class _OemGuideDialogState extends State<_OemGuideDialog>
 
     if (_phase == 2) {
       return AlertDialog(
-        title: const Text('Did you turn these on?'),
+        title: const Text('Did you make these changes?'),
         content: Text(steps),
         actions: [
           TextButton(
@@ -232,7 +246,7 @@ class _OemGuideDialogState extends State<_OemGuideDialog>
     }
 
     return AlertDialog(
-      title: const Text('Keep tracking running'),
+      title: Text(widget.brand.title),
       content: SingleChildScrollView(
         child: Text(
           'On ${widget.brand.name} phones, the system can stop TrackFolks in '
