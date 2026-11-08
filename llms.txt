@@ -2,7 +2,7 @@
 
 > TrackFolks is a field force tracking app for sales, service and delivery teams. Employees punch in with a selfie, log customer visits and are tracked by GPS while on shift; managers see attendance, routes and visits for their whole team in one place.
 
-TrackFolks is built by Shristi Group for field teams in India. It runs on Android and iOS, and employees sign in with their phone number (OTP). Teams are organised with an organisation code, and managers see everyone below them in the reporting hierarchy.
+TrackFolks is built by Shristi Health & Power Solutions Private Limited for field teams in India. It runs on Android and iOS, and employees sign in with their phone number (OTP). Teams are organised with an organisation code, and managers see everyone below them in the reporting hierarchy.
 
 ## What it does
 
@@ -26,7 +26,7 @@ TrackFolks is built by Shristi Group for field teams in India. It runs on Androi
 ## What TrackFolks offers
 
 - Selfie punch-in, live GPS location, route replay with daily distance, customer visit check-in form, expense receipts, team view with reporting hierarchy, and CSV export used for payroll.
-- Location is collected only while the user is punched in (no off-duty tracking). One location point a minute, uploaded every 15 minutes, so managers see near-real-time data with about a 15 minute delay and the battery impact is kept low.
+- Location is collected only while the user is punched in (no off-duty tracking). One location point a minute, uploaded every 9 minutes, so managers see near-real-time data with about a 9 minute delay and the battery impact is kept low.
 - Everything is managed from the mobile app (no web dashboard by design). Location data is gathered offline and synced later; punch-in needs a connection so the manager is notified straight away.
 - No crashes have been reported by the roughly 50 people who have used the app so far. Personal support from the creator, mostly needed only during onboarding.
 - Not available: leave or roster management and biometric or QR attendance. Geofencing is coming soon. TrackFolks is a new entrant with no store ratings yet.

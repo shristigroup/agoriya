@@ -306,5 +306,5 @@ def build_refund():
     <h2>Your legal rights</h2>
     <p>This policy does not limit any rights you have under the law where you live.</p>
     <h2>Contact</h2>
-    <p>Ashish Sharma, 141 Barrier Point Road, London, UK – E16 2SE. <a href="mailto:{EMAIL}">{EMAIL}</a></p>'''
+    <p>{COMPANY_HTML}, {COMPANY_ADDRESS}. <a href="mailto:{EMAIL}">{EMAIL}</a></p>'''
     w("refund/index.html", page("Refund Policy | TrackFolks", "TrackFolks refund policy: a full refund within 15 days of payment, and a pro-rata refund by the day after that, less Stripe's processing fee.", "refund/", body))

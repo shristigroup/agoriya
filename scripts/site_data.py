@@ -348,7 +348,7 @@ CLAIMS = {
     "distance": ("Accurate distance measurement",
                  "Distance is measured along the route staff actually travelled, with stray GPS points filtered out and the route snapped to roads."),
     "battery": ("Easy on the battery",
-                "One location point a minute, uploaded every 15 minutes: as light as it can be while still showing managers near-real-time data, about 15 minutes behind."),
+                "One location point a minute, uploaded every 9 minutes: as light as it can be while still showing managers near-real-time data, about 9 minutes behind."),
     "reliability": ("Reliable",
                     "No crashes reported by the roughly 50 people who have used the app so far, from in-person feedback and TestFlight crash data."),
     "mobile": ("Mobile first",

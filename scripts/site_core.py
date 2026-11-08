@@ -264,7 +264,7 @@ TF_CLAIM = {"reliability": "no crashes reported by the roughly 50 people who hav
             "privacy": "location is collected only while you are punched in",
             "pricing": "the price is published upfront and capped at $499 a year ($249 in the first year)",
             "support": "the creator gives personal support, and most teams need it only while onboarding",
-            "battery": "one location point a minute, uploaded every 15 minutes: as light as it can be while still giving near-real-time data",
+            "battery": "one location point a minute, uploaded every 9 minutes: as light as it can be while still giving near-real-time data",
             "distance": "distance is measured along the route staff travelled, with stray GPS points removed"}
 PRICE_RISK = {"fieldsense"}  # a customer reports a large renewal rise that reviews alone do not show
 
