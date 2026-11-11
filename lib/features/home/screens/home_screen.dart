@@ -26,6 +26,10 @@ import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_event.dart';
 import '../../reports/screens/reports_screen.dart';
 import '../../history/screens/history_screen.dart';
+import '../../../services/app_version_service.dart';
+import '../../../services/auto_punch_out_report.dart';
+import '../../../services/oem_settings_service.dart';
+import '../../../services/device_info_service.dart';
 import '../../../services/notification_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -280,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen>
   /// Exemption from Android battery optimization, so OEM battery managers
   /// (Xiaomi, Vivo, Oppo, OnePlus, etc.) are less likely to kill the
   /// location-tracking foreground service outright. Mandatory, same as
-  /// location/notification — see HomeBloc._hasRequiredPermissions, which
+  /// location/notification — see HomeBloc._missingRequiredPermissions, which
   /// re-checks this on every _onInit/_onAppResumed. Android-only; callers
   /// must gate with Platform.isAndroid, since permission_handler treats
   /// this permission as a no-op on iOS.
@@ -364,9 +368,75 @@ class _HomeScreenState extends State<HomeScreen>
     return true;
   }
 
+  /// Advisory steps shown just before the selfie. Never blocks punch-in.
+  ///  - Android phone brands that kill background apps: a guide to the
+  ///    vendor's autostart/battery screens — first time, and again whenever
+  ///    the latest session was auto-closed after the user last confirmed.
+  ///  - iPhone: a one-time "don't force-close the app" note.
+  Future<void> _maybeShowPunchInGuides() async {
+    final user = LocalStorageService.getUser();
+    if (user == null) return;
+
+    if (Platform.isAndroid) {
+      DateTime? lastAutoClosedAt;
+      try {
+        final latest = await FirestoreRepository()
+            .getLatestTracking(user.id)
+            .timeout(const Duration(seconds: 4));
+        if (latest != null && latest.wasAutoClosed) {
+          lastAutoClosedAt = latest.stopTime;
+        }
+      } catch (_) {}
+      final brand = await OemSettingsService.brandIfGuideNeeded(
+          lastAutoClosedAt: lastAutoClosedAt);
+      if (brand != null && mounted) {
+        await OemSettingsService.showGuide(context, user.id, brand);
+      }
+    } else if (Platform.isIOS) {
+      const key = 'ios_force_close_note_seen';
+      if (LocalStorageService.getSetting<bool>(key) != true && mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Keep TrackFolks open in the background'),
+            content: const Text(
+              'While you are punched in, please do not swipe TrackFolks away '
+              'from the app switcher. Closing it that way stops location '
+              'tracking and you will be punched out automatically.',
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        await LocalStorageService.setSetting(key, true);
+      }
+    }
+  }
+
   Future<void> _handlePunchIn(HomeLoaded state) async {
+    // Server-side minimum-build gate, before any permission prompt or selfie
+    // so an outdated app fails fast. Fails open if the check can't run.
+    _showLoadingDialog('Checking app version...');
+    final update = await AppVersionService.checkPunchInAllowed();
+    if (mounted) _dismissLoadingDialog();
+    if (update != null) {
+      if (mounted) await AppVersionService.showUpdateRequiredDialog(context, update);
+      return;
+    }
+    // Refresh the user's device/permission snapshot as they start a session.
+    final currentUser = LocalStorageService.getUser();
+    if (currentUser != null) {
+      DeviceInfoService.report(currentUser.id, force: true);
+    }
+
     if (!await _ensureLocationPermission()) return;
     if (!await _ensurePunchInPermissions()) return;
+    await _maybeShowPunchInGuides();
+    if (!mounted) return;
 
     final file = await Navigator.of(context).push<File>(
       MaterialPageRoute(builder: (_) => const PunchInCameraScreen()),
@@ -592,6 +662,13 @@ class _HomeScreenState extends State<HomeScreen>
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Close'),
           ),
+          // Sends support the phone/permission details over WhatsApp so a
+          // persistent case can be exempted from auto punch-out.
+          TextButton(
+            onPressed: () =>
+                AutoPunchOutReport.open(dialogContext, autoPunchedOutAt: at),
+            child: const Text('Report problem'),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(dialogContext);
@@ -719,57 +796,27 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  /// Opaque, non-dismissable overlay shown whenever HomeBloc reports
-  /// permissionsRequired (location "Allow all the time" and/or notification
-  /// permission missing while punched in). Guides the user to Settings
-  /// rather than firing another in-app request dialog, since both of these
-  /// permissions typically require a Settings visit to grant/upgrade anyway
-  /// (background location) or are already past their one-shot request
-  /// (previously denied). Retry re-runs HomeBloc's check immediately;
-  /// returning from Settings also clears it automatically via
-  /// AppResumedEvent.
-  Widget _buildPermissionRequiredOverlay() {
-    return Positioned.fill(
-      child: Container(
-        color: Colors.black87,
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.lock_outline, color: Colors.white, size: 48),
-              const SizedBox(height: 16),
-              Text(
-                'Permissions Required',
-                style: AppTheme.sora(20, weight: FontWeight.w700, color: Colors.white),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'TrackFolks needs these to keep tracking your attendance '
-                'and to notify your manager:\n\n'
-                '• Location set to "Allow all the time"\n'
-                '• Notifications enabled\n'
-                '${Platform.isAndroid ? '• Battery optimization disabled for TrackFolks\n' : ''}'
-                '\nOpen Settings, enable ${Platform.isAndroid ? 'all of these' : 'both'}, then return to TrackFolks.',
-                style: AppTheme.sora(14, color: Colors.white70),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: openAppSettings,
-                child: const Text('Open Settings'),
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () =>
-                    context.read<HomeBloc>().add(HomeInitEvent(_targetUserId)),
-                child: const Text("I've enabled it — Retry",
-                    style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          ),
+  /// Shown once when HomeBloc punched the user out because a permission that
+  /// is mandatory while punched in was missing (see
+  /// HomeBloc._ensureServiceMatchesTracking). Nothing is requested here —
+  /// the usual step-by-step requests happen at the next punch-in.
+  void _showPermissionPunchOutDialog(BuildContext context, List<String> missing) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Punched out'),
+        content: Text(
+          'You were punched out because TrackFolks is missing permissions it '
+          'needs while you are punched in:\n\n'
+          '${missing.map((m) => '• $m').join('\n')}\n\n'
+          'You will be asked for them again when you punch in.',
         ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }
@@ -810,6 +857,14 @@ class _HomeScreenState extends State<HomeScreen>
           final bloc = context.read<HomeBloc>();
           bloc.add(AutoPunchOutAcknowledgedEvent()); // show it only once
           _showAutoPunchOutDialog(context, bloc, at);
+        } else if (state is HomeLoaded &&
+            state.permissionPunchOut != null &&
+            !_isReadOnly) {
+          final missing = state.permissionPunchOut!;
+          context
+              .read<HomeBloc>()
+              .add(PermissionPunchOutAcknowledgedEvent()); // show it once
+          _showPermissionPunchOutDialog(context, missing);
         }
       },
       builder: (context, state) {
@@ -976,15 +1031,6 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ),
               ),
-            // Full-screen permission-required overlay — location ("Allow all
-            // the time") and notification permission are both mandatory
-            // while punched in (without notification permission the manager
-            // never gets punch/visit notifications). Blocks all interaction
-            // until fixed; clears automatically once HomeBloc re-checks and
-            // finds both granted (e.g. on returning from Settings, which
-            // triggers AppResumedEvent).
-            if (loaded != null && loaded.permissionsRequired)
-              _buildPermissionRequiredOverlay(),
           ],
         );
       },

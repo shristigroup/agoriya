@@ -7,6 +7,8 @@ import 'core/theme/app_theme.dart';
 import 'data/local/local_storage_service.dart';
 import 'data/repositories/firestore_repository.dart';
 import 'services/location_tracking_service.dart';
+import 'services/app_version_service.dart';
+import 'services/device_info_service.dart';
 import 'services/notification_service.dart';
 import 'features/auth/bloc/auth_bloc.dart';
 import 'features/auth/bloc/auth_event.dart';
@@ -65,6 +67,11 @@ void _handleNotificationTap(Map<String, dynamic> data) {
       if (targetUserId != null) {
         _navigateToUserHome(nav, targetUserId);
       }
+      break;
+    case 'app_update':
+      // One-time "please update" push (scripts/notify_app_update.js): open the
+      // download page, which has both stores' buttons.
+      AppVersionService.openDownloadPage(data);
       break;
     case 'auto_punch_out':
       // About the tapping user's own account — no targetUserId needed. Pop
@@ -177,6 +184,7 @@ class _AppEntry extends StatelessWidget {
                     .saveFcmToken(state.user.id, token);
               }
             } catch (_) {}
+            DeviceInfoService.report(state.user.id);
           });
 
           return BlocProvider(

@@ -44,6 +44,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final s = state;
       if (s is HomeLoaded) emit(s.copyWith(clearAutoPunchedOut: true));
     });
+    on<PermissionPunchOutAcknowledgedEvent>((event, emit) {
+      final s = state;
+      if (s is HomeLoaded) emit(s.copyWith(clearPermissionPunchOut: true));
+    });
     on<NewLocationPointEvent>(_onNewLocationPoint);
     on<CreateVisitEvent>(_onCreateVisit);
     on<UpdateVisitEvent>(_onUpdateVisit);
@@ -292,12 +296,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   // one part of those two flows that's genuinely identical: given a
   // tracking model, is the service in the right run/stop state, and does it
   // have what it needs to run. Location ("Allow all the time") and
-  // notification permission are both mandatory while punched in — without
-  // notification permission the manager never gets punch/visit
-  // notifications, so this isn't just a "nice to have" like camera. HomeBloc
-  // can't show the request/settings-redirect UI itself (no BuildContext),
-  // so on a shortfall it just raises permissionsRequired and leaves the
-  // blocking overlay to home_screen.dart.
+  // notification permission (and, on Android, the battery exemption) are
+  // mandatory while punched in — without notification permission the manager
+  // never gets punch/visit notifications. If any is missing while punched in
+  // (a reinstall restores an open session with nothing granted; or the user
+  // revoked one while away) the user is punched out right here rather than
+  // left in a session that can't track. Permissions are only ever REQUESTED
+  // from the punch-in flow in home_screen.dart, never from here.
 
   Future<void> _ensureServiceMatchesTracking(
       TrackingModel? tracking, Emitter<HomeState> emit) async {
@@ -305,41 +310,80 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     emit((state as HomeLoaded).copyWith(isRefreshing: true));
 
     final serviceRunning = await LocationTrackingService.isRunning;
-    bool permissionsRequired = false;
 
     if (tracking?.isPunchedIn == true) {
-      if (await _hasRequiredPermissions()) {
+      final missing = await _missingRequiredPermissions();
+      if (missing.isEmpty) {
         if (!serviceRunning) {
           await LocationTrackingService.start(
               userId, AppUtils.todayKey(), tracking!.id);
         }
-      } else {
-        permissionsRequired = true;
+      } else if (LocalStorageService.getUser()?.id == userId) {
+        // Only ever the signed-in user's own session — HomeBloc is also used
+        // to view a team member read-only.
+        if (await _punchOutForMissingPermissions(tracking!, missing, emit)) {
+          return;
+        }
       }
     } else if (serviceRunning) {
       LocationTrackingService.stop();
     }
 
     if (state is HomeLoaded) {
-      emit((state as HomeLoaded).copyWith(
-        isRefreshing: false,
-        permissionsRequired: permissionsRequired,
-      ));
+      emit((state as HomeLoaded).copyWith(isRefreshing: false));
     }
   }
 
-  Future<bool> _hasRequiredPermissions() async {
-    final locationPermission = await Geolocator.checkPermission();
-    if (locationPermission != LocationPermission.always) return false;
-    final notificationStatus = await NotificationService.getPermissionStatus();
-    if (notificationStatus != AuthorizationStatus.authorized) return false;
+  /// Closes the session now. Returns true if it was closed (state emitted).
+  Future<bool> _punchOutForMissingPermissions(TrackingModel tracking,
+      List<String> missing, Emitter<HomeState> emit) async {
+    try {
+      // Push whatever the isolate still holds before stopping, if it is
+      // still around; failures here must not stop the punch-out itself.
+      try {
+        await _processBatch(emit, forceSync: true);
+      } catch (_) {}
+      LocationTrackingService.stop();
+
+      final updated = await DataManager.punchOut(
+        userId: userId,
+        currentTracking: tracking,
+        timestamp: DateTime.now(),
+        reason: 'permissions_missing',
+      );
+      if (state is HomeLoaded) {
+        emit((state as HomeLoaded).copyWith(
+          tracking: updated,
+          isRefreshing: false,
+          permissionPunchOut: missing,
+        ));
+      }
+      print('[HomeBloc] punched out — permissions missing: $missing');
+      return true;
+    } catch (e) {
+      // Offline etc. — leave the session as it is; the next resume retries.
+      print('[HomeBloc] permission punch-out failed: $e');
+      return false;
+    }
+  }
+
+  /// Names of the mandatory-while-punched-in permissions this phone lacks.
+  Future<List<String>> _missingRequiredPermissions() async {
+    final missing = <String>[];
+    if (await Geolocator.checkPermission() != LocationPermission.always) {
+      missing.add('Location set to "Allow all the time"');
+    }
+    if (await NotificationService.getPermissionStatus() !=
+        AuthorizationStatus.authorized) {
+      missing.add('Notifications enabled');
+    }
     // Android-only — permission_handler has no concept of battery
     // optimization on iOS, so there's nothing to check there.
-    if (Platform.isAndroid) {
-      final batteryStatus = await Permission.ignoreBatteryOptimizations.status;
-      if (!batteryStatus.isGranted) return false;
+    if (Platform.isAndroid &&
+        !(await Permission.ignoreBatteryOptimizations.status).isGranted) {
+      missing.add('Battery optimization disabled for TrackFolks');
     }
-    return true;
+    return missing;
   }
 
   // ── New Location Point ────────────────────────────────────────────────────

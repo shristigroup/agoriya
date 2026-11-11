@@ -11,6 +11,31 @@ import FirebaseAuth
   ) -> Bool {
     FirebaseApp.configure()
     GeneratedPluginRegistrant.register(with: self)
+
+    // Read-only iOS background diagnostics for DeviceInfoService (Dart).
+    if let controller = window?.rootViewController as? FlutterViewController {
+      let channel = FlutterMethodChannel(
+        name: "com.agoriya.app/ios_diag",
+        binaryMessenger: controller.binaryMessenger)
+      channel.setMethodCallHandler { call, result in
+        guard call.method == "state" else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        let refresh: String
+        switch UIApplication.shared.backgroundRefreshStatus {
+        case .available: refresh = "available"
+        case .denied: refresh = "denied"
+        case .restricted: refresh = "restricted"
+        @unknown default: refresh = "unknown"
+        }
+        result([
+          "backgroundRefresh": refresh,
+          "lowPowerMode": ProcessInfo.processInfo.isLowPowerModeEnabled,
+        ])
+      }
+    }
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

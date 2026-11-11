@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/app_utils.dart';
+import '../../../../core/utils/route_path.dart';
 import '../../../../data/models/tracking_model.dart';
 import '../../../../data/models/location_model.dart';
 
@@ -119,7 +120,10 @@ class _TrackTabState extends State<TrackTab>
   @override
   Widget build(BuildContext context) {
     final hasData = widget.locations.isNotEmpty;
-    final points = widget.locations.map((p) => p.position).toList();
+    // The line to draw: OSRM's road path where a point carries one, straight
+    // lines between stored points everywhere else (see RoutePath.build). The
+    // dots below are still the stored points themselves.
+    final points = RoutePath.build(widget.locations);
 
     return Stack(
       children: [
@@ -146,7 +150,7 @@ class _TrackTabState extends State<TrackTab>
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.agoriya.app',
             ),
-            // Polyline — drawn directly from stored points (snapped where available)
+            // Polyline — road paths where OSRM matched, straight lines elsewhere
             if (points.length >= 2)
               AnimatedBuilder(
                 animation: _anim,
