@@ -67,3 +67,7 @@ __pycache__/
 .secrets
 .secrets.state
 *-debug.log
+
+# Firebase service-account key and the local debugging page that uses it (never commit)
+*firebase-adminsdk*.json
+user_route.html

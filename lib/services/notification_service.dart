@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
 import '../core/constants/app_constants.dart';
+import '../core/utils/failure_text.dart';
 import '../firebase_options.dart';
 import 'location_sync_service.dart';
 
@@ -103,9 +104,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     await ack({'wakeupResult': 'restarted'});
   } catch (e, st) {
     print('[FCM] location_wakeup error: $e\n$st');
-    final msg = e.toString();
-    await _ackFailure(userId, trackingId,
-        msg.length > 200 ? msg.substring(0, 200) : msg);
+    await _ackFailure(userId, trackingId, failureText(e, st));
   }
 }
 

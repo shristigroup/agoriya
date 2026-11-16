@@ -37,7 +37,11 @@ class LocationsBoxLock {
 
   static Future<File> _lockFile() async {
     final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/locations_box.lock');
+    // NOT 'locations_box.lock': Hive keeps its own lock file for a box named
+    // 'locations_box' at exactly that path and deletes it whenever the box is
+    // closed, which removed this lock's file from under it and made later
+    // closes fail with PathNotFoundException.
+    final file = File('${dir.path}/locations_box_sync.lock');
     if (!await file.exists()) await file.create(recursive: true);
     return file;
   }
@@ -85,9 +89,17 @@ class LocationsBoxLock {
   /// memory. No-ops if nothing is currently held.
   static Future<void> releaseHeld() async {
     final raf = _heldLock;
-    _heldLock = null;
+    _heldLock = null; // forget it first: a failure below must not leave us believing we still hold it
     if (raf == null) return;
-    await raf.unlock();
-    await raf.close();
+    try {
+      await raf.unlock();
+    } catch (e) {
+      print('[LocationsBoxLock] unlock failed (ignored): $e');
+    }
+    try {
+      await raf.close();
+    } catch (e) {
+      print('[LocationsBoxLock] close failed (ignored): $e');
+    }
   }
 }
