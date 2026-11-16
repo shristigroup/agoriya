@@ -9,8 +9,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../data/local/local_storage_service.dart';
 import '../../../data/data_manager.dart';
-import '../../../services/location_sync_service.dart';
-import '../../../services/location_tracking_service.dart';
 import '../../../data/models/tracking_model.dart';
 import '../../../data/models/visit_model.dart';
 import '../../../data/repositories/firestore_repository.dart';
@@ -31,6 +29,7 @@ import '../../../services/auto_punch_out_report.dart';
 import '../../../services/oem_settings_service.dart';
 import '../../../services/device_info_service.dart';
 import '../../../services/notification_service.dart';
+import '../../../core/utils/sync_progress.dart';
 
 class HomeScreen extends StatefulWidget {
   /// When set, this is a manager viewing a report's home screen
@@ -544,8 +543,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   /// Logging out while punched in would leave the session open on the server
   /// and tracking running with no signed-in user (until the watchdog gave up
-  /// on it), so punch out first — same steps as HomeBloc's punch-out. If that
-  /// fails (e.g. offline), stay signed in so the user can retry.
+  /// on it), so punch out first, through HomeBloc's own punch-out.
   Future<void> _handleLogout() async {
     final user = LocalStorageService.getUser();
     final tracking = DataManager.getActiveTracking();
@@ -568,26 +566,11 @@ class _HomeScreenState extends State<HomeScreen>
       );
       if (ok != true || !mounted) return;
 
-      _showLoadingDialog('Punching out...');
-      try {
-        await LocationSyncService.processBatchAndEmitLatestLocationData(
-            userId: user.id, trackingId: tracking!.id, forceSync: true);
-        LocationTrackingService.stop();
-        await DataManager.punchOut(
-            userId: user.id,
-            currentTracking: tracking,
-            timestamp: DateTime.now());
-      } catch (e) {
-        if (mounted) {
-          _dismissLoadingDialog();
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text("Couldn't punch out. Check your connection and try again."),
-            backgroundColor: AppTheme.error,
-          ));
-        }
-        return;
-      }
-      if (mounted) _dismissLoadingDialog();
+      // The same punch-out as the button (online check, full location sync
+      // with its progress screen, then the server write). Signing out follows
+      // once it succeeds; if it fails the user stays signed in to retry.
+      context.read<HomeBloc>().add(PunchOutEvent(thenLogout: true));
+      return;
     }
     if (mounted) context.read<AuthBloc>().add(LogoutEvent());
   }
@@ -828,6 +811,10 @@ class _HomeScreenState extends State<HomeScreen>
         if (state is PunchInSuccess) {
           context.read<HomeBloc>().add(HomeInitEvent(_targetUserId));
         } else if (state is PunchOutSuccess) {
+          if (state.thenLogout) {
+            context.read<AuthBloc>().add(LogoutEvent());
+            return;
+          }
           final tracking = state.tracking;
           final totalTime = state.totalTime;
           Navigator.of(context).push(
@@ -1012,28 +999,62 @@ class _HomeScreenState extends State<HomeScreen>
               : _buildFAB(context, loaded, isPunchedIn, isPunchedOut, isPunchingOut),
           floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
         ),
-            // Full-screen punch-out overlay
-            if (isPunchingOut)
-              Container(
-                color: Colors.black.withOpacity(0.65),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircularProgressIndicator(color: Colors.white),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Punching out...',
-                        style: AppTheme.sora(16,
-                            weight: FontWeight.w600, color: Colors.white),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            // Full-screen punch-out overlay: every pending location is synced
+            // before the session is closed, and the user can follow it.
+            if (isPunchingOut && loaded != null) _buildPunchOutOverlay(loaded),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildPunchOutOverlay(HomeLoaded loaded) {
+    final total = loaded.punchOutTotal;
+    final done = loaded.punchOutSynced;
+    final started = loaded.punchOutStartedAt;
+    final syncing = total > 0;
+    return Container(
+      color: Colors.black.withOpacity(0.75),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            syncing ? 'Location syncing' : 'Punching out...',
+            style: AppTheme.sora(18, weight: FontWeight.w600, color: Colors.white),
+          ),
+          const SizedBox(height: 20),
+          LinearProgressIndicator(
+            value: syncing ? done / total : null,
+            backgroundColor: Colors.white24,
+            color: Colors.white,
+            minHeight: 6,
+          ),
+          const SizedBox(height: 16),
+          if (syncing) ...[
+            Text(
+              '$done of $total points synced',
+              style: AppTheme.sora(14, color: Colors.white),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              syncTimeLeftLabel(
+                done: done,
+                total: total,
+                elapsed: DateTime.now().difference(started ?? DateTime.now()),
+              ),
+              style: AppTheme.sora(13, color: Colors.white70),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Please wait for the sync to complete for punch out to complete.',
+              textAlign: TextAlign.center,
+              style: AppTheme.sora(13, color: Colors.white70),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

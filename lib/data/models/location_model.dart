@@ -35,6 +35,13 @@ class LocationPoint {
   final String? road;
   final int? roadEndMs;
 
+  /// True when the route cleaning decided this fix is a stray (see
+  /// RouteCleaner). The point is KEPT in the stored list so the decision can be
+  /// reviewed and improved later, but it is skipped by everything that draws
+  /// the route, measures distance or sends points to OSRM — use
+  /// [LocationPointList.visible] for those.
+  final bool dropped;
+
   const LocationPoint({
     required this.position,
     required this.timestamp,
@@ -45,6 +52,7 @@ class LocationPoint {
     this.snapReason,
     this.road,
     this.roadEndMs,
+    this.dropped = false,
   });
 
   factory LocationPoint.fromFirestore(Map<String, dynamic> map) {
@@ -60,6 +68,7 @@ class LocationPoint {
       snapReason: map['snapReason'] as String?,
       road: map['road'] as String?,
       roadEndMs: (map['roadEnd'] as num?)?.toInt(),
+      dropped: map['dropped'] as bool? ?? false,
     );
   }
 
@@ -77,6 +86,7 @@ class LocationPoint {
       m['road'] = road;
       m['roadEnd'] = roadEndMs;
     }
+    if (dropped) m['dropped'] = true;
     return m;
   }
 
@@ -92,6 +102,7 @@ class LocationPoint {
         snapReason: json['snapReason'] as String?,
         road: json['road'] as String?,
         roadEndMs: (json['roadEnd'] as num?)?.toInt(),
+        dropped: json['dropped'] as bool? ?? false,
       );
 
   Map<String, dynamic> toJson() {
@@ -109,6 +120,7 @@ class LocationPoint {
       m['road'] = road;
       m['roadEnd'] = roadEndMs;
     }
+    if (dropped) m['dropped'] = true;
     return m;
   }
 
@@ -125,6 +137,7 @@ class LocationPoint {
         snapReason: snapReason,
         road: road,
         roadEndMs: roadEndMs,
+        dropped: dropped,
       );
 
   LocationPoint copyWith({
@@ -137,6 +150,7 @@ class LocationPoint {
     String? snapReason,
     String? road,
     int? roadEndMs,
+    bool? dropped,
   }) =>
       LocationPoint(
         position: position ?? this.position,
@@ -148,7 +162,13 @@ class LocationPoint {
         snapReason: snapReason ?? this.snapReason,
         road: road ?? this.road,
         roadEndMs: roadEndMs ?? this.roadEndMs,
+        dropped: dropped ?? this.dropped,
       );
+}
+
+extension LocationPointList on List<LocationPoint> {
+  /// The points to show, measure and match: everything the cleaning kept.
+  List<LocationPoint> get visible => where((p) => !p.dropped).toList();
 }
 
 class DayLocations {

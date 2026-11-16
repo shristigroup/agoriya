@@ -150,7 +150,7 @@ class DataManager {
 
     if (isOwner(userId) && isToday) {
       return [
-        ...LocalStorageService.getFinalLocations(),
+        ...LocalStorageService.getFinalLocations().visible,
         ...LocalStorageService.getCurrentBatch(),
       ];
     }
@@ -160,16 +160,17 @@ class DataManager {
     if (_isPastDay(date)) {
       final cached =
           LocalStorageService.getLocationsForTracking(userId, trackingId);
-      if (cached.isNotEmpty) return cached;
+      if (cached.isNotEmpty) return cached.visible;
     }
 
-    // Cache miss: fetch from Firestore.
+    // Cache miss: fetch from Firestore. The cache keeps dropped points; what
+    // is returned for display does not include them.
     final points = await _repo.getTrackingLocations(userId, trackingId);
     if (points.isNotEmpty) {
       await LocalStorageService.saveLocationsForTracking(
           userId, trackingId, points);
     }
-    return points;
+    return points.visible;
   }
 
   // ─── Today's tracking state (own user only) ────────────────────────────────

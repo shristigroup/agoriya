@@ -24,6 +24,15 @@ class FirestoreDocumentSizeLimitException implements Exception {
   String toString() => 'FirestoreDocumentSizeLimitException: $message';
 }
 
+/// How long a write the user is waiting on may take. Firestore queues writes
+/// made while offline and only completes their future once the server has
+/// acknowledged them, so without a limit an offline write waits forever.
+const Duration kUserWaitingWriteTimeout = Duration(seconds: 20);
+
+/// The final locations write is the whole points array (tens of KB), so it
+/// gets longer on a slow connection.
+const Duration kLocationsWriteTimeout = Duration(seconds: 30);
+
 bool _isDocumentSizeLimitError(FirebaseException e) {
   final msg = e.message?.toLowerCase() ?? '';
   return e.code == 'invalid-argument' &&
@@ -154,7 +163,7 @@ class FirestoreRepository {
         'stopTime': Timestamp.fromDate(stopTime),
         'isPunchedIn': false,
         if (reason != null) 'punchOutReason': reason,
-      });
+      }).timeout(kUserWaitingWriteTimeout);
     } on FirebaseException catch (e) {
       if (_isDocumentSizeLimitError(e)) {
         throw FirestoreDocumentSizeLimitException(
@@ -171,7 +180,9 @@ class FirestoreRepository {
   Future<void> closeTrackingFreeingSpace(
       String userId, String trackingId, DateTime stopTime,
       {String? reason}) async {
-    final doc = await _trackingDoc(userId, trackingId).get();
+    final doc = await _trackingDoc(userId, trackingId)
+        .get()
+        .timeout(kUserWaitingWriteTimeout);
     final data = doc.data() as Map<String, dynamic>?;
     final locations =
         List<Map<String, dynamic>>.from(data?['locations'] as List? ?? []);
@@ -182,7 +193,7 @@ class FirestoreRepository {
       'stopTime': Timestamp.fromDate(stopTime),
       'isPunchedIn': false,
       if (reason != null) 'punchOutReason': reason,
-    });
+    }).timeout(kUserWaitingWriteTimeout);
   }
 
   /// Clears stopTime (resume session).
@@ -210,7 +221,7 @@ class FirestoreRepository {
         'locations': allLocations.map((p) => p.toFirestore()).toList(),
         'distance': distanceKm,
         'lastBatchSyncedAt': FieldValue.serverTimestamp(),
-      });
+      }).timeout(kLocationsWriteTimeout);
     } on FirebaseException catch (e) {
       if (_isDocumentSizeLimitError(e)) {
         throw FirestoreDocumentSizeLimitException(

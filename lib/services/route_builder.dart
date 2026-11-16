@@ -30,23 +30,38 @@ class RouteBuilder {
   /// coordinate so the new road path starts exactly where the old one ended.
   /// [raw] are the new points. [trace] is OSRM's answer for `[carry, ...raw]`
   /// (or a failure, in which case everything stays raw).
+  ///
+  /// [droppedMs] are timestamps (ms since epoch) of points the cleaning
+  /// dropped, among [carry] and [raw]: they are flagged `dropped` in the result
+  /// and left out of the distance. When the carry itself is dropped,
+  /// [fallbackStart] (the saved point before it) is where the measured path
+  /// starts instead.
   static RouteChunk build({
     LocationPoint? carry,
     required List<LocationPoint> raw,
     required OsrmTrace trace,
+    Set<int> droppedMs = const {},
+    LocationPoint? fallbackStart,
   }) {
     final offset = carry != null ? 1 : 0;
     final n = offset + raw.length;
     final tps = List<OsrmTracepoint?>.generate(
         n, (i) => i < trace.tracepoints.length ? trace.tracepoints[i] : null);
 
-    // Stored points: snapped position when matched, raw otherwise.
+    // Stored points: snapped position when matched, raw otherwise; dropped
+    // points are kept but flagged.
     var stored = <LocationPoint>[
       for (var k = 0; k < raw.length; k++)
-        raw[k].copyWithPosition(
-          position: tps[offset + k]?.location,
-          isSnapped: tps[offset + k] != null,
-        ),
+        raw[k]
+            .copyWithPosition(
+              position: tps[offset + k]?.location,
+              isSnapped: tps[offset + k] != null,
+            )
+            .copyWith(
+                dropped:
+                    droppedMs.contains(raw[k].timestamp.millisecondsSinceEpoch)
+                        ? true
+                        : null),
     ];
 
     // Where each point sits for distance purposes (carry as already stored).
@@ -87,6 +102,9 @@ class RouteBuilder {
     LatLng? prevPos;
     int? prevMatching, prevWaypoint;
     final pending = <LatLng>[];
+    final carryDropped =
+        carry != null && droppedMs.contains(carry.timestamp.millisecondsSinceEpoch);
+    if (carryDropped && fallbackStart != null) pending.add(fallbackStart.position);
 
     double straight(List<LatLng> pts) {
       var d = 0.0;
@@ -97,6 +115,7 @@ class RouteBuilder {
     }
 
     for (var k = 0; k < n; k++) {
+      if (droppedMs.contains(tsOf(k))) continue; // a dropped point is not on the route
       final tp = tps[k];
       final pos = posOf(k);
       if (tp == null) {
