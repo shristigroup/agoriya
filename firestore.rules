@@ -17,6 +17,16 @@ service cloud.firestore {
       );
     }
 
+    // Whether this user's app is new enough to start a session. A missing
+    // Config/app, or no minBuild for the user's platform, means no enforcement.
+    function appIsCurrent(userId) {
+      let user = get(/databases/$(database)/documents/Users/$(userId)).data;
+      let cfg = get(/databases/$(database)/documents/Config/app).data;
+      return !exists(/databases/$(database)/documents/Config/app) ||
+        user.get('appBuild', 0) >=
+          cfg.get(user.get('platform', 'android'), {}).get('minBuild', 0);
+    }
+
     // ─── Codes — public read; all writes via CF only (createOrgCode) ─────────
     match /Codes/{code} {
       allow read: if true;
@@ -33,7 +43,21 @@ service cloud.firestore {
       );
 
       match /Tracking/{trackingId} {
-        allow read, write: if canAccessUser(userId);
+        allow read, delete: if canAccessUser(userId);
+
+        // Starting a session (punch-in) needs a current app build. The app
+        // writes its build to the user's document; Config/app (server-only)
+        // holds the minimum per platform. Builds before 17 never report a build,
+        // so they count as 0 and are refused once minBuild is above 0.
+        allow create: if canAccessUser(userId) && appIsCurrent(userId);
+
+        // Reopening a closed session ("Resume Session") is a punch-in too; every
+        // other update (heartbeat, locations, punch-out) is unchanged.
+        allow update: if canAccessUser(userId) && (
+          !(resource.data.get('isPunchedIn', false) == false &&
+            request.resource.data.get('isPunchedIn', false) == true) ||
+          appIsCurrent(userId)
+        );
       }
 
       match /Visits/{visitId} {

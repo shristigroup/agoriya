@@ -71,3 +71,4 @@ __pycache__/
 # Firebase service-account key and the local debugging page that uses it (never commit)
 *firebase-adminsdk*.json
 user_route.html
+firestore-rules-test/node_modules/
