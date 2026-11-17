@@ -404,6 +404,7 @@
     .feature-stack .claim { padding: 16px 18px; }
     .feature-stack .claim h3 { font-size: 15px; margin-bottom: 5px; }
     .feature-stack .claim p { font-size: 13px; }
+    .feature-stack .claim a { color: var(--red); font-weight: 700; text-decoration: none; }
     @media (max-width: 900px) {
       .features-section .feature-grid { grid-template-columns: 1fr 1fr; }
       .feature-stack { grid-column: 1 / -1; grid-row: auto; position: static; }
@@ -416,7 +417,34 @@
     .cheaper-card p { font-size: 14px; color: var(--text); line-height: 1.6; margin-bottom: 10px; }
     .cheaper-card a { color: var(--red); font-weight: 700; font-size: 14px; text-decoration: none; }
     .cheaper-card a:hover { text-decoration: underline; }
-    .chart-card { background: var(--surface); border: 1.5px solid var(--divider); border-radius: 18px; padding: 18px 16px; margin-bottom: 22px; }
+    .cheaper-card { margin-bottom: 22px; }
+    .cheaper-chart { margin-top: 18px; }
+
+    /* ── Competitor comparison ── */
+    .cmp-section { padding: 0 20px 48px; max-width: 1100px; margin: 0 auto; }
+    .cmp-sub { color:var(--muted); font-size:14px; margin:-6px 0 16px; }
+    .chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+    .chip { display:inline-flex; align-items:stretch; border:1.5px solid var(--divider); border-radius:999px; background:var(--surface); overflow:hidden; }
+    .chip.on { border-color:var(--red); background:var(--red-light); }
+    .chip button { font:inherit; font-size:13px; border:0; background:none; cursor:pointer; color:var(--text); }
+    .chip .chip-main { padding:7px 6px 7px 14px; font-weight:600; }
+    .chip.on .chip-main { color:var(--red-dark); }
+    .chip .chip-i { width:20px; height:20px; margin:auto 8px auto 2px; padding:0; border:1.5px solid var(--muted); border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; font-style:italic; font-family:Georgia,serif; line-height:1; color:var(--muted); }
+    .chip .chip-i:hover, .chip .chip-i[aria-expanded="true"] { color:var(--red); border-color:var(--red); }
+    #chip-info { font-size:13px; color:#3a2a2a; background:var(--surface); border:1px solid var(--divider); border-left:4px solid var(--red); border-radius:8px; padding:8px 12px; margin-bottom:14px; max-width:620px; }
+    .cmp-wrap { overflow-x:auto; border:1px solid #c9cdd3; background:#fff; }
+    .cmp { border-collapse:collapse; width:100%; min-width:860px; font-size:12px; line-height:1.45; color:#444; }
+    .cmp th, .cmp td { padding:12px 12px; text-align:left; vertical-align:middle; border:1px solid #d3d6db; position:static; background:none; min-width:0; box-shadow:none; }
+    .cmp thead th { background:#1e2a3b; color:#fff; font-weight:500; text-align:center; position:static; }
+    .cmp tbody tr:nth-child(even) td { background:#f7f8fa; }
+    .cmp td.price { color:#0b5f8a; }
+    .cmp td.prov { font-weight:600; color:var(--text); }
+    .cmp td.prov a { color:var(--text); text-decoration:none; border-bottom:1px dotted var(--muted); }
+    .cmp td.prov a::after { content:" ↗"; color:var(--red); font-size:11px; }
+    .cmp td.prov a:hover { color:var(--red); }
+    .cmp tr.us td { background:var(--red-light) !important; }
+    .cmp tr.us td.prov { color:var(--red-dark); }
+    #cmp-empty { display:none; padding:22px; text-align:center; color:var(--muted); font-size:14px; }
 
     /* ── Contact ── */
     .contact-section { padding: 0 20px 52px; max-width: 860px; margin: 0 auto; }
@@ -433,6 +461,8 @@
     .contact-person .name { font-size: 17px; font-weight: 700; color: var(--text); }
     .contact-person a { display: inline-flex; align-items: center; gap: 6px; color: var(--red); font-weight: 700; font-size: 13px; text-decoration: none; }
     .contact-person a:hover { text-decoration: underline; }
+    .contact-person a.btn-wa { background: #25D366; color: #fff; padding: 10px 18px; border-radius: 50px; font-size: 14px; }
+    .contact-person a.btn-wa:hover { text-decoration: none; filter: brightness(0.95); }
     .contact-details { flex: 1; display: flex; flex-direction: column; gap: 12px; }
     .contact-box { display: flex; gap: 12px; align-items: flex-start; background: var(--bg); border: 1.5px solid var(--divider); border-radius: 12px; padding: 14px 16px; font-size: 13px; color: #444; line-height: 1.55; }
     .contact-box svg { flex-shrink: 0; width: 22px; height: 22px; color: var(--red); margin-top: 1px; }
@@ -475,29 +505,6 @@
     .pay-quote { margin-top: 12px; font-size: 13px; color: var(--text); min-height: 20px; line-height: 1.55; } .pay-quote.bad { color: #b3261e; }
     body.pay-open { overflow: hidden; }
 
-    /* ── FAQ ── */
-    .faq-section { padding: 0 20px 52px; max-width: 860px; margin: 0 auto; }
-    .faq-list { display: flex; flex-direction: column; gap: 10px; }
-    .faq-item {
-      background: var(--surface); border: 1.5px solid var(--divider);
-      border-radius: 14px; overflow: hidden;
-    }
-    .faq-q {
-      width: 100%; background: none; border: none; text-align: left;
-      padding: 16px 18px; font-family: 'Sora', sans-serif;
-      font-size: 13px; font-weight: 600; color: var(--text);
-      cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 12px;
-    }
-    .faq-q:hover { background: var(--bg); }
-    .faq-chevron { flex-shrink: 0; transition: transform 0.2s; font-style: normal; color: var(--muted); }
-    .faq-item.open .faq-chevron { transform: rotate(180deg); }
-    .faq-a {
-      display: none; padding: 0 18px 16px;
-      font-size: 12.5px; color: var(--muted); line-height: 1.65;
-      border-top: 1px solid var(--divider);
-    }
-    .faq-item.open .faq-a { display: block; }
-
     /* ── Footer ── */
     footer {
       text-align: center; padding: 28px 24px 40px;
@@ -527,9 +534,8 @@
     <nav aria-label="Main">
       <a href="#download">Download</a>
       <a href="#features">Features</a>
+      <a href="#competitor-comparison">Competitor Comparison</a>
       <a href="#pricing">Pricing</a>
-      <a href="/competitor-comparison/">Competitor Comparison</a>
-      <a href="#faq">FAQ</a>
       <a href="#contact">Contact</a>
     </nav>
   </header>
@@ -555,7 +561,7 @@
         <p class="hero-price">Our price - $1/user/month<br/>Cheapest competitor price - $2.5/user/month</p>
         <div class="hero-cta">
           <a class="btn btn-gold" href="#download">Download for free</a>
-          <a class="btn btn-outline" href="/competitor-comparison/">Competitor Comparison</a>
+          <a class="btn btn-outline" href="#competitor-comparison">Competitor Comparison</a>
         </div>
       </div>
     </div>
@@ -572,7 +578,7 @@
           iPhone / iPad
         </div>
         <div class="card-title">Get TrackFolks on iOS</div>
-        <div class="card-sub">Available via TestFlight — Apple's official beta testing platform.</div>
+        <div class="card-sub">Always free for 10 users. For bigger teams, try for up to 10 users and upgrade later.</div>
         <a class="btn btn-gold" href="https://testflight.apple.com/join/yXp6SAnn" target="_blank" rel="noopener">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M19.59 7L12 3 4.41 7 12 11 19.59 7zM12 13.08L4 9v6l8 4 8-4V9l-8 4.08z"/></svg>
           Open in TestFlight
@@ -610,7 +616,7 @@
           Android
         </div>
         <div class="card-title">Get TrackFolks for Android</div>
-        <div class="card-sub">Available on Google Play.</div>
+        <div class="card-sub">Always free for 10 users. For bigger teams, try for up to 10 users and upgrade later.</div>
         <a class="btn btn-gold" id="android-download-btn"
            href="https://play.google.com/store/apps/details?id=com.agoriya.app" target="_blank" rel="noopener">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M3 20.5v-17c0-.6.7-1 1.2-.6l15 8.6c.5.3.5 1 0 1.3l-15 8.6c-.5.3-1.2 0-1.2-.6z"/></svg>
@@ -639,7 +645,7 @@
       <!-- Other / Desktop -->
       <div id="section-other">
         <div class="card-title">Download TrackFolks</div>
-        <div class="card-sub">Choose your platform below.</div>
+        <div class="card-sub">Always free for 10 users. For bigger teams, try for up to 10 users and upgrade later.</div>
         <div style="display:flex; gap:12px; flex-wrap:wrap;">
           <a class="btn btn-gold" href="https://testflight.apple.com/join/yXp6SAnn" target="_blank" rel="noopener">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
@@ -681,9 +687,9 @@
         <p class="feature-desc">Resume your session instead of starting the day over.</p>
       </div>
       <div class="feature-stack">
-        <div class="claim"><h3>Reliable</h3><p>No crashes reported by the roughly 50 people who have used the app so far.</p></div>
-        <div class="claim"><h3>Easy on the battery</h3><p>One location point a minute, uploaded every 9 minutes.</p></div>
-        <div class="claim"><h3>Personal support from the creator</h3><p>The creator answers on WhatsApp personally.</p></div>
+        <div class="claim"><h3>Reliable</h3><p>Used by 100 users every day, for 10 hours a day. No crash reported.</p></div>
+        <div class="claim"><h3>Easy on the battery</h3><p>Location saving is tuned so managers see data in time, without aggressive location sync. With no internet, locations are stored on the phone and synced once you are back online.</p></div>
+        <div class="claim"><h3>Personal support from the creator</h3><p>The creator answers on WhatsApp personally. <a href="#contact">Contact →</a></p></div>
       </div>
       <div class="feature-card">
         <div class="feature-media"><img src="assets/media/history.jpg" width="420" height="914" loading="lazy" alt="Daily history list with hours, distance and visits" /></div>
@@ -706,6 +712,11 @@
         <p class="feature-desc">Download a day-wise CSV of punch times and distance for your whole team.</p>
       </div>
       <div class="feature-card">
+        <div class="feature-icon">🏪</div>
+        <h4 class="feature-title">Visit &amp; expense logging</h4>
+        <p class="feature-desc">Log every client visit with location and notes, and attach expense receipts.</p>
+      </div>
+      <div class="feature-card">
         <div class="feature-media"><video muted loop playsinline preload="none" poster="assets/media/delete-account.jpg" data-src="assets/media/delete-account.mp4" aria-label="Deleting an account and all its data from the app"></video></div>
         <h4 class="feature-title">Delete your account anytime</h4>
         <p class="feature-desc">Remove your account and all your data from the app in a few taps.</p>
@@ -713,22 +724,88 @@
     </div>
   </section>
 
+  <!-- ── Competitor comparison ── -->
+  <!-- cmp:start -->
+<div class="cmp-section" id="competitor-comparison">
+<h2 class="section-label">Competitor Comparison</h2>
+<p class="cmp-sub">Select features from the chips below to filter the table.</p>
+<div class="chips" role="group" aria-label="Filter by feature"><span class="chip" data-key="gps" data-label="GPS tracking" data-desc="Records where each person is while on duty, using the phone&#x27;s GPS."><button type="button" class="chip-main" aria-pressed="false">GPS tracking</button><button type="button" class="chip-i" aria-expanded="false" aria-label="What is GPS tracking?">i</button></span><span class="chip" data-key="attendance" data-label="Attendance" data-desc="Staff punch in and out from the phone, with the time and place recorded."><button type="button" class="chip-main" aria-pressed="false">Attendance</button><button type="button" class="chip-i" aria-expanded="false" aria-label="What is Attendance?">i</button></span><span class="chip" data-key="distance" data-label="Distance" data-desc="Works out the kilometres each person travelled in a day, for travel claims."><button type="button" class="chip-main" aria-pressed="false">Distance</button><button type="button" class="chip-i" aria-expanded="false" aria-label="What is Distance?">i</button></span><span class="chip" data-key="route" data-label="Route timeline" data-desc="Replays the day&#x27;s path on a map in order, so you see where staff went and when. Only a few apps do this."><button type="button" class="chip-main" aria-pressed="false">Route timeline</button><button type="button" class="chip-i" aria-expanded="false" aria-label="What is Route timeline?">i</button></span><span class="chip" data-key="visits" data-label="Visit logging" data-desc="Staff record each customer visit with a form, notes or photos."><button type="button" class="chip-main" aria-pressed="false">Visit logging</button><button type="button" class="chip-i" aria-expanded="false" aria-label="What is Visit logging?">i</button></span><span class="chip" data-key="geofence" data-label="Geofencing" data-desc="Limits punch-in to a set place, or marks attendance automatically when staff enter or leave it."><button type="button" class="chip-main" aria-pressed="false">Geofencing</button><button type="button" class="chip-i" aria-expanded="false" aria-label="What is Geofencing?">i</button></span><span class="chip" data-key="face" data-label="Face / selfie attendance" data-desc="Checks who is punching in with a selfie or face recognition, to stop buddy punching."><button type="button" class="chip-main" aria-pressed="false">Face / selfie attendance</button><button type="button" class="chip-i" aria-expanded="false" aria-label="What is Face / selfie attendance?">i</button></span><span class="chip" data-key="nosetup" data-label="No setup fee" data-desc="No one-time onboarding or per-user setup charge."><button type="button" class="chip-main" aria-pressed="false">No setup fee</button><button type="button" class="chip-i" aria-expanded="false" aria-label="What is No setup fee?">i</button></span><span class="chip" data-key="free" data-label="Free tier" data-desc="A free plan you can use without paying, usually with a limit on the number of users."><button type="button" class="chip-main" aria-pressed="false">Free tier</button><button type="button" class="chip-i" aria-expanded="false" aria-label="What is Free tier?">i</button></span></div>
+<div id="chip-info" hidden></div>
+<div class="cmp-wrap">
+<table class="cmp">
+<thead><tr><th>Provider</th><th>Monthly Cost / User</th><th>Setup Fee</th><th>Core Field Features Included</th><th>Key Catch / Notes</th></tr></thead>
+<tbody>
+<tr class=us data-has="attendance distance face free geofence gps nosetup route visits"><td class="prov">TrackFolks</td><td class="price">$1.05</td><td>$0</td><td>GPS, Selfie Attendance, Distance, Route Timeline, Visit Forms, Geofencing coming soon</td><td>First 10 users free. Capped at $499 a year.</td></tr>
+<tr data-has="attendance distance geofence gps nosetup visits"><td class="prov"><a href="https://unolo.com/" target="_blank" rel="noopener nofollow">Unolo</a></td><td class="price">~$2.11 – $2.63</td><td>$0</td><td>GPS, Attendance, Distance, Visit Forms</td><td>Starter (~$1.05–$1.58) lacks TA/conveyance claims.</td></tr>
+<tr data-has="attendance distance gps visits"><td class="prov"><a href="https://daytrack.in/" target="_blank" rel="noopener nofollow">dayTrack</a></td><td class="price">$2.62</td><td>$5.25 / user</td><td>GPS, Attendance, Distance, Visit/Beat Logs</td><td>Min. 2 users; ≤5 users locked into 12-mo upfront.</td></tr>
+<tr data-has="attendance distance free geofence gps nosetup visits"><td class="prov"><a href="https://www.fieldsense.in/" target="_blank" rel="noopener nofollow">FieldSense</a></td><td class="price">$2.63</td><td>$0 (or $105 assisted)</td><td>GPS, Attendance, Distance, Smart Forms</td><td>Free tier (≤10 users) lacks Smart Forms &amp; phone support.</td></tr>
+<tr data-has="attendance distance geofence gps visits"><td class="prov"><a href="https://breezefsm.com/" target="_blank" rel="noopener nofollow">BreezeFSM</a></td><td class="price">Starts at $2.63</td><td>Custom</td><td>GPS, Attendance, Distance, Visit Reporting</td><td>Geared toward B2B/FMCG sales.</td></tr>
+<tr data-has="attendance distance face geofence gps nosetup visits"><td class="prov"><a href="https://trackobit.com/" target="_blank" rel="noopener nofollow">TrackoBit</a></td><td class="price">$3.16</td><td>$0</td><td>GPS, Face AI Attendance, Distance, Visits</td><td>Strict minimum seat thresholds (10 users on annual).</td></tr>
+<tr data-has="attendance distance geofence gps nosetup route"><td class="prov"><a href="https://www.salarybox.in/" target="_blank" rel="noopener nofollow">SalaryBox</a></td><td class="price">$3.05 – $3.89</td><td>$0</td><td>GPS, Attendance, Distance, Route Timeline</td><td>$11 base + $0.21/user + $2.63 CRM add-on for distance.</td></tr>
+<tr data-has="attendance distance geofence gps nosetup"><td class="prov"><a href="https://www.lystloc.com/" target="_blank" rel="noopener nofollow">Lystloc</a></td><td class="price">$3.67</td><td>$0</td><td>GPS (360 hrs), Attendance, Distance, Photos</td><td>Report downloads &amp; APIs cost extra on this tier.</td></tr>
+<tr data-has="attendance distance geofence gps visits"><td class="prov"><a href="https://onthego.ai/" target="_blank" rel="noopener nofollow">OnthegO.ai</a></td><td class="price">~$2.63 – $4.74</td><td>Custom</td><td>GPS, Attendance, Distance, Visit Forms</td><td>Bespoke enterprise workflow setup; no public retail card.</td></tr>
+<tr data-has="attendance face geofence gps nosetup route"><td class="prov"><a href="https://truein.com/" target="_blank" rel="noopener nofollow">Truein</a></td><td class="price">~$6.44 (10 users)<br>~$1.60 (50 users)</td><td>$0</td><td>GPS Route History, Face Attendance</td><td>$726/yr mandatory base fee + $4.74/user/yr.</td></tr>
+<tr data-has="attendance distance gps nosetup route"><td class="prov"><a href="https://pagarbook.com/" target="_blank" rel="noopener nofollow">PagarBook Geo</a></td><td class="price">~$5.87</td><td>$0</td><td>GPS, Attendance, Distance, Route Timeline</td><td>$63/yr Geo add-on + $7.36/yr base plan.</td></tr>
+<tr data-has="attendance face geofence gps nosetup route"><td class="prov"><a href="https://jibble.io/" target="_blank" rel="noopener nofollow">Jibble</a></td><td class="price">$7.99</td><td>$0</td><td>Live GPS &amp; Route Map, Face Attendance</td><td>Does not calculate total distance (km); no visit forms.</td></tr>
+<tr data-has="attendance distance geofence gps nosetup"><td class="prov"><a href="https://timeero.com/" target="_blank" rel="noopener nofollow">Timeero</a></td><td class="price">$12.50</td><td>$0</td><td>GPS, Geofenced Attendance, Auto-Mileage</td><td>Billed in USD; Basic ($5) lacks geofencing &amp; visit logs.</td></tr>
+</tbody>
+</table>
+<div id="cmp-empty">No app matches all the selected features.</div>
+</div>
+<script>
+(function () {
+  var rows = [].slice.call(document.querySelectorAll('.cmp tbody tr'));
+  var chips = [].slice.call(document.querySelectorAll('.chip'));
+  var info = document.getElementById('chip-info');
+  var empty = document.getElementById('cmp-empty');
+  function apply() {
+    var on = chips.filter(function (c) { return c.classList.contains('on'); }).map(function (c) { return c.dataset.key; });
+    var shown = 0;
+    rows.forEach(function (r) {
+      var has = r.dataset.has.split(' ');
+      var ok = on.every(function (k) { return has.indexOf(k) > -1; });
+      r.hidden = !ok;
+      if (ok) shown++;
+    });
+    empty.style.display = shown ? 'none' : 'block';
+  }
+  chips.forEach(function (c) {
+    var main = c.querySelector('.chip-main'), i = c.querySelector('.chip-i');
+    main.addEventListener('click', function () {
+      var on = c.classList.toggle('on');
+      main.setAttribute('aria-pressed', on ? 'true' : 'false');
+      apply();
+    });
+    i.addEventListener('click', function () {
+      var open = i.getAttribute('aria-expanded') === 'true';
+      chips.forEach(function (x) { x.querySelector('.chip-i').setAttribute('aria-expanded', 'false'); });
+      if (open) { info.hidden = true; return; }
+      i.setAttribute('aria-expanded', 'true');
+      info.textContent = '';
+      var b = document.createElement('strong'); b.textContent = c.dataset.label + ': ';
+      info.appendChild(b); info.appendChild(document.createTextNode(c.dataset.desc));
+      info.hidden = false;
+    });
+  });
+})();
+</script>
+</div>
+  <!-- cmp:end -->
+
   <!-- ── Pricing ── -->
   <div class="pricing-section" id="pricing">
     <div class="section-label">Pricing</div>
 
     <div class="cheaper-card">
-      <h3>We are cheaper than competitors</h3>
-      <p>Tracking location and calculating routes is expensive to run, and nobody else does it for $1 (₹100) per user per month.</p>
-      <a href="/competitor-comparison/">See the competitor comparison →</a>
-    </div>
-
-    <div class="chart-card">
+      <h3>We are cheapest &amp; transparent</h3>
+      <p>$1 (₹100) per user per month, capped at $499 a year ($249 for the first year). Renewal pricing is stated upfront.</p>
+      <div class="cheaper-chart">
       <!-- chart:start -->
 <div id="cost-chart" data-highlight=""></div>
 <script type="application/json" id="cost-data">{"users": [10, 20, 30, 50, 100], "ymax": 15000, "ymin": 50, "scale": "log", "ticks": [100, 200, 500, 1000, 2000, 5000, 10000], "series": [{"key": "trackfolks", "name": "TrackFolks", "color": "#8B1A1A", "dash": "", "w": 3.5, "v": [0, 126, 252, 499, 499]}, {"key": "trackfolks", "name": "TrackFolks, first year", "color": "#8B1A1A", "dash": "6 4", "w": 2.5, "v": [0, 126, 249, 249, 249]}, {"key": "unolo", "name": "Unolo", "color": "#2a78d6", "dash": "", "w": 2, "v": [316, 632, 947, 1579, 3158]}, {"key": "daytrack", "name": "dayTrack", "color": "#c2410c", "dash": "", "w": 2, "v": [367, 734, 1101, 1835, 3671]}, {"key": "fieldsense", "name": "FieldSense", "color": "#1baf7a", "dash": "", "w": 2, "v": [316, 632, 947, 1579, 3158]}, {"key": "breezefsm", "name": "BreezeFSM", "color": "#7c3aed", "dash": "", "w": 2, "v": [316, 632, 947, 1579, 3158]}, {"key": "trackobit", "name": "TrackoBit", "color": "#0b7285", "dash": "", "w": 2, "v": [379, 758, 1137, 1895, 3789]}, {"key": "salarybox", "name": "SalaryBox", "color": "#6250d6", "dash": "", "w": 2, "v": [467, 935, 1402, 2337, 4674]}, {"key": "lystloc", "name": "Lystloc", "color": "#be185d", "dash": "", "w": 2, "v": [441, 882, 1323, 2204, 4408]}, {"key": "onthego", "name": "OnthegO.ai", "color": "#a16207", "dash": "", "w": 2, "v": [568, 1137, 1705, 2842, 5684]}, {"key": "truein", "name": "Truein", "color": "#8d6e4a", "dash": "", "w": 2, "v": [774, 821, 868, 963, 1200]}, {"key": "pagarbook", "name": "PagarBook Geo", "color": "#e87ba4", "dash": "", "w": 2, "v": [705, 1410, 2115, 3524, 7048]}, {"key": "jibble", "name": "Jibble", "color": "#8a8580", "dash": "", "w": 2, "v": [872, 1743, 2615, 4358, 8716]}, {"key": "timeero", "name": "Timeero", "color": "#7c8f23", "dash": "", "w": 2, "v": [1339, 2678, 4017, 6695, 13389]}]}</script>
 <script src="/assets/js/cost-chart.js" defer></script>
       <!-- chart:end -->
+      </div>
     </div>
 
     <div class="pricing-grid">
@@ -823,54 +900,6 @@
 
   </div>
 
-  <!-- ── FAQ ── -->
-  <div class="faq-section" id="faq">
-    <div class="section-label">Frequent Asked Questions in Field staff management & location tracking space</div>
-    <div class="faq-list">
-
-      <div class="faq-item">
-        <button class="faq-q">How much does TrackFolks cost compared with other field force tracking apps? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">The first 10 users are free. Beyond that it is $1.05 (₹100) per user per month, billed yearly, capped at $499 a year, or $249 in the first year. For a 30-user team that is about $252 a year ($249 in the first year), compared with about $348 on Connecteam, $663 on SalaryBox, $868 on Truein, $1,800 on Timeero, $2,876 on Clockify and $3,840 on QuickBooks Time, based on public pricing in October 2026.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-q">Is TrackFolks an alternative to QuickBooks Time, Connecteam, Clockify, Jibble, Hubstaff or Timeero? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">Those are time tracking and team management apps from outside India that include GPS, often on higher plans or with add-ons. TrackFolks is built for field staff: selfie punch-in, live GPS, route replay with distance, customer visit check-ins and expense receipts. They offer scheduling, payroll, offline clock-in and geofencing that TrackFolks does not have yet.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-q">How does TrackFolks compare with SalaryBox, PagarBook, FieldSense, Unolo and Truein? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">These are Indian apps. SalaryBox and PagarBook add leave management, payroll and biometric or QR attendance, and Truein adds face-recognition attendance with offline clock-in, none of which TrackFolks has; FieldSense and Unolo are field-first, like TrackFolks. On price, SalaryBox is about ₹175 ($1.84) per user per month with live location and has no free plan, Truein charges a ₹69,000 yearly base fee, PagarBook and Unolo do not publish prices, and a FieldSense customer reports ₹1,000 per user per year in year 1 and ₹3,000 after renewal. TrackFolks is free for 10 users and then $1.05 per user per month (billed yearly), capped at $499 a year.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-q">Does TrackFolks drain the battery or track staff when they are off duty? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">No. TrackFolks collects one location point a minute and uploads every 9 minutes, which is as light as it can be while still showing managers near-real-time data. Location is collected only while a user is punched in; background permission is needed so tracking continues while the app is in the background during a shift.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-q">Does TrackFolks work on iPhone and Android? Do I need a web dashboard? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">TrackFolks has apps for both Android and iPhone, and everything is done from the app, including exporting CSV reports for payroll. There is no web dashboard by design: managers never need one to get their work done.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-q">What can TrackFolks not do yet? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">TrackFolks has no leave or roster management and no biometric or QR attendance. Geofencing is coming soon. Payroll is handled by exporting a CSV, and location is gathered offline and synced later, while punch-in needs a connection so the manager is notified straight away. It is also a new entrant with no store ratings yet.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-q">What do users complain about in other attendance and field force tracking apps? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">In app store reviews of the most-used apps, the most common complaints are crashes and login errors after updates, price and renewal surprises, always-on location tracking, battery drain, inaccurate distance, and slow support. See our article on alternatives to the top attendance and field force tracking apps.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-q">Where can I see all these apps compared side by side? <i class="faq-chevron">▾</i></button>
-        <div class="faq-a">Our <a href="/comparison/field-force-tracking-apps-compared.html" style="color:var(--red);font-weight:600;">comparison of the top 11 field force tracking apps</a> lists selfie check, live location, route history, geofencing, visits, expenses, leave, payroll, offline use, biometric attendance, free plans, price per user in year 1 and after renewal, and app store ratings. <a href="/comparison/alternatives-to-top-field-force-tracking-apps.html" style="color:var(--red);font-weight:600;">Alternatives to the top 11 apps</a> covers what each app's users complain about and the best alternative to each, and every app has its own page, such as <a href="/comparison/alternative-to-salarybox-field-force-tracking-app.html" style="color:var(--red);font-weight:600;">alternative to SalaryBox</a> and <a href="/comparison/alternative-to-quickbooks-time-field-force-tracking-app.html" style="color:var(--red);font-weight:600;">alternative to QuickBooks Time</a>.</div>
-      </div>
-
-    </div>
-  </div>
-
   <!-- ── Contact ── -->
   <div class="contact-section" id="contact">
     <div class="contact-head">
@@ -885,6 +914,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
           LinkedIn
         </a>
+        <a class="btn-wa" href="https://wa.me/919538384545" target="_blank" rel="noopener">WhatsApp creator</a>
       </div>
       <div class="contact-details">
         <div class="contact-box">
@@ -907,20 +937,8 @@
     <p>TrackFolks &copy; <span id="year"></span> Shristi Health &amp; Power Solutions Private Limited</p>
     <p style="margin-top:4px;">Built for field teams that move fast.</p>
     <p style="margin-top:4px;">Questions? <a href="mailto:developer@shristigroup.com">developer@shristigroup.com</a></p>
-    <p style="margin-top:4px;"><a href="/competitor-comparison/">Competitor comparison</a> · <a href="/refund/">Refund Policy</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms/">Terms of Service</a></p>
+    <p style="margin-top:4px;"><a href="#competitor-comparison">Competitor comparison</a> · <a href="/refund/">Refund Policy</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms/">Terms of Service</a></p>
   </footer>
-
-  <!-- FAQ accordion -->
-  <script>
-    document.querySelectorAll('.faq-q').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const item = btn.closest('.faq-item');
-        const isOpen = item.classList.contains('open');
-        document.querySelectorAll('.faq-item.open').forEach(el => el.classList.remove('open'));
-        if (!isOpen) item.classList.add('open');
-      });
-    });
-  </script>
 
   <!-- SoftwareApplication structured data -->
   <script type="application/ld+json">
@@ -937,80 +955,6 @@
     "image": "https://tf.shristigroup.com/assets/images/og.png",
     "publisher": { "@type": "Organization", "name": "Shristi Health & Power Solutions Private Limited", "url": "https://shristigroup.com" }
   }
-  </script>
-
-  <!-- FAQPage structured data for Google rich snippets -->
-  <script type="application/ld+json">
-  {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "How much does TrackFolks cost compared with other field force tracking apps?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "The first 10 users are free. Beyond that it is $1.05 (₹100) per user per month, billed yearly, capped at $499 a year, or $249 in the first year. For a 30-user team that is about $252 a year ($249 in the first year), compared with about $348 on Connecteam, $663 on SalaryBox, $868 on Truein, $1,800 on Timeero, $2,876 on Clockify and $3,840 on QuickBooks Time, based on public pricing in October 2026."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Is TrackFolks an alternative to QuickBooks Time, Connecteam, Clockify, Jibble, Hubstaff or Timeero?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Those are time tracking and team management apps from outside India that include GPS, often on higher plans or with add-ons. TrackFolks is built for field staff: selfie punch-in, live GPS, route replay with distance, customer visit check-ins and expense receipts. They offer scheduling, payroll, offline clock-in and geofencing that TrackFolks does not have yet."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How does TrackFolks compare with SalaryBox, PagarBook, FieldSense, Unolo and Truein?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "These are Indian apps. SalaryBox and PagarBook add leave management, payroll and biometric or QR attendance, and Truein adds face-recognition attendance with offline clock-in, none of which TrackFolks has; FieldSense and Unolo are field-first, like TrackFolks. On price, SalaryBox is about ₹175 ($1.84) per user per month with live location and has no free plan, Truein charges a ₹69,000 yearly base fee, PagarBook and Unolo do not publish prices, and a FieldSense customer reports ₹1,000 per user per year in year 1 and ₹3,000 after renewal. TrackFolks is free for 10 users and then $1.05 per user per month (billed yearly), capped at $499 a year."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does TrackFolks drain the battery or track staff when they are off duty?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "No. TrackFolks collects one location point a minute and uploads every 9 minutes, which is as light as it can be while still showing managers near-real-time data. Location is collected only while a user is punched in; background permission is needed so tracking continues while the app is in the background during a shift."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does TrackFolks work on iPhone and Android? Do I need a web dashboard?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "TrackFolks has apps for both Android and iPhone, and everything is done from the app, including exporting CSV reports for payroll. There is no web dashboard by design: managers never need one to get their work done."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What can TrackFolks not do yet?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "TrackFolks has no leave or roster management and no biometric or QR attendance. Geofencing is coming soon. Payroll is handled by exporting a CSV, and location is gathered offline and synced later, while punch-in needs a connection so the manager is notified straight away. It is also a new entrant with no store ratings yet."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What do users complain about in other attendance and field force tracking apps?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "In app store reviews of the most-used apps, the most common complaints are crashes and login errors after updates, price and renewal surprises, always-on location tracking, battery drain, inaccurate distance, and slow support. See our article on alternatives to the top attendance and field force tracking apps."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Where can I see all these apps compared side by side?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Our comparison of the top 11 field force tracking apps lists selfie check, live location, route history, geofencing, visits, expenses, leave, payroll, offline use, biometric attendance, free plans, price per user in year 1 and after renewal, and app store ratings, and our article on alternatives covers what each app's users complain about and the best alternative to each."
-      }
-    }
-  ]
-}
   </script>
 
   <script>
