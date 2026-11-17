@@ -201,7 +201,7 @@ def top_picks():
 
 
 # ------------------------------------------------------------------ page shell
-def page(title, desc, slug_path, body, jsonld=None):
+def page(title, desc, slug_path, body, jsonld=None, extra_css=""):
     url = f"{SITE}/{slug_path}"
     og = f"{SITE}/assets/images/og.png"
     ld = f'<script type="application/ld+json">\n{json.dumps(jsonld, indent=2, ensure_ascii=False)}\n</script>' if jsonld else ""
@@ -236,7 +236,7 @@ def page(title, desc, slug_path, body, jsonld=None):
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
   {ld}
-  <style>{PAGE_CSS}</style>
+  <style>{PAGE_CSS}{extra_css}</style>
 </head>
 <body>
   <header><a href="/"><img src="/assets/logo/tf-logo-96.png" alt="TrackFolks logo" width="34" height="34" /> TrackFolks</a></header>

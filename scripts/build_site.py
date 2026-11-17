@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Generates the comparison guide, the "alternatives to the top N apps" article, one "alternative to X" page per app,
-the sitemap and llms.txt sections, and patches the shared blocks of the landing page, all from scripts/site_data.py.
+"""Generates the competitor comparison page (scripts/site_competitors.py), the refund and terms pages, the sitemap and llms.txt sections,
+and patches the generated blocks of the landing page (price chart, FAQ, keywords). The old /comparison/ pages (scripts/site_data.py)
+are not regenerated any more; their build calls are commented out in main.
 
 Run from the repo root:  python3 scripts/build_site.py
 Modules: site_data.py (numbers and text), site_core.py (shared pieces), site_pages.py (the articles), site_css.py.
@@ -11,6 +12,7 @@ import re
 from site_core import *  # noqa: F401,F403
 from site_css import LANDING_CSS, ENTERPRISE
 from site_pages import build_comparison, build_hub, build_alt, build_refund, build_terms
+import site_competitors as comp
 
 
 def build_sitemap():
@@ -66,73 +68,6 @@ def build_llms():
 
 
 # ------------------------------------------------------------------ landing page
-WHY_TEMPLATE = """  <!-- ── Why TrackFolks over Alternatives ── -->
-  <div class="switch-section" id="why">
-    <div class="section-label">Why TrackFolks over Alternatives</div>
-    <div class="switch-cards">
-
-      <div class="switch-card">
-        <h3>The most cost-effective option</h3>
-        <p>Free for 10 users, then $1.05 per user per month, billed yearly, and never more than $499 a year ($249 in your first year). Here is what teams of different sizes would pay per year, against the {n} most-used apps.</p>
-        {pricing}
-      </div>
-
-      <div class="switch-card">
-        <h3>The most features for the price you pay</h3>
-        <p>Selfie punch-in, live GPS, route replay with distance, customer visit logs and expense receipts, all included in one price.</p>
-        <div class="feat-table-scroll">
-          <table class="feat-table" style="min-width:1250px">
-            <thead><tr>{th}</tr></thead>
-            <tbody>
-{body}            </tbody>
-          </table>
-        </div>
-        <p class="viz-note">Green = included, amber = partial, add-on or higher plan, grey = not stated in the vendor's public material (not the same as missing), red = not available or a high price. Price is approximate USD per user per month for a 30-user team; * FieldSense is from a FieldSense customer, ✱ Jibble and Hubstaff are third-party or partial figures. This table shows the features TrackFolks offers; the <a href="{cmp}">full comparison of the top {n} apps</a> also shows where TrackFolks is behind: no leave or roster management and no biometric or QR attendance, with geofencing coming soon. See also <a href="{hub}">alternatives to the top {n} apps</a>.</p>
-      </div>
-
-      <div class="switch-card">
-        <h3>Transparent pricing that does not climb with your team</h3>
-        <div class="split">
-          <div class="split-text">
-            <p>Most field tracking apps charge per user, so your bill keeps growing with every person you add. With TrackFolks the first 10 users are free, then it is $1.05 per user per month, billed yearly, and your bill stops at $499 a year however large the team gets, including beyond 100 users.</p>
-            <p>Some vendors also start with an introductory price that goes up later. Ours is published here upfront: capped at $249 in your first year and at $499 after that, with no base fee and no paid add-ons for GPS or route tracking. Data localisation, on-premise hosting and custom features are one-time costs; the usage cost stays at $499. There is nothing to find out at renewal.</p>
-          </div>
-          <img class="pricing-art" src="assets/media/transparent-pricing.jpg" width="600" height="1075" loading="lazy" alt="Infographic: transparent pricing with no surprises, with clear upfront costs, a pre-defined yearly renewal, no hidden fees and complete visibility" />
-        </div>
-      </div>
-
-    </div>
-    <div class="claim-grid">{claims}</div>
-  </div>
-
-"""
-
-
-def why_html():
-    cols = [TF] + BY_RANK
-    rows_def = [("selfie", "Selfie / face check at punch-in"), ("live", "Live location"), ("route", "Route history and distance"),
-                ("visits", "Customer visit logging"), ("expenses", "Expense claims")]
-    th = "<th>Feature</th>" + "".join(
-        f'<th{" class=tf" if c["key"] == "trackfolks" else ""}>' + (f'<a href="/{alt_path(c)}">{esc(c["name"])}</a>' if c["key"] != "trackfolks" else "TrackFolks") + "</th>" for c in cols)
-    body = ""
-    for k, label in rows_def:
-        body += f'<tr><th scope="row">{esc(label)}</th>' + "".join(
-            f'<td class="{c["f"][k][0]}{" tf" if c["key"] == "trackfolks" else ""}">{esc(c["f"][k][1])}</td>' for c in cols) + "</tr>\n"
-    for label, field in (("Price per user per month, year 1", "y1"), ("Price per user per month, after renewal", "renew")):
-        cells = ""
-        for c in cols:
-            v = c[field]
-            if v is None:
-                cells += '<td class="n">Not published</td>'
-            else:
-                cls = {"g": "y", "o": "p", "r": "x"}[price_class(v)]
-                cells += f'<td class="{cls}{" tf" if c["key"] == "trackfolks" else ""}">{money(v)}{c.get("mark", "")}</td>'
-        body += f'<tr><th scope="row">{label}</th>{cells}</tr>\n'
-    claim_cards = "".join(f'<div class="claim"><h3>{esc(CLAIMS[k][0])}</h3><p>{esc(CLAIMS[k][1])}</p></div>'
-                          for k in ("privacy", "distance", "battery", "reliability", "mobile", "support", "try"))
-    return WHY_TEMPLATE.format(pricing=pricing_block(), th=th, body=body, claims=claim_cards, cmp=f"/{COMPARE_PATH}", hub=f"/{HUB_PATH}", n=N)
-
-
 FAQ = [
     ("How much does TrackFolks cost compared with other field force tracking apps?",
      "The first 10 users are free. Beyond that it is $1.05 (₹100) per user per month, billed yearly, capped at $499 a year, or $249 in the first year. For a 30-user team that is about $252 a year ($249 in the first year), compared with about $348 on Connecteam, $663 on SalaryBox, $868 on Truein, $1,800 on Timeero, $2,876 on Clockify and $3,840 on QuickBooks Time, based on public pricing in " + CHECKED + "."),
@@ -176,35 +111,40 @@ def faq_json():
     return json.dumps({"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": ents}, ensure_ascii=False, indent=2)
 
 
+def build_competitors():
+    w("competitor-comparison/index.html", page(
+        "Competitor Comparison: Field Force Tracking Apps in India | TrackFolks",
+        "Close-fit field force tracking apps in India compared on price per user, setup fee, GPS, attendance, distance and visit logging. Filter by feature.",
+        "competitor-comparison/", comp.page_body(esc), extra_css=comp.PAGE_CSS_EXTRA))
+
+
 def patch_landing():
     path = os.path.join(ROOT, "index.html")
     s = open(path).read()
-    if ".claim-grid" not in s:
-        s = s.replace("    /* ── FAQ ── */\n", LANDING_CSS + "\n    /* ── FAQ ── */\n", 1)
-    a, b = s.index("  <!-- ── Why TrackFolks over Alternatives ── -->"), s.index("  <!-- ── FAQ ── -->")
-    s = s[:a] + why_html() + s[b:]
-    s = re.sub(r"      <!-- Enterprise -->.*?\n      </div>\n(?=\n    </div>\n\n    <div class=\"pricing-card featured wide\">)", lambda m: ENTERPRISE, s, flags=re.S)
+    # the price chart between the markers comes from site_competitors.py
+    s = re.sub(r"(<!-- chart:start -->\n).*?(\n\s*<!-- chart:end -->)", lambda m: m.group(1) + comp.chart_block() + m.group(2), s, flags=re.S)
     m = re.search(r'(<div class="faq-list">\n)(.*?)(    </div>\n  </div>\n\n  <!-- ── Contact ── -->)', s, re.S)
     s = s[:m.start(2)] + "\n" + faq_html() + s[m.end(2):]
     m = re.search(r'(<!-- FAQPage structured data for Google rich snippets -->\s*<script type="application/ld\+json">\s*)\{.*?\}(\s*</script>)', s, re.S)
     s = s[:m.start()] + m.group(1) + faq_json() + m.group(2) + s[m.end():]
     kw = ", ".join(p["name"] + " alternative" for p in BY_RANK) + ", field force tracking app India, field employee tracker, sales team attendance app"
     s = re.sub(r'<meta name="keywords" content="[^"]*" />', lambda _: f'<meta name="keywords" content="{kw}" />', s)
-    s = re.sub(r"/comparison/(how-to-choose-a-field-force-tracking-app|top-10-field-force-tracking-apps|field-force-tracking-apps-compared)\.html", f"/{COMPARE_PATH}", s)
     open(path, "w").write(s)
 
 
 if __name__ == "__main__":
-    for r in RETIRED:
-        if os.path.exists(os.path.join(ROOT, r)):
-            os.remove(os.path.join(ROOT, r))
-    build_comparison()
-    build_hub()
+    # The /comparison/ pages (old, wider provider set) are no longer regenerated; the files stay as they are.
+    # for r in RETIRED:
+    #     if os.path.exists(os.path.join(ROOT, r)):
+    #         os.remove(os.path.join(ROOT, r))
+    # build_comparison()
+    # build_hub()
+    # for p in P.values():
+    #     build_alt(p)
     build_refund()
     build_terms()
-    for p in P.values():
-        build_alt(p)
+    # build_competitors()  # the competitor comparison page comes after the home page
     build_sitemap()
     build_llms()
     patch_landing()
-    print("built", 2 + len(P), "pages + sitemap + llms + landing")
+    print("built refund + terms + sitemap + llms + landing")
