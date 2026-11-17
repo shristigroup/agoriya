@@ -72,3 +72,4 @@ __pycache__/
 *firebase-adminsdk*.json
 user_route.html
 firestore-rules-test/node_modules/
+firestore-rules-test/package-lock.json
