@@ -29,7 +29,7 @@
   function money(v) { return '$' + v.toLocaleString('en-US'); }
 
   var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img',
-    'aria-label': 'Line chart, on a logarithmic scale, of price per year in US dollars against number of users. TrackFolks is capped at $499 a year. The same numbers are in the table below the chart.' });
+    'aria-label': 'Line chart, on a logarithmic scale, of cost per year against number of users. TrackFolks is capped at $499 a year.' });
   var clip = el('clipPath', { id: 'plot-clip' });
   clip.appendChild(el('rect', { x: L - 4, y: T, width: pw + 8, height: ph }));
   var defs = el('defs', {}); defs.appendChild(clip); svg.appendChild(defs);
@@ -44,7 +44,7 @@
   }
   users.forEach(function (u) { svg.appendChild(el('text', { x: X(u), y: T + ph + 18, 'text-anchor': 'middle', 'font-size': 11, fill: '#6B5050' }, String(u))); });
   svg.appendChild(el('text', { x: L + pw / 2, y: H - 6, 'text-anchor': 'middle', 'font-size': 11, fill: '#6B5050' }, 'Number of users'));
-  svg.appendChild(el('text', { transform: 'translate(13,' + (T + ph / 2) + ') rotate(-90)', 'text-anchor': 'middle', 'font-size': 11, fill: '#6B5050' }, 'Price per year (USD)'));
+  svg.appendChild(el('text', { x: L + pw + 26, y: 12, 'font-size': 12, 'font-weight': 700, fill: '#6B5050' }, 'Cost per year'));
 
   var lines = el('g', { 'clip-path': 'url(#plot-clip)' });
   series.slice().reverse().forEach(function (s) {
