@@ -74,6 +74,12 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       'wakeupResult': 'received',
     });
 
+    // Silent high-priority messages that never produce a notification can
+    // lose their priority on Android (FCM then holds them while the phone
+    // dozes), so each wake-up shows a quiet one. Fixed id: a second wake-up
+    // replaces it rather than stacking.
+    await _showWakeupNotice();
+
     // This handler is its own fresh engine, which never ran the app's
     // normal main(), so it always needs its own initialize()+start() —
     // safe to call even if the service was already alive (start() no-ops
@@ -106,6 +112,57 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final msg = e.toString();
     await _ackFailure(userId, trackingId,
         msg.length > 200 ? msg.substring(0, 200) : msg);
+  }
+}
+
+const _wakeupNoticeId = 9001;
+const _wakeupChannel = AndroidNotificationChannel(
+  'trackfolks_wakeup',
+  'Tracking recovery',
+  description: 'Shown briefly when TrackFolks restarts location tracking',
+  importance: Importance.low,
+);
+
+/// Quiet "restoring tracking" notice. Tapping it opens the app (default
+/// behaviour). Best effort: a failure here must never stop the restart.
+Future<void> _showWakeupNotice() async {
+  try {
+    // The background isolate has its own plugin instance; it needs its own init.
+    final plugin = FlutterLocalNotificationsPlugin();
+    await plugin.initialize(const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      ),
+    ));
+    await plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_wakeupChannel);
+    await plugin.show(
+      _wakeupNoticeId,
+      'TrackFolks',
+      'Restoring location tracking',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _wakeupChannel.id,
+          _wakeupChannel.name,
+          channelDescription: _wakeupChannel.description,
+          importance: Importance.low,
+          priority: Priority.low,
+          icon: '@mipmap/ic_launcher',
+          timeoutAfter: 5 * 60 * 1000, // don't leave a stale notice behind
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentSound: false,
+          presentBadge: false,
+        ),
+      ),
+    );
+  } catch (e) {
+    print('[FCM] wake-up notice not shown: $e');
   }
 }
 
