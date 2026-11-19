@@ -12,18 +12,35 @@ const messaging = admin.messaging();
 // Loaded automatically from functions/.env on deploy/emulate (functions v2).
 const LOCATION_SAMPLE_INTERVAL_MINUTE = Number(process.env.LOCATION_SAMPLE_INTERVAL_MINUTE || 1);
 const WATCHDOG_SCHEDULE_MINUTES = Number(process.env.WATCHDOG_SCHEDULE_MINUTES || 5);
-const WATCHDOG_PING_COUNT_THRESHOLD = Number(process.env.WATCHDOG_PING_COUNT_THRESHOLD || 2);
+const WATCHDOG_PING_COUNT_THRESHOLD = Number(process.env.WATCHDOG_PING_COUNT_THRESHOLD || 3);
 
 // ─── Helper: send FCM notification ──────────────────────────────────────────
+// What a manager is told about a team member. All of a member's events share
+// one tag, so the manager's tray shows only that member's latest notification
+// (Android notification tag / iOS apns-collapse-id replace the earlier one).
+// Hashed because apns-collapse-id allows at most 64 bytes.
+const TEAM_EVENT_TYPES = new Set(["punch_in", "resume", "punch_out", "check_in", "check_out"]);
+
 async function sendNotification(token, title, body, data = {}) {
   if (!token) return;
   try {
+    const collapseId = TEAM_EVENT_TYPES.has(data.type) && data.targetUserId
+      ? require("crypto").createHash("sha1").update(data.targetUserId).digest("hex")
+      : null;
     await messaging.send({
       token,
       notification: { title, body },
-      data: { ...data },
-      android: { priority: "high" },
-      apns: { payload: { aps: { sound: "default" } } },
+      // collapseId also goes in the data so the app can do the same when it
+      // shows the notification itself (app open).
+      data: { ...data, ...(collapseId && { collapseId }) },
+      android: {
+        priority: "high",
+        ...(collapseId && { notification: { tag: collapseId } }),
+      },
+      apns: {
+        ...(collapseId && { headers: { "apns-collapse-id": collapseId } }),
+        payload: { aps: { sound: "default" } },
+      },
     });
   } catch (err) {
     console.error("FCM send error:", err.message);
@@ -329,18 +346,26 @@ exports.locationTrackingWatchdog = onSchedule(
       }
 
       try {
+        // Taken before the send, so a phone that answers at once can't record
+        // a receipt that looks earlier than the ping.
+        const sentAt = admin.firestore.Timestamp.now();
         await messaging.send({
           token,
           data: { type: "location_wakeup", userId, date, trackingId },
-          android: { priority: "high" },
+          // Same collapse key on every ping, so a phone that was unreachable
+          // and reconnects gets one wake-up, not one per ping.
+          android: { priority: "high", collapseKey: "location_wakeup" },
           apns: {
-            headers: { "apns-priority": "5" },
+            headers: { "apns-priority": "5", "apns-collapse-id": "location_wakeup" },
             payload: { aps: { "content-available": 1 } },
           },
         });
         await doc.ref.update({
-          watchdogPingedAt: admin.firestore.FieldValue.serverTimestamp(),
+          watchdogPingedAt: sentAt,
           watchdogPingCount: nextPingCount,
+          // Every ping of the session, kept after the episode ends, so we can
+          // tell which ping a phone answered (compare with wakeupReceivedAt).
+          wakeupPingTimes: admin.firestore.FieldValue.arrayUnion(sentAt),
         });
         console.log(`[locationTrackingWatchdog] wakeup sent → ${userId} (${doc.id}), attempt ${nextPingCount}`);
       } catch (err) {
