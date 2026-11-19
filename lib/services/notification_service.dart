@@ -276,8 +276,11 @@ class NotificationService {
     final notification = message.notification;
     if (notification == null) return;
 
+    // A team member's events share one collapseId (set by the server): same
+    // notification id, so the newest replaces the earlier one in the tray.
+    final collapseId = message.data['collapseId'] as String?;
     _localNotifications.show(
-      message.hashCode,
+      collapseId != null ? collapseId.hashCode & 0x7fffffff : message.hashCode,
       notification.title,
       notification.body,
       NotificationDetails(

@@ -15,15 +15,32 @@ const WATCHDOG_SCHEDULE_MINUTES = Number(process.env.WATCHDOG_SCHEDULE_MINUTES |
 const WATCHDOG_PING_COUNT_THRESHOLD = Number(process.env.WATCHDOG_PING_COUNT_THRESHOLD || 3);
 
 // ─── Helper: send FCM notification ──────────────────────────────────────────
+// What a manager is told about a team member. All of a member's events share
+// one tag, so the manager's tray shows only that member's latest notification
+// (Android notification tag / iOS apns-collapse-id replace the earlier one).
+// Hashed because apns-collapse-id allows at most 64 bytes.
+const TEAM_EVENT_TYPES = new Set(["punch_in", "resume", "punch_out", "check_in", "check_out"]);
+
 async function sendNotification(token, title, body, data = {}) {
   if (!token) return;
   try {
+    const collapseId = TEAM_EVENT_TYPES.has(data.type) && data.targetUserId
+      ? require("crypto").createHash("sha1").update(data.targetUserId).digest("hex")
+      : null;
     await messaging.send({
       token,
       notification: { title, body },
-      data: { ...data },
-      android: { priority: "high" },
-      apns: { payload: { aps: { sound: "default" } } },
+      // collapseId also goes in the data so the app can do the same when it
+      // shows the notification itself (app open).
+      data: { ...data, ...(collapseId && { collapseId }) },
+      android: {
+        priority: "high",
+        ...(collapseId && { notification: { tag: collapseId } }),
+      },
+      apns: {
+        ...(collapseId && { headers: { "apns-collapse-id": collapseId } }),
+        payload: { aps: { sound: "default" } },
+      },
     });
   } catch (err) {
     console.error("FCM send error:", err.message);
