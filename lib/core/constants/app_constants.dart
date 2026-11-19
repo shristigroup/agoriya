@@ -80,6 +80,10 @@ class AppConstants {
           locationSampleIntervalMinutes;
 
   // OSRM
+  /// How far (metres) OSRM may look for a road around each point. Its default is
+  /// 5 m, far less than a phone fix's usual error, so most points were left
+  /// unmatched. The public server refuses anything above 40 m (`TooBig`).
+  static const int osrmRadiusMeters = 40;
   static const String osrmBaseUrl = 'https://router.project-osrm.org';
   static const String osrmMatchUrl = '$osrmBaseUrl/match/v1/driving';
   static const String osrmRouteUrl = '$osrmBaseUrl/route/v1/driving';
@@ -94,16 +98,6 @@ class AppConstants {
 
   // Stationary detection thresholds
   static const int stationaryThresholdMeters = 50;
-
-  // Stray-fix (spike) detection — see GpsOutlier.
-  /// Both legs into and out of a candidate spike must be longer than this.
-  static const double outlierMinLegMeters = 300;
-
-  /// A point is a spike when the speed into it AND out of it are each at least
-  /// this many times the speed of going straight from the point before it to
-  /// the point after it (the path through it is that much faster than the
-  /// route actually travelled).
-  static const double outlierSpeedRatio = 3.0;
 
   // OSRM's public map-matching server rejects (HTTP 400 "TooBig") any trace
   // with more than this many coordinates. A request carries the previous

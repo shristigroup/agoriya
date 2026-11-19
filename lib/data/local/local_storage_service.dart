@@ -60,8 +60,20 @@ class LocalStorageService {
   /// boot/update-triggered recovery) can safely sync while this session
   /// isn't using these boxes. Pairs with [reopenLocationsBoxForForeground].
   static Future<void> closeLocationsBoxForBackground() async {
-    await _locationsBox.close();
-    await _settingsBox.close();
+    // Each step is guarded and the lock is ALWAYS released. If a close threw
+    // and skipped the release, the isolate kept believing it held the lock;
+    // the next call then skipped opening the boxes and used closed ones
+    // ("Box has already been closed").
+    try {
+      await _locationsBox.close();
+    } catch (e) {
+      print('[LocalStorageService] closing locationsBox failed (ignored): $e');
+    }
+    try {
+      await _settingsBox.close();
+    } catch (e) {
+      print('[LocalStorageService] closing settingsBox failed (ignored): $e');
+    }
     await LocationsBoxLock.releaseHeld();
   }
 

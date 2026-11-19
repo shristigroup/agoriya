@@ -8,6 +8,7 @@ import '../data/models/location_model.dart';
 import 'location_tracking_service.dart';
 import 'osrm_service.dart';
 import 'route_builder.dart';
+import 'route_cleaner.dart';
 
 class LocationSyncResult {
   final List<LocationPoint> finalLocations;
@@ -76,6 +77,8 @@ class LocationSyncService {
     required String userId,
     required String trackingId,
     bool forceSync = false,
+    bool punchOut = false,
+    void Function(int done, int total)? onProgress,
   }) async {
     final alreadyHeld = LocationsBoxLock.isHeldByThisIsolate;
     if (!alreadyHeld) {
@@ -111,6 +114,8 @@ class LocationSyncService {
           finalLocations: finalLocations,
           finalLocationsDistance: finalLocationsDistance,
           holdBackTail: !forceSync,
+          punchOut: punchOut,
+          onProgress: onProgress,
         );
         if (synced != null) {
           final (syncedFinalLocations, syncedFinalDistance) = synced;
@@ -194,109 +199,200 @@ class LocationSyncService {
     required List<LocationPoint> finalLocations,
     required double finalLocationsDistance,
     bool holdBackTail = false,
+    bool punchOut = false,
+    void Function(int done, int total)? onProgress,
+  }) =>
+      syncPending(
+        pending: snap?.currentBatch ?? const [],
+        anchorStay: snap?.lastConfirmedPoint?.durationSeconds,
+        finalLocations: finalLocations,
+        finalLocationsDistance: finalLocationsDistance,
+        holdBackTail: holdBackTail,
+        punchOut: punchOut,
+        onProgress: onProgress,
+        match: OsrmService.matchTrace,
+        persist: (all, distance) => DataManager.persistLocations(
+          userId: userId,
+          trackingId: trackingId,
+          allLocations: all,
+          distanceKm: distance,
+        ),
+        confirm: (anchor, distance, trimUpTo) =>
+            LocationTrackingService.confirmBatchSynced(anchor,
+                distanceKm: distance, trimUpTo: trimUpTo),
+      );
+
+  /// The sync itself, with OSRM, the Firestore write and the confirmation to the
+  /// tracking isolate passed in so it can be exercised with fakes.
+  static Future<(List<LocationPoint>, double)?> syncPending({
+    required List<LocationPoint> pending,
+    required int? anchorStay,
+    required List<LocationPoint> finalLocations,
+    required double finalLocationsDistance,
+    required Future<OsrmTrace> Function(List<LatLng> points, List<DateTime> times)
+        match,
+    required Future<void> Function(List<LocationPoint> all, double distanceKm)
+        persist,
+    required void Function(
+            LocationPoint anchor, double distanceKm, DateTime trimUpTo)
+        confirm,
+    bool holdBackTail = false,
+    bool punchOut = false,
+    void Function(int done, int total)? onProgress,
   }) async {
     try {
-      final pending = List<LocationPoint>.from(snap?.currentBatch ?? const [])
+      final sorted = List<LocationPoint>.from(pending)
         ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
       final lastStored =
           finalLocations.isNotEmpty ? finalLocations.last.timestamp : null;
       var toSend = lastStored != null
-          ? pending.where((p) => p.timestamp.isAfter(lastStored)).toList()
-          : pending;
+          ? sorted.where((p) => p.timestamp.isAfter(lastStored)).toList()
+          : sorted;
       if (toSend.isEmpty && finalLocations.isEmpty) return null;
 
+      LocationPoint? heldBack;
       if (holdBackTail &&
           toSend.isNotEmpty &&
           (toSend.last.durationSeconds ?? 0) == 0) {
         print('[LocationSync] Holding back the newest point until the next '
             'sample confirms it');
+        heldBack = toSend.last;
         toSend = toSend.sublist(0, toSend.length - 1);
       }
 
-      var allLocations = List<LocationPoint>.from(finalLocations);
-      var batchKm = 0.0;
-      String? failure;
-      var sentAny = false;
+      var all = List<LocationPoint>.from(finalLocations);
+      var distance = finalLocationsDistance;
 
+      // Writes the whole list, then tells the tracking isolate to trim what is
+      // now synced and move its anchor. The anchor is the last point that was
+      // KEPT (a trailing dropped point must not become the reference for later
+      // samples); the trim covers everything saved.
+      Future<void> commit() async {
+        await persist(all, distance);
+        final kept = all.visible;
+        confirm(kept.isNotEmpty ? kept.last : all.last, distance,
+            all.last.timestamp);
+      }
+
+      // Nothing new to store: fold in the isolate's anchor stay duration, the
+      // only thing that can have changed, and write that.
+      if (toSend.isEmpty) {
+        final idx = _lastVisibleIndex(all);
+        if (idx >= 0 && anchorStay != null && all[idx].durationSeconds != anchorStay) {
+          all[idx] = all[idx].copyWith(durationSeconds: anchorStay);
+        }
+        if (all.isEmpty) return null;
+        await commit();
+        return (all, distance);
+      }
+
+      // Units of up to 10 OSRM coordinates (the last saved point goes first so
+      // each road path starts exactly where the previous one ended). Each unit
+      // is matched, cleaned, written and trimmed before the next one starts.
+      final total = toSend.length;
+      var done = 0;
+      var osrmSkipped = false; // punch-out only: OSRM did not answer once
+      var wroteAny = false;
       var i = 0;
+      onProgress?.call(0, total);
       while (i < toSend.length) {
-        final carry = allLocations.isNotEmpty ? allLocations.last : null;
+        final carryIdx = _lastVisibleIndex(all);
+        final carry = carryIdx >= 0 ? all[carryIdx] : null;
         final room = AppConstants.osrmMaxCoordinates - (carry != null ? 1 : 0);
         final end = (i + room).clamp(0, toSend.length);
-        final chunk = toSend.sublist(i, end);
-        final inputs = [if (carry != null) carry, ...chunk];
+        final unit = toSend.sublist(i, end);
+        final next = end < toSend.length ? toSend[end] : heldBack;
+        final inputs = [if (carry != null) carry, ...unit];
 
-        final trace = inputs.length < 2
-            ? OsrmTrace.failed('batch_too_small', inputs.length)
-            : await OsrmService.matchTrace(
-                inputs.map((p) => p.position).toList(),
-                inputs.map((p) => p.timestamp).toList(),
-              );
-        final built =
-            RouteBuilder.build(carry: carry, raw: chunk, trace: trace);
+        final OsrmTrace trace = osrmSkipped
+            ? OsrmTrace.failed('skipped', inputs.length)
+            : inputs.length < 2
+                ? OsrmTrace.failed('batch_too_small', inputs.length)
+                : await match(
+                    inputs.map((p) => p.position).toList(),
+                    inputs.map((p) => p.timestamp).toList(),
+                  );
 
-        if (built.carry != null) {
-          allLocations[allLocations.length - 1] = built.carry!;
+        if (trace.noAnswer) {
+          if (!punchOut) {
+            // OSRM did not answer (not "no match": that is an answer). Keep
+            // this unit and everything after it pending; the next sync retries.
+            print('[LocationSync] OSRM gave no answer (${trace.reason}) — '
+                'keeping ${toSend.length - i} points pending');
+            break;
+          }
+          // Punching out: do not wait. Store the points as they are, and do not
+          // ask OSRM again for the rest of this run.
+          osrmSkipped = true;
         }
-        allLocations.addAll(built.stored);
-        batchKm += built.distanceKm;
-        if (!trace.ok) failure ??= trace.reason;
-        sentAny = true;
+
+        // Clean the points OSRM could not place (the saved carry too, when it
+        // is unmatched), then rebuild without the dropped ones.
+        var built = RouteBuilder.build(carry: carry, raw: unit, trace: trace);
+        final droppedMs =
+            RouteCleaner.clean(history: all, unit: built.stored, next: next);
+        final p8 = carryIdx > 0 ? _visibleBefore(all, carryIdx) : null;
+        if (droppedMs.isNotEmpty) {
+          built = RouteBuilder.build(
+            carry: carry,
+            raw: unit,
+            trace: trace,
+            droppedMs: droppedMs,
+            fallbackStart: p8,
+          );
+          print('[LocationSync] Dropped ${droppedMs.length} stray point(s)');
+        }
+
+        final carryDropped = carry != null &&
+            droppedMs.contains(carry.timestamp.millisecondsSinceEpoch);
+        if (carryDropped) {
+          all[carryIdx] = carry.copyWith(dropped: true);
+          if (p8 != null) {
+            distance -=
+                AppUtils.haversineMeters(p8.position, carry.position) / 1000.0;
+          }
+        } else if (built.carry != null) {
+          all[carryIdx] = built.carry!;
+        }
+        all.addAll(built.stored);
+        distance += built.distanceKm;
+        // Why OSRM was or wasn't used, and this unit's distance, on its last point.
+        all[all.length - 1] = all.last.copyWith(
+          cumulativeDistanceKm: distance,
+          batchDistanceKm: built.distanceKm,
+          snapReason: trace.reason,
+        );
+
+        print('[LocationSync] Unit of ${unit.length} points → ${trace.reason} '
+            '(distance ${distance.toStringAsFixed(3)} km)');
+        await commit();
+        wroteAny = true;
+        done += unit.length;
+        onProgress?.call(done, total);
         i = end;
       }
 
-      // Pure stationary flush (nothing new to store): fold in the isolate's
-      // anchor durationSeconds, since that's the only thing that changed.
-      if (!sentAny &&
-          snap?.lastConfirmedPoint?.durationSeconds != null &&
-          allLocations.isNotEmpty &&
-          allLocations.last.durationSeconds !=
-              snap!.lastConfirmedPoint!.durationSeconds) {
-        allLocations = [
-          ...allLocations.take(allLocations.length - 1),
-          allLocations.last.copyWith(
-              durationSeconds: snap.lastConfirmedPoint!.durationSeconds),
-        ];
-      }
-
-      if (allLocations.isEmpty) return null;
-
-      final newFinalDistance = finalLocationsDistance + batchKm;
-      allLocations = [
-        ...allLocations.take(allLocations.length - 1),
-        allLocations.last.copyWith(
-          cumulativeDistanceKm: newFinalDistance,
-          batchDistanceKm: batchKm,
-          // Why OSRM was or wasn't used, on the batch's last point: the first
-          // failure if any request failed, else `ok`.
-          snapReason: sentAny ? (failure ?? 'ok') : null,
-        ),
-      ];
-
-      print(
-          '[LocationSync] Syncing ${allLocations.length} total points to Firestore '
-          '(+${toSend.length} new, distance: ${newFinalDistance.toStringAsFixed(3)} km'
-          '${failure != null ? ', snap: $failure' : ''})');
-      await DataManager.persistLocations(
-        userId: userId,
-        trackingId: trackingId,
-        allLocations: allLocations,
-        distanceKm: newFinalDistance,
-      );
-      print('[LocationSync] Synced successfully to Firestore.');
-
-      // Confirm success so the tracking isolate (sole owner of the cursor
-      // box) can trim currentBatch up to this point and adopt it as the
-      // new anchor — anything it appended concurrently, including the point
-      // held back above, is left intact.
-      LocationTrackingService.confirmBatchSynced(allLocations.last,
-          distanceKm: newFinalDistance);
-
-      return (allLocations, newFinalDistance);
+      return wroteAny ? (all, distance) : null;
     } catch (e) {
-      print('[LocationSync] _syncPendingBatch error: $e');
+      print('[LocationSync] syncPending error: $e');
       return null;
     }
+  }
+
+  /// Index of the last point that was not dropped, or -1.
+  static int _lastVisibleIndex(List<LocationPoint> points) {
+    for (var i = points.length - 1; i >= 0; i--) {
+      if (!points[i].dropped) return i;
+    }
+    return -1;
+  }
+
+  /// The last kept point before index [idx], or null.
+  static LocationPoint? _visibleBefore(List<LocationPoint> points, int idx) {
+    for (var i = idx - 1; i >= 0; i--) {
+      if (!points[i].dropped) return points[i];
+    }
+    return null;
   }
 
   /// For the FCM watchdog handler (and any future boot/update-triggered
@@ -360,7 +456,8 @@ class LocationSyncService {
   }) {
     if (currentBatch.isNotEmpty) return currentBatch.last;
     if (lastConfirmedPoint != null) return lastConfirmedPoint;
-    if (finalLocations.isNotEmpty) return finalLocations.last;
+    final kept = finalLocations.visible;
+    if (kept.isNotEmpty) return kept.last;
     return null;
   }
 
@@ -369,7 +466,8 @@ class LocationSyncService {
   static double batchDistanceKm(
       List<LocationPoint> batch, List<LocationPoint> finalLocations) {
     if (batch.isEmpty) return 0.0;
-    final points = [if (finalLocations.isNotEmpty) finalLocations.last, ...batch];
+    final kept = finalLocations.visible;
+    final points = [if (kept.isNotEmpty) kept.last, ...batch];
     double sum = 0.0;
     for (int i = 0; i < points.length - 1; i++) {
       sum += AppUtils.haversineMeters(points[i].position, points[i + 1].position) /

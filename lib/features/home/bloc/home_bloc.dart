@@ -15,7 +15,9 @@ import '../../../data/models/tracking_model.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../services/location_tracking_service.dart';
 import '../../../services/location_sync_service.dart';
+import '../../../services/network_check.dart';
 import '../../../services/notification_service.dart';
+import '../../../services/punch_out_errors.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final String userId;
@@ -140,34 +142,64 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       return;
     }
 
-    emit(current.copyWith(isPunchingOut: true));
+    emit(current.copyWith(
+      isPunchingOut: true,
+      punchOutSynced: 0,
+      punchOutTotal: 0,
+      punchOutStartedAt: DateTime.now(),
+    ));
+
+    // Check the connection before touching anything. Offline, the final sync
+    // and the punch-out write would just queue and never finish, and tracking
+    // has to keep running if the user can't punch out.
+    if (!await NetworkCheck.isOnline()) {
+      emit(HomeError(PunchOutMessages.offline));
+      emit(current.copyWith(isPunchingOut: false));
+      _punchingOut = false;
+      return;
+    }
 
     try {
       final now = DateTime.now();
 
-      // Force a final sync of whatever's pending before stopping — the
-      // isolate must still be alive to respond to it, so this must happen
-      // before LocationTrackingService.stop() below.
-      await _processBatch(emit, forceSync: true);
+      // Sync EVERY pending point first (OSRM, clean, write, 10 at a time) and
+      // only then close the session. The tracking isolate must still be alive
+      // to answer the sync, so this happens before stop() below.
+      await _processBatch(emit, forceSync: true, punchOut: true);
 
-      LocationTrackingService.stop();
+      // Everything up to the moment of the tap must now be stored. If not
+      // (the connection dropped part-way) do not punch out.
+      final latest = state is HomeLoaded ? state as HomeLoaded : current;
+      if (latest.currentBatch.any((p) => !p.timestamp.isAfter(now))) {
+        throw const PunchOutSyncIncomplete();
+      }
 
+      // Close the session on the server FIRST and stop tracking only once
+      // that has succeeded. Stopping first would leave the session open on
+      // the server, with nothing feeding it, whenever this write fails.
+      // (If the write times out it may still land later; the next resume
+      // then finds the session closed and reconciles it.)
       final updatedTracking = await DataManager.punchOut(
         userId: userId,
         currentTracking: current.tracking!,
         timestamp: now,
       );
 
+      LocationTrackingService.stop();
+
       emit(PunchOutSuccess(
         tracking: updatedTracking,
         totalTime: updatedTracking.attendanceDuration,
+        thenLogout: event.thenLogout,
       ));
     } catch (e) {
       print('[HomeBloc] punchOut error: $e');
-      try {
-        emit(current.copyWith(isPunchingOut: false));
-      } catch (_) {}
-      emit(HomeError(e.toString()));
+      // Still punched in and still tracking: show why, and put the screen back
+      // in its loaded state so the user can simply try again.
+      final restored = (state is HomeLoaded ? state as HomeLoaded : current)
+          .copyWith(isPunchingOut: false);
+      emit(HomeError(PunchOutMessages.forError(e)));
+      emit(restored);
     } finally {
       _punchingOut = false;
     }
@@ -427,7 +459,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   // flush whatever's pending regardless of the normal batch-size threshold.
 
   Future<void> _processBatch(Emitter<HomeState> emit,
-      {bool forceSync = false}) async {
+      {bool forceSync = false, bool punchOut = false}) async {
     if (state is! HomeLoaded) return;
     if (_snapping) return;
 
@@ -445,6 +477,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         userId: userId,
         trackingId: current.tracking!.id,
         forceSync: forceSync,
+        punchOut: punchOut,
+        onProgress: punchOut
+            ? (done, total) {
+                if (state is HomeLoaded) {
+                  emit((state as HomeLoaded)
+                      .copyWith(punchOutSynced: done, punchOutTotal: total));
+                }
+              }
+            : null,
       );
       sizeLimitJustHit = result?.sizeLimitJustHit ?? false;
 
