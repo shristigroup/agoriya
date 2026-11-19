@@ -10,7 +10,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/app_utils.dart';
-import '../core/utils/gps_outlier.dart';
 import '../data/local/local_storage_service.dart';
 import '../data/models/location_model.dart';
 import '../firebase_options.dart';
@@ -132,11 +131,15 @@ class LocationTrackingService {
   /// timestamp and (b) update its stationary/movement anchor to this point.
   /// Never called on sync failure — leaving cursor state untouched is what
   /// makes a failed sync naturally retryable on the next signal/resume.
+  ///
+  /// [trimUpTo] is how far the pending list is trimmed; it defaults to the
+  /// anchor's own timestamp. It differs only when the last saved point was
+  /// dropped as a stray: the anchor stays on the last point that was kept.
   static void confirmBatchSynced(LocationPoint lastSyncedPoint,
-      {required double distanceKm}) {
+      {required double distanceKm, DateTime? trimUpTo}) {
     _bgService.invoke('batchSynced', {
       'syncedDistanceKm': distanceKm,
-      'uptoTimestamp': lastSyncedPoint.timestamp.toIso8601String(),
+      'uptoTimestamp': (trimUpTo ?? lastSyncedPoint.timestamp).toIso8601String(),
       'anchorLat': lastSyncedPoint.position.latitude,
       'anchorLng': lastSyncedPoint.position.longitude,
       'anchorTimestamp': lastSyncedPoint.timestamp.toIso8601String(),
@@ -298,35 +301,9 @@ void _onStart(ServiceInstance service) async {
     var currentBatch = LocalStorageService.getCurrentBatch();
     final anchor = LocalStorageService.getLastConfirmedPoint();
 
-    // Stray-fix check: this new sample (C) is the first moment the previous
-    // point (B) can be judged. If the speed into B and out of B are each
-    // several times the speed of going straight from A to C, B was a stray —
-    // drop it before it can inflate distance or become an anchor. Only an isolated B is considered:
-    // one that already has stationary ticks is a real place. B is only in
-    // currentBatch while unsynced; once synced it can't be retracted here.
-    if (currentBatch.isNotEmpty && (currentBatch.last.durationSeconds ?? 0) == 0) {
-      final b = currentBatch.last;
-      final a = currentBatch.length >= 2
-          ? currentBatch[currentBatch.length - 2]
-          : anchor;
-      // Travel times: A→B counts from when the rider LEFT A (its timestamp
-      // plus any stationary duration); B is isolated so B→C is plain.
-      if (a != null &&
-          GpsOutlier.isSpike(
-            a.position,
-            b.position,
-            newPosition,
-            ab: b.timestamp.difference(
-                a.timestamp.add(Duration(seconds: a.durationSeconds ?? 0))),
-            bc: timestamp.difference(b.timestamp),
-          )) {
-        currentBatch = currentBatch.sublist(0, currentBatch.length - 1);
-        await LocalStorageService.saveCurrentBatch(currentBatch);
-        print('[LocationService ${_ts()}] dropped stray point '
-            '${b.position.latitude}, ${b.position.longitude} '
-            '(path through it far faster than the route actually travelled)');
-      }
-    }
+    // No stray check here: samples are kept as they arrive. Strays are judged
+    // later, at sync time, by RouteCleaner — after OSRM, on the points it could
+    // not place, with both neighbours known (and recorded, not deleted).
 
     final lastPoint = currentBatch.isNotEmpty ? currentBatch.last : anchor;
 

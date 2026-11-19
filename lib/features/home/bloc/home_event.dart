@@ -13,7 +13,12 @@ class PunchInEvent extends HomeEvent {
   PunchInEvent(this.imageUrl);
 }
 
-class PunchOutEvent extends HomeEvent {}
+class PunchOutEvent extends HomeEvent {
+  /// True when the user is logging out: the same punch-out runs, and signing
+  /// out follows once it succeeds (instead of the summary screen).
+  final bool thenLogout;
+  PunchOutEvent({this.thenLogout = false});
+}
 
 /// The location-tracking background isolate is the sole owner of the
 /// tracking-cursor state (currentBatch/lastConfirmedPoint) — it pushes the

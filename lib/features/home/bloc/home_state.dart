@@ -35,6 +35,12 @@ class HomeLoaded extends HomeState {
   final bool isSnapping; // true while OSRM snap is in flight
   final bool isPunchingOut;
 
+  /// Progress of the location sync that runs before punching out: points synced
+  /// so far, points to sync, and when it started (for the time estimate).
+  final int punchOutSynced;
+  final int punchOutTotal;
+  final DateTime? punchOutStartedAt;
+
   /// Set when this phone punched the user out itself because a permission
   /// required while punched in was missing (e.g. after a reinstall restored
   /// an open session). Holds the missing permissions' names; home_screen.dart
@@ -62,6 +68,9 @@ class HomeLoaded extends HomeState {
     this.isRefreshing = false,
     this.isSnapping = false,
     this.isPunchingOut = false,
+    this.punchOutSynced = 0,
+    this.punchOutTotal = 0,
+    this.punchOutStartedAt,
     this.permissionPunchOut,
     this.autoPunchedOutAt,
     this.finalLocationsDistance = 0.0,
@@ -69,7 +78,8 @@ class HomeLoaded extends HomeState {
   });
 
   /// Combined view used by TrackTab and punchOut logic.
-  List<LocationPoint> get allLocations => [...finalLocations, ...currentBatch];
+  List<LocationPoint> get allLocations =>
+      [...finalLocations.visible, ...currentBatch];
 
   /// Single display value shown in the stats strip.
   double get displayDistance => finalLocationsDistance + currentBatchDistance;
@@ -87,6 +97,9 @@ class HomeLoaded extends HomeState {
     bool? isRefreshing,
     bool? isSnapping,
     bool? isPunchingOut,
+    int? punchOutSynced,
+    int? punchOutTotal,
+    DateTime? punchOutStartedAt,
     List<String>? permissionPunchOut,
     DateTime? autoPunchedOutAt,
     double? finalLocationsDistance,
@@ -107,6 +120,9 @@ class HomeLoaded extends HomeState {
         isRefreshing: isRefreshing ?? this.isRefreshing,
         isSnapping: isSnapping ?? this.isSnapping,
         isPunchingOut: isPunchingOut ?? this.isPunchingOut,
+        punchOutSynced: punchOutSynced ?? this.punchOutSynced,
+        punchOutTotal: punchOutTotal ?? this.punchOutTotal,
+        punchOutStartedAt: punchOutStartedAt ?? this.punchOutStartedAt,
         permissionPunchOut: clearPermissionPunchOut
             ? null
             : (permissionPunchOut ?? this.permissionPunchOut),
@@ -133,7 +149,9 @@ class PunchInSuccess extends HomeState {
 class PunchOutSuccess extends HomeState {
   final TrackingModel tracking;
   final Duration totalTime;
-  PunchOutSuccess({required this.tracking, required this.totalTime});
+  final bool thenLogout;
+  PunchOutSuccess(
+      {required this.tracking, required this.totalTime, this.thenLogout = false});
 }
 
 class VisitCreated extends HomeState {
