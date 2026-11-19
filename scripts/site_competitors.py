@@ -41,7 +41,7 @@ C = [
     dict(key="breezefsm", name="BreezeFSM", url="https://breezefsm.com/", tier="Base Tracking", cost="Starts at ₹250", setup="Custom",
          feats="GPS, Attendance, Distance, Visit Reporting", note="Geared toward B2B/FMCG sales.",
          has={"distance", "visits", "geofence"}, year=lambda u: u * 250 * 12, color="#7c3aed"),
-    dict(key="trackobit", name="TrackoBit", url="https://trackobit.com/", tier="TrackoField Annual", cost="₹300", setup="₹0",
+    dict(key="trackofield", name="TrackoField", url="https://trackobit.com/", tier="Annual Plan", cost="₹300", setup="₹0",
          feats="GPS, Face AI Attendance, Distance, Visits", note="Strict minimum seat thresholds (10 users on annual).",
          has={"distance", "visits", "face", "geofence", "nosetup"}, year=lambda u: u * 300 * 12, color="#0b7285"),
     dict(key="salarybox", name="SalaryBox", url="https://www.salarybox.in/", tier="Starter + CRM Add-on", cost="₹290 – ₹370", setup="₹0",

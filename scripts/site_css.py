@@ -45,6 +45,7 @@ td.r { background:#fbe3e3; color:#7f1d1d; } td.n { background:#efeaea; color:#6B
 .hub-app .best ul { margin:4px 0 6px 20px; } .summary-table td { vertical-align:top; background:#fff; }
 .score { display:block; font-weight:700; font-size:11.5px; color:var(--red-dark); margin-top:2px; }
 .legend { font-size:12.5px; color:var(--muted); max-width:900px; }
+ul.legend { margin:0 0 12px 20px; } ul.legend li { font-size:12.5px; color:var(--muted); margin-bottom:3px; }
 .small-table { min-width:520px; }
 .pick { background:var(--surface); border:1px solid var(--divider); border-radius:10px; padding:12px 16px; margin:8px 0; max-width:780px; }
 .issue { background:var(--surface); border:1px solid var(--divider); border-radius:12px; padding:14px 18px; margin:10px 0; max-width:820px; }

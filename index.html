@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TrackFolks — Field Force Tracker: Attendance, GPS &amp; Visits</title>
+  <title>Field force automation mobile app for small &amp; medium enterprises</title>
   <meta name="description" content="TrackFolks is a simple field force tracker: selfie attendance, live GPS location and customer visit logs for Indian sales, service and delivery teams. Available on Android and iOS." />
   <meta name="robots" content="index, follow, max-image-preview:large" />
   <meta name="theme-color" content="#8B1A1A" />
@@ -16,7 +16,7 @@
   <meta property="og:site_name" content="TrackFolks" />
   <meta property="og:locale" content="en_IN" />
   <meta property="og:url" content="https://tf.shristigroup.com/" />
-  <meta property="og:title" content="TrackFolks — Your field team, always connected" />
+  <meta property="og:title" content="TrackFolks — Field Force Automation mobile app for small &amp; medium enterprises" />
   <meta property="og:description" content="Track attendance, customer visits and live location for your field team. Selfie punch-in, GPS routes and visit logs in one simple app." />
   <meta property="og:image" content="https://tf.shristigroup.com/assets/images/og.png" />
   <meta property="og:image:type" content="image/png" />
@@ -24,7 +24,7 @@
   <meta property="og:image:height" content="910" />
   <meta property="og:image:alt" content="TrackFolks logo with the tagline: Your field team, always connected." />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="TrackFolks — Your field team, always connected" />
+  <meta name="twitter:title" content="TrackFolks — Field Force Automation mobile app for small &amp; medium enterprises" />
   <meta name="twitter:description" content="Track attendance, customer visits and live location for your field team. Selfie punch-in, GPS routes and visit logs in one simple app." />
   <meta name="twitter:image" content="https://tf.shristigroup.com/assets/images/og.png" />
   <meta name="twitter:image:alt" content="TrackFolks logo with the tagline: Your field team, always connected." />
@@ -390,7 +390,8 @@
     @media (max-width: 700px) { .pricing-perks.two-col { grid-template-columns: 1fr; } }
 
     /* ── Hero CTAs ── */
-    .hero-price { color: #fff; font-weight: 700; margin-top: 10px; }
+    .hero-chip { display: inline-block; margin-top: 12px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--red); background: #fff; border: 1px solid #fff; }
+    .hero-chip b { color: var(--gold); font-weight: 800; }
     .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 22px; }
     .hero-cta .btn { padding: 13px 24px; font-size: 14px; }
     .btn-outline { background: transparent; color: #fff; border: 2px solid rgba(255,255,255,0.7); }
@@ -481,6 +482,7 @@
     .pay-box { margin-top: 18px; background: var(--surface); border: 1.5px solid var(--divider); border-radius: 18px; padding: 24px 22px; text-align: center; }
     .pay-box h3 { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
     .pay-box > p { font-size: 12.5px; color: var(--muted); line-height: 1.6; max-width: 640px; margin: 0 auto 16px; }
+    .pay-box > p.pay-trust { margin: 14px auto 0; font-size: 12px; }
     .pay-big {
       font-family: inherit; font-size: 22px; font-weight: 800; letter-spacing: -0.2px;
       width: 100%; max-width: 440px; padding: 20px 28px; border: none; border-radius: 16px;
@@ -556,9 +558,9 @@
         <div class="hero-logo">
           <img src="assets/logo/tf-logo-with-name-260.png" width="130" height="148" fetchpriority="high" alt="TrackFolks" />
         </div>
-        <h1>Your field team,<br/>always connected.</h1>
-        <p>Most cost effective attendance, location, customer visit tracking app.</p>
-        <p class="hero-price">Our price - $1/user/month<br/>Cheapest competitor price - $2.5/user/month</p>
+        <h1>Stop managing your field team on WhatsApp</h1>
+        <p>Use TrackFolks to have attendance, location &amp; customer visit data in one place &amp; export to Excel when you need it.</p>
+        <span class="hero-chip">Our price: <b>$1</b> &nbsp;·&nbsp; Competitor price: <b>$2.5+</b> <small>per user/month</small></span>
         <div class="hero-cta">
           <a class="btn btn-gold" href="#download">Download for free</a>
           <a class="btn btn-outline" href="#competitor-comparison">Competitor Comparison</a>
@@ -740,7 +742,7 @@
 <tr data-has="attendance distance gps visits"><td class="prov"><a href="https://daytrack.in/" target="_blank" rel="noopener nofollow">dayTrack</a></td><td class="price">$2.62</td><td>$5.25 / user</td><td>GPS, Attendance, Distance, Visit/Beat Logs</td><td>Min. 2 users; ≤5 users locked into 12-mo upfront.</td></tr>
 <tr data-has="attendance distance free geofence gps nosetup visits"><td class="prov"><a href="https://www.fieldsense.in/" target="_blank" rel="noopener nofollow">FieldSense</a></td><td class="price">$2.63</td><td>$0 (or $105 assisted)</td><td>GPS, Attendance, Distance, Smart Forms</td><td>Free tier (≤10 users) lacks Smart Forms &amp; phone support.</td></tr>
 <tr data-has="attendance distance geofence gps visits"><td class="prov"><a href="https://breezefsm.com/" target="_blank" rel="noopener nofollow">BreezeFSM</a></td><td class="price">Starts at $2.63</td><td>Custom</td><td>GPS, Attendance, Distance, Visit Reporting</td><td>Geared toward B2B/FMCG sales.</td></tr>
-<tr data-has="attendance distance face geofence gps nosetup visits"><td class="prov"><a href="https://trackobit.com/" target="_blank" rel="noopener nofollow">TrackoBit</a></td><td class="price">$3.16</td><td>$0</td><td>GPS, Face AI Attendance, Distance, Visits</td><td>Strict minimum seat thresholds (10 users on annual).</td></tr>
+<tr data-has="attendance distance face geofence gps nosetup visits"><td class="prov"><a href="https://trackobit.com/" target="_blank" rel="noopener nofollow">TrackoField</a></td><td class="price">$3.16</td><td>$0</td><td>GPS, Face AI Attendance, Distance, Visits</td><td>Strict minimum seat thresholds (10 users on annual).</td></tr>
 <tr data-has="attendance distance geofence gps nosetup route"><td class="prov"><a href="https://www.salarybox.in/" target="_blank" rel="noopener nofollow">SalaryBox</a></td><td class="price">$3.05 – $3.89</td><td>$0</td><td>GPS, Attendance, Distance, Route Timeline</td><td>$11 base + $0.21/user + $2.63 CRM add-on for distance.</td></tr>
 <tr data-has="attendance distance geofence gps nosetup"><td class="prov"><a href="https://www.lystloc.com/" target="_blank" rel="noopener nofollow">Lystloc</a></td><td class="price">$3.67</td><td>$0</td><td>GPS (360 hrs), Attendance, Distance, Photos</td><td>Report downloads &amp; APIs cost extra on this tier.</td></tr>
 <tr data-has="attendance distance geofence gps visits"><td class="prov"><a href="https://onthego.ai/" target="_blank" rel="noopener nofollow">OnthegO.ai</a></td><td class="price">~$2.63 – $4.74</td><td>Custom</td><td>GPS, Attendance, Distance, Visit Forms</td><td>Bespoke enterprise workflow setup; no public retail card.</td></tr>
@@ -802,7 +804,7 @@
       <div class="cheaper-chart">
       <!-- chart:start -->
 <div id="cost-chart" data-highlight=""></div>
-<script type="application/json" id="cost-data">{"users": [10, 20, 30, 50, 100], "ymax": 15000, "ymin": 50, "scale": "log", "ticks": [100, 200, 500, 1000, 2000, 5000, 10000], "series": [{"key": "trackfolks", "name": "TrackFolks", "color": "#8B1A1A", "dash": "", "w": 3.5, "v": [0, 126, 252, 499, 499]}, {"key": "trackfolks", "name": "TrackFolks, first year", "color": "#8B1A1A", "dash": "6 4", "w": 2.5, "v": [0, 126, 249, 249, 249]}, {"key": "unolo", "name": "Unolo", "color": "#2a78d6", "dash": "", "w": 2, "v": [316, 632, 947, 1579, 3158]}, {"key": "daytrack", "name": "dayTrack", "color": "#c2410c", "dash": "", "w": 2, "v": [367, 734, 1101, 1835, 3671]}, {"key": "fieldsense", "name": "FieldSense", "color": "#1baf7a", "dash": "", "w": 2, "v": [316, 632, 947, 1579, 3158]}, {"key": "breezefsm", "name": "BreezeFSM", "color": "#7c3aed", "dash": "", "w": 2, "v": [316, 632, 947, 1579, 3158]}, {"key": "trackobit", "name": "TrackoBit", "color": "#0b7285", "dash": "", "w": 2, "v": [379, 758, 1137, 1895, 3789]}, {"key": "salarybox", "name": "SalaryBox", "color": "#6250d6", "dash": "", "w": 2, "v": [467, 935, 1402, 2337, 4674]}, {"key": "lystloc", "name": "Lystloc", "color": "#be185d", "dash": "", "w": 2, "v": [441, 882, 1323, 2204, 4408]}, {"key": "onthego", "name": "OnthegO.ai", "color": "#a16207", "dash": "", "w": 2, "v": [568, 1137, 1705, 2842, 5684]}, {"key": "truein", "name": "Truein", "color": "#8d6e4a", "dash": "", "w": 2, "v": [774, 821, 868, 963, 1200]}, {"key": "pagarbook", "name": "PagarBook Geo", "color": "#e87ba4", "dash": "", "w": 2, "v": [705, 1410, 2115, 3524, 7048]}, {"key": "jibble", "name": "Jibble", "color": "#8a8580", "dash": "", "w": 2, "v": [872, 1743, 2615, 4358, 8716]}, {"key": "timeero", "name": "Timeero", "color": "#7c8f23", "dash": "", "w": 2, "v": [1339, 2678, 4017, 6695, 13389]}]}</script>
+<script type="application/json" id="cost-data">{"users": [10, 20, 30, 50, 100], "ymax": 15000, "ymin": 50, "scale": "log", "ticks": [100, 200, 500, 1000, 2000, 5000, 10000], "series": [{"key": "trackfolks", "name": "TrackFolks", "color": "#8B1A1A", "dash": "", "w": 3.5, "v": [0, 126, 252, 499, 499]}, {"key": "trackfolks", "name": "TrackFolks, first year", "color": "#8B1A1A", "dash": "6 4", "w": 2.5, "v": [0, 126, 249, 249, 249]}, {"key": "unolo", "name": "Unolo", "color": "#2a78d6", "dash": "", "w": 2, "v": [316, 632, 947, 1579, 3158]}, {"key": "daytrack", "name": "dayTrack", "color": "#c2410c", "dash": "", "w": 2, "v": [367, 734, 1101, 1835, 3671]}, {"key": "fieldsense", "name": "FieldSense", "color": "#1baf7a", "dash": "", "w": 2, "v": [316, 632, 947, 1579, 3158]}, {"key": "breezefsm", "name": "BreezeFSM", "color": "#7c3aed", "dash": "", "w": 2, "v": [316, 632, 947, 1579, 3158]}, {"key": "trackofield", "name": "TrackoField", "color": "#0b7285", "dash": "", "w": 2, "v": [379, 758, 1137, 1895, 3789]}, {"key": "salarybox", "name": "SalaryBox", "color": "#6250d6", "dash": "", "w": 2, "v": [467, 935, 1402, 2337, 4674]}, {"key": "lystloc", "name": "Lystloc", "color": "#be185d", "dash": "", "w": 2, "v": [441, 882, 1323, 2204, 4408]}, {"key": "onthego", "name": "OnthegO.ai", "color": "#a16207", "dash": "", "w": 2, "v": [568, 1137, 1705, 2842, 5684]}, {"key": "truein", "name": "Truein", "color": "#8d6e4a", "dash": "", "w": 2, "v": [774, 821, 868, 963, 1200]}, {"key": "pagarbook", "name": "PagarBook Geo", "color": "#e87ba4", "dash": "", "w": 2, "v": [705, 1410, 2115, 3524, 7048]}, {"key": "jibble", "name": "Jibble", "color": "#8a8580", "dash": "", "w": 2, "v": [872, 1743, 2615, 4358, 8716]}, {"key": "timeero", "name": "Timeero", "color": "#7c8f23", "dash": "", "w": 2, "v": [1339, 2678, 4017, 6695, 13389]}]}</script>
 <script src="/assets/js/cost-chart.js" defer></script>
       <!-- chart:end -->
       </div>
@@ -882,6 +884,7 @@
       <h3>Need more than 10 users?</h3>
       <p>Pay once for a year, securely with Stripe. Nothing renews automatically: we send you an invoice before the year ends. Your user limit goes up as soon as the payment is confirmed. See our <a href="/refund/">refund policy</a>: full refund within 15 days.</p>
       <button type="button" class="pay-big" id="open-pay">Pay with Stripe</button>
+      <p class="pay-trust">Payments are processed by Stripe, a well-known payment company from the US. Stripe handles disputes more seriously than any other payment gateway provider outside the US, and if you ever have a problem with a payment you can raise a dispute with your bank or card issuer.</p>
     </div>
 
     <div class="pay-modal" id="pay-modal" role="dialog" aria-modal="true" aria-labelledby="pay-title" hidden>

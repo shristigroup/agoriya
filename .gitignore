@@ -55,6 +55,7 @@ _site/
 
 # Google Play API credentials (keep outside the repo; ignored just in case)
 *service-account*.json
+*-firebase-adminsdk-*.json
 play-api*.json
 
 # Raw screen recordings / screenshots used to make the optimised files in assets/media

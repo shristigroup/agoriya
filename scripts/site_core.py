@@ -19,6 +19,8 @@ COMPARE_SLUG = "field-force-tracking-apps-compared"
 HUB_SLUG = "alternatives-to-top-field-force-tracking-apps"
 COMPARE_PATH = f"comparison/{COMPARE_SLUG}.html"
 HUB_PATH = f"comparison/{HUB_SLUG}.html"
+TOP_PATH = "comparison/how-to-pick-a-field-force-automation-app.html"
+TOP_N = len(__import__("site_competitors").C) - 1
 RETIRED = [f"comparison/{TOP10_SLUG}.html", "comparison/alternative-to-beatroute-field-force-tracking-app.html",
            "comparison/alternative-to-fieldassist-field-force-tracking-app.html"]
 
@@ -244,7 +246,7 @@ def page(title, desc, slug_path, body, jsonld=None, extra_css=""):
 {body}
   </main>
   <footer>
-    <p><a href="/">TrackFolks</a> · <a href="/{COMPARE_PATH}">Compare {N} field force tracking apps</a> · <a href="/{HUB_PATH}">Alternatives to the top {N}</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms/">Terms of Service</a></p>
+    <p><a href="/">TrackFolks</a> · <a href="/{TOP_PATH}">How to pick a field force automation app</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms/">Terms of Service</a></p>
   </footer>
 </body>
 </html>
