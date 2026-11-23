@@ -246,7 +246,7 @@ def page(title, desc, slug_path, body, jsonld=None, extra_css=""):
 {body}
   </main>
   <footer>
-    <p><a href="/">TrackFolks</a> · <a href="/{TOP_PATH}">How to pick a field force automation app</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms/">Terms of Service</a></p>
+    <p><a href="/">TrackFolks</a> · <a href="/comparison/field-tracking-software-buyers-guide.html">Buyer's guide to field tracking software</a> · <a href="/{TOP_PATH}">How to pick a field force automation app</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms/">Terms of Service</a></p>
   </footer>
 </body>
 </html>

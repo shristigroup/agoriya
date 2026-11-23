@@ -1,0 +1,807 @@
+# Field Force, Sales Force or Field Service? A Buyer's Guide to Field Tracking Software (2026)
+Pick the category by the work your people do, then pick the app by team size, phone reliability and price. Most buyers lose time because they compare apps from different categories, such as a payroll app against a dispatch tool, as if they did the same job.
+This guide covers four categories and 36 apps, Indian and global, read through Google Play, the Apple App Store, G2, Capterra and Trustpilot on 17 and 23 November 2026. It is written by TrackFolks, which makes one of the apps listed (a field force app), so read the TrackFolks entry with that in mind. The research was done with AI assistance and the review counts are samples, not full audits.
+
+## The four categories at a glance
+Category
+ | Question it answers
+ | Typical buyer
+ | Not built for
+ | 
+Field Force Automation (FFA)
+ | Where are my field people, did they visit, and what do I owe them in travel allowance?
+ | A company with reps, collectors or inspectors on the road
+ | Dispatching jobs to customers, invoicing customers
+ | 
+Sales Force Automation (SFA)
+ | Did my reps cover their beats, take orders and keep retail stock healthy?
+ | FMCG, CPG and distributor-led sales teams
+ | Service jobs, payroll
+ | 
+Field Service Management (FSM)
+ | Which technician goes to which customer job, and how do we quote, complete and invoice it?
+ | Plumbers, HVAC, electricians, installers, repair crews
+ | Pure sales visits, payroll
+ | 
+HR and workforce tools
+ | Who is present, on shift and on payroll, including remote staff?
+ | Any employer with remote or deskless staff and a payroll to run
+ | Route tracking, order capture, dispatch
+ | 
+The line between them is the customer. FFA and SFA manage your own employees' movement and sales activity. FSM manages jobs for your customers, so it adds dispatch, quotes, invoices and payments that FFA does not have. HR and workforce tools start from attendance and payroll, then add location at punch time; they rarely follow a person along a route.
+
+## Field Force Automation (FFA)
+Choose FFA if you pay people to be on the road and need proof of where they were, what they did and how far they travelled. Every FFA app in this guide gets the basics right, so the real differences are distance accuracy, battery use, iPhone quality and price. Battery drain and wrong kilometre counts are the top complaint for almost every app below, and none is free of them.
+Who it fits: companies with reps, collection agents, inspectors or merchandisers, where travel allowance is paid on distance and managers want daily visit proof.
+Essential features, in order of importance:
+Attendance with a selfie or location stamp, so a punch-in cannot be faked from home.
+
+Live location and a route timeline, so a manager can see where someone was during the day.
+
+Accurate distance, because it drives reimbursement. Test this on a real route during the trial.
+
+Visit, task and order management with proof of visit.
+
+Expense logging and Excel export. Built-in payroll is nice to have, not a must.
+
+Low battery use and offline punches, because field phones are cheap and networks drop.
+
+Prices below are per user per month on an annual plan, in dollars at ₹95, excluding GST, as listed on our comparison page unless noted. Ratings are Google Play, then iPhone (India store).
+
+### Unolo
+Play 4.7 (6.47K reviews, updated 16 Nov 2026). iPhone 3.3 (59). Capterra 4.6 (35). Price about $2.11 to $2.63.
+Pros: easy to use; accurate live tracking, timeline, attendance and reports; supportive customer care.
+
+Cons: distance can be off by 5 to 10% on Capterra and more on Play (28 of 116 negative reviews with text); battery drain; gaps in leave approval, expense filters and record history (1 year); some find it pricey.
+
+Fits: mid-size Android-heavy teams that want the most proven app. Avoid if: your team is mostly on iPhone.
+
+### FieldSense
+Play 3.9 (10.9K, updated 24 Oct 2026). iPhone 2.5 (130). Price about $2.63.
+Pros: live location and route capture; attendance with dashboards and muster reports; expense claims and visit planning; one of the longest feature lists, including forms, roster and a free tier.
+
+Cons: wrong distance (about 71 of 373 negative Play reviews, for example 200 km shown as 130 km); battery drain (about 79 of 373); bugs, slow sync and weak support.
+
+Fits: cost-conscious Android teams that want breadth. Avoid if: you pay allowance strictly on km or your team uses iPhones.
+
+### Lystloc
+Play 3.9 (521, updated 17 Nov 2026). iPhone 4.0 (35). Capterra 4.3 (6). Price about $3.67.
+Pros: easy to install and use; live location, one-touch attendance, analytics, meeting notes and tasks; responsive support.
+
+Cons: distance differences of 5 to 10 km and "as the crow flies" counts (14 of 46 negative Play reviews); battery drain; one reviewer says tracking continued after logout; fixed pricing with no negotiation.
+
+Fits: small teams that want a simple, hands-on vendor. Avoid if: you need heavy admin controls.
+
+### TrackoField
+Play 3.3 (212, updated 14 Nov 2026). iPhone 3.3 (15). Price about $3.16. Evidence is thin: about 78 Play reviews read and no G2 or Trustpilot reviews.
+Pros: broad feature list on paper, including face attendance, forms, roster and payroll; real-time tracking works for some users.
+
+Cons: battery drain (13 of 33 negative reviews); hangs and slows the phone; distance mismatches.
+
+Fits: teams willing to run a proper trial on their own phones. Avoid if: you want proven reviews before you buy.
+
+### dayTrack
+Play 4.1 (868, updated 26 Oct 2026). iPhone 4.2 (22). Price about $2.62.
+Pros: easy to use; responsive support (73 positive mentions); attendance, location and task management at a low price.
+
+Cons: battery drain (16 of 73 negative); login, OTP, sync and update bugs; attendance marked absent after punching; wrong distance. No expense logging or geofencing on the comparison page.
+
+Fits: small teams that need attendance and location only.
+
+### OnthegO.ai
+Play 4.3 (518, updated 30 Oct 2026). iPhone 3.2 (18). Capterra 5.0 (8 reviews, 2018 to 2021, so old). Price about $2.63 to $4.74.
+Pros: easy and quick to set up; responsive support and fast custom changes at low cost; task scheduling and work reports with distance and client OTP confirmation.
+
+Cons: punch-in and punch-out problems and stuck screens; slowness, photo capture interruptions and login trouble after updates; the back-end UI needs work.
+
+Fits: Indian service and field teams that want the vendor to customise. Avoid if: you need strong iPhone support.
+
+### TrackWick (Trackolap)
+Play 4.0 (561, updated 28 Oct 2026). G2 5.0 from only 2 reviews. Price is third-party, about ₹300 to ₹800 a user, or $3.16 to $8.42 a month by plan.
+Pros: easy to use; attendance, tracking, kilometres and leave in one app; responsive support in many reviews.
+
+Cons: battery drain and phone heating (6 of 33 negative); crashes and login failures; poor after-sales service in some reviews; pricing seen as high against similar apps.
+
+Fits: sales-force tracking where live location is the priority.
+
+### BreezeFSM
+Play 4.1 (22 reviews, updated 16 Nov 2026), Android only. Capterra 4.7 (15). G2 4.3 (6). Price from about $2.63. Despite its name it is closer to FFA with a sales slant: attendance, live tracker, visits, orders and outlet creation.
+Pros: easy to use; fast, hands-on support and training (Capterra service rating 4.9); works offline; designed around Indian business needs, according to one reviewer.
+
+Cons: GPS not always accurate enough for travel allowance; tracking with a poor network is hard; the order screen needs filters and better search; no iPhone app.
+
+Fits: Android-only Indian teams that value support. Avoid if: you need iPhone or a large public track record.
+
+### TrackFolks
+New listing with no public reviews yet. TrackFolks' own comparison page scores it {TF_SCORE} out of 100, which is TrackFolks' own scoring. Price $1.05 per user per month, with the first 10 users free and a cap of $499 a year.
+Pros: the only app here that ticks attendance with selfie, live location, distance, route timeline, tasks and visits, expense logging and geofencing together, plus a free tier and no setup fee.
+
+Cons and gaps: no roster, shift or leave management; no customisable forms; payroll only through Excel export; no biometric or kiosk attendance; no public reviews, so battery use and distance accuracy, the main complaints about every rival, cannot yet be judged by outsiders.
+
+Fits: teams that want core FFA at the lowest price and will test it in a trial. Avoid if: you need leave and shift rosters, or want proof from many public reviews first.
+
+### If this is your priority, choose this
+Your priority
+ | Choose
+ | Why, and the catch
+ | 
+Lowest price
+ | TrackFolks ($1.05, first 10 users free), then Unolo (about $2.11) or dayTrack ($2.62)
+ | Cheapest per user. TrackFolks has no public reviews yet; dayTrack has fewer features
+ | 
+Most proven at scale
+ | Unolo
+ | Highest Play rating among the big apps (4.7 from 6.47K). iPhone is weaker at 3.3
+ | 
+Team on iPhones
+ | Lystloc or dayTrack
+ | iPhone ratings 4.0 and 4.2, but both rest on fewer than 40 ratings. Avoid FieldSense (2.5)
+ | 
+Longest feature list at a low price
+ | FieldSense, then TrackoField
+ | Forms, roster, leave, biometric and more. Both carry heavy distance and battery complaints
+ | 
+Leave and shift rosters in the same app
+ | Unolo, FieldSense, Lystloc or TrackoField
+ | All four tick roster, shift and leave on the comparison page. TrackFolks does not
+ | 
+Selfie attendance with route timeline and expense logging
+ | TrackFolks
+ | The only app on the page that ticks all of them. New, so unreviewed
+ | 
+A vendor who will customise for you
+ | OnthegO.ai or BreezeFSM
+ | Reviewers praise quick custom changes. BreezeFSM is Android only
+ | 
+Accurate distance for reimbursement
+ | Test any app on one real route
+ | No app is clear of wrong-km complaints. Run the same route on two apps before you commit
+ | 
+
+## Sales Force Automation (SFA)
+Choose SFA if your reps sell physical goods through retail outlets and distributors, and you need orders, beats and stock visibility, not just attendance. SFA apps are heavier than FFA apps: they model outlets, schemes and distributors, so they take weeks to roll out and are usually sold by quote.
+Who it fits: FMCG, CPG and consumer durables companies with route-based sales teams and distributor networks. If you only need to know where reps were, an FFA app is simpler and far cheaper.
+Essential features, in order of importance:
+Beat and route planning with outlet visit proof (GPS stamp and photo).
+
+Order capture in the field, including offline orders that sync later.
+
+Outlet master data, retail audits and scheme or promotion tracking.
+
+Distributor and secondary sales visibility, so orders, stock and claims reconcile.
+
+Dashboards by region, rep and outlet, with attendance and live location as a supporting feature.
+
+Nine apps are covered. FieldAssist, BeatRoute and Delta Sales App were read in depth on 17 November. Six more were added on 23 November after passing the same two checks: at least 100 Google Play reviews and a Play update within the last 12 months. Apps that failed those checks are listed in the method section.
+
+### FieldAssist
+Play: SFA General Trade 4.5 (1.12K reviews, updated 17 Nov 2026) and General Trade 4.1 (3.07K, updated 30 Oct). iPhone 3.1 (99, India). G2 4.8 (9). Price: quote only; a Capterra listing shows an unclear SGD 9.9 "per feature" starting price.
+Pros: GPS-tagged visits, beat and order flow, outlet coverage reports; real-time sales data on one dashboard; sales force, distributor operations, attendance and outlet management in one platform; actively developed, with new AI features and a vendor claim of 600 to 700 brands.
+
+Cons: crashes and slowness, including an app closing seconds after launch; sync delays, duplicate product entries and inaccurate reports; a learning curve that needs end-user training; slow support response in some reviews. The iPhone score (3.1) is far below Play (4.5) and G2 (4.8). Public review volume is small for its size.
+
+Fits: mid-size and large FMCG companies with distributors and a budget for rollout. Avoid if: you need a quick self-serve start or a mostly iPhone team.
+
+### BeatRoute
+No Play listing under its own name; apps are likely distributed per client. G2 4.3 (12). Capterra ease of use 4.5. Price from third-party listings, unverified: about ₹349 to ₹599 a user (Hygiene plan) and ₹599 to ₹699 (Business), or $8.50 and $12.50 a month on other listings; enterprise is custom. I could not read its iPhone page.
+Pros: field app for opening accounts, visiting accounts on a map and capturing orders; centralised reporting on each rep; good support and onboarding from the back-end team.
+
+Cons: limited mobile customisation; archived outlets still appear in route maps; the OTP step occasionally fails; downloaded reports are too broad to filter; no quick-insight dashboard; a Gartner reviewer in September 2026 asked for better GPS accuracy.
+
+Fits: FMCG teams that want a guided rollout with strong onboarding. Avoid if: you want public ratings on your own phone before buying.
+
+### Delta Sales App
+Play 4.3 (784, updated 12 Aug 2026), a Nepal-based developer that also sells in India. G2 4.5 (13). Price: contact the vendor; third-party estimates of $10 to $15 per user are weak.
+Pros: easy to use; GPS tracking, attendance, beat planning, order booking and visit tracking in one app; FMCG managers report good return on investment and supportive staff.
+
+Cons: support and payment problems for international users; app not opening, wrong location and slowness on some Android 12 phones; no free trial before paying in one older review; slow report generation and a confusing interface for one G2 reviewer.
+
+Fits: small and mid-size FMCG distributors and sales teams that want a lighter app. Avoid if: you need deep distributor management or an India-based vendor, which you should confirm first.
+
+### Bizom
+Play: Bizom 4.6 (29.2K reviews, updated 6 May 2026) and Bizom Next 4.5 (1.74K, updated 11 Nov 2026). iPhone 3.9 (206, India, Bizom Next). G2 4.5 (15). Price: not published.
+Pros: a wide feature list on the vendor's site: beat optimisation, offline order capture, schemes and trade promotion management, distributor management (inventory, billing, returns, claims), attendance, leave and van sales; Play reviewers praise real-time data, dashboards and support replies; the vendor claims 750+ brands and 250K+ salespeople.
+
+Cons: recent Bizom Next reviews on Play (Oct 2026) report wrong kilometre readings, dashboard figures not updated for 25 days, and no "select all" for travel claims, which the old app had; the Bizom Next iPhone score (3.9) is well below Play (4.5); G2 has only 15 reviews; no published price.
+
+Fits: mid-size and large FMCG companies with distributors that want one platform. Avoid if: you want a published price or a quick self-serve start.
+
+### SalesOn
+Play 4.3 (177 reviews, last updated 3 Jan 2026). iPhone: 5 ratings (India), too few to use. G2 and Capterra: no reviews. Price: ₹209 or ₹333 per user a month on its Play listing, ₹250 per user (2-user minimum, GST extra) on its own site, about $2.20 to $3.51.
+Pros: GST invoicing and e-way bill, Tally integration, van sales, distributor management and live location in one app; Play reviewers praise the support team and regular updates; low price.
+
+Cons: the app needs an internet connection and does not work offline (vendor site); Tally auto-sync is priced separately; the Play listing and the vendor site disagree on price and trial length (2.7 days against 7); public reviews are few; the Play app was last updated on 3 Jan 2026 and will pass 12 months on 3 Jan 2027.
+
+Fits: small distributors and wholesalers with billing and field sales in one place. Avoid if: your routes have patchy network, or you need a large-brand rollout.
+
+### SAN SALES (SANeFORCE)
+Play 4.2 (153 reviews, updated 19 Nov 2026). iPhone: 4 ratings (India). Price: quote based. SANeFORCE's pharma app, SAN SFE (Play 4.3 from 2.05K reviews), was last updated on Play on 1 Sep 2025, so it is not covered.
+Pros: attendance, order booking, retailing and call reporting for FMCG reps in one app (2022 Play review); the vendor is shipping updates, with a release on 19 Nov 2026.
+
+Cons: Aug and Sep 2026 Play reviews say the app hangs, shows errors and is slow; reviews of the sibling SAN SFE app complain about battery use, back-button problems and rep tracking; very few iPhone ratings; no published price.
+
+Fits: Indian FMCG teams that want a vendor with a long track record and are willing to pilot first. Avoid if: your reps use iPhones, or you need proof of stability.
+
+### Salesdiary
+Play 4.1 (1.36K reviews, updated 3 Nov 2026). No iPhone listing of its own found in the India store. Capterra 4.7 (15). Price: from $12 per user a month on Capterra (third-party); vendor pricing is custom.
+Pros: an established app with one of the larger review counts in this category; Capterra reviewers score ease of use 4.4, value for money 4.4 and features 4.1; the vendor, Appobile Labs, positions it as AI-driven route planning and field operations.
+
+Cons: the Play sample (2020 to 2024) is mostly negative: hangs, battery drain, constant background location, call-log and media permission requests, and attendance time counted from the first activity (the vendor says this follows company policy).
+
+Fits: FMCG field teams that want an established app and will test battery and permissions on real phones. Avoid if: staff are sensitive about background tracking.
+
+### SFAXpert (Marg ERP)
+Play 3.8 (347 reviews, updated 15 Oct 2026). iPhone listing exists, with no rating count shown. Price: quote based.
+Pros: a pharma-style reporting app: daily call report, doctor management, chemist orders, expenses and samples and gifts; one Play reviewer praised real-time GPS tracking and a route map of the field force.
+
+Cons: the lowest Play rating among the SFA apps here; the visible reviews are old (2019 to 2021) and complain about frequent syncing, slowness and rude support; no published price.
+
+Fits: pharma and healthcare reps who mainly need call and expense reporting. Avoid if: you need current evidence of support quality.
+
+### SalesMagna SFA
+Play 4.7 (103 reviews, updated 28 Oct 2026). iPhone 10 ratings (India). Price: quote based, 7-day trial.
+Pros: short Play reviews (2024 and 2025) call it easy, fast and employee friendly, and one compares it favourably with FieldAssist; a separate DMS app covers distributor management.
+
+Cons: only 103 Play reviews and 1K+ downloads, so the 4.7 is weak evidence; very few iPhone ratings; no published price.
+
+Fits: small FMCG and B2B teams that want a light app. Avoid if: you need a proven large rollout.
+
+### If this is your priority, choose this
+Your priority
+ | Choose
+ | Why, and the catch
+ | 
+Large FMCG rollout with distributors
+ | FieldAssist or Bizom
+ | FieldAssist has the larger brand base but a 3.1 iPhone rating; Bizom has 4.6 on Play from 29K reviews, a wide feature list and no published price
+ | 
+Guided onboarding and support
+ | BeatRoute or Delta
+ | Both praised for support. BeatRoute pricing is third-party only
+ | 
+Lighter app and quick start
+ | Delta Sales App
+ | 4.3 on Play from 784 reviews. Smaller vendor and unclear India presence
+ | 
+Small distributor with GST billing and Tally
+ | SalesOn
+ | About $2.20 to $3.51 a user. Needs internet, and few public reviews
+ | 
+An established app with many reviews
+ | Salesdiary
+ | 4.1 on Play from 1.36K reviews. Complaints about battery use and permissions
+ | 
+Pharma call and expense reporting
+ | SFAXpert
+ | 3.8 on Play from 347 reviews. Older reviews complain about sync and support
+ | 
+Smaller options to pilot
+ | SalesMagna SFA or SAN SALES
+ | SalesMagna is 4.7 from 103 reviews; SAN SALES had hang complaints in Aug and Sep 2026
+ | 
+Orders without full distributor management
+ | An FFA app such as BreezeFSM or OnthegO.ai
+ | Both capture orders and visits at a lower price, but have no scheme or distributor modules
+ | 
+Known price before you talk to sales
+ | SalesOn
+ | The only SFA here with a price on its own site (₹250 a user), and it differs from its Play listing (₹209). The rest are quote only or third-party
+ | 
+
+## Field Service Management (FSM)
+Choose FSM if your people go to your customers' homes or sites to do jobs, and you need to schedule them, quote the work, finish it and get paid. FSM is the only category here that handles the customer side: dispatch, estimates, invoices and payments. If you only track employees, FSM is more software than you need.
+Who it fits: plumbers, HVAC, electrical, installation, repair and maintenance businesses, from one-truck operators to enterprises with hundreds of technicians.
+Essential features, in order of importance:
+Scheduling and dispatch on a calendar or map, with technician status updates.
+
+Quotes or estimates, then invoices and payments from the technician's phone.
+
+Customer communication: appointment reminders and "on the way" messages.
+
+A technician app that works on site: job details, photos, forms and checklists, offline use.
+
+Accounting and payment integrations, such as QuickBooks.
+
+GPS location of technicians and routing, which matters but is a supporting feature here.
+
+The global FSM apps below were built around US-style markets and dollar pricing. If you are in India, check payment, tax and integration support before you commit. Ratings are Google Play, the US App Store and G2, because that is where these apps' customers are. FieldEZ is an Indian vendor with very little app-store data, so it is judged mainly on G2 and Capterra.
+
+### Zoho FSM
+Play 4.2 (82, updated 3 Nov 2026). iPhone 2.7 from only 11 ratings (US). G2 4.4 (13). Price: plans of ₹1,000, ₹1,500 and ₹1,750 a month billed annually, based on appointments a month (the smallest option is 60), not per user. A free plan covers 30 appointments and up to 20 users.
+Pros: integrates with other Zoho apps and has endpoints for custom extensions; easy to navigate, with agents seeing their schedule and tracking time on the job; onboarding sessions and support are praised.
+
+Cons: the mobile app is the weak point (needs an overhaul on G2, an old and incomplete interface and an app that would not open on a new iPhone on the App Store); rigid customisation; photo attachments cannot carry notes; rescheduling can be hard.
+
+Fits: Indian service businesses already on Zoho that want the lowest entry price. Avoid if: technicians do most of their work on the phone.
+
+### Jobber
+Play 4.1 (7K, updated 10 Nov 2026). iPhone 4.8 (22K, US). G2 4.6 (546). Price on annual billing: Core $29 a month for 1 user, Connect from $99, Grow from $149, Plus from $399; extra users cost $29 each. This is flat plan pricing, not per user.
+Pros: quoting, scheduling, invoicing and payments in one back office; easy to use, with a large help centre and fast migration; fast payment, automated reminders and growing features such as a pipeline and an AI receptionist.
+
+Cons: app stability on Android (63 bug mentions among 150 negative reviews); layout changes with updates and cost complaints (51 price mentions among negatives); technicians cannot clock in without signal; routing is "as the crow flies"; the phone app is more limited than the web.
+
+Fits: small home-service crews; plans start at 1 user. Avoid if: technicians need to clock in without signal or you want routing beyond straight-line distance.
+
+### Housecall Pro
+iPhone 4.7 (32K, US). G2 4.3 (211). No listing in the India Google Play or App Store. Price on annual billing: Basic $59 a month for 1 user (no GPS), Essentials $149 for 5 users (with employee GPS tracking), Max $299 for 8 users, with extra users at $35. Max for a 30-person team works out to about $1,069 a month, or about $35.63 a user (22 extra users at $35 plus $299).
+Pros: easy to use; estimate options and invoice templates; customer communication and technician status updates; QuickBooks sync and responsive support; suits small family-run firms.
+
+Cons: many features are add-ons, so the price climbs; integrations sit behind higher plans; card processing fees; limited inventory, GPS and VOIP integrations; little reporting on call sources.
+
+Fits: small and mid-size home-service firms that want an all-in-one app. Avoid if: you need GPS on the cheapest plan or deep reporting.
+
+### ServiceTitan
+G2 4.4 (387). iPhone (US): ServiceTitan Field 3.5 (5.7K) and the older ServiceTitan Mobile 2.9 (1.7K). Price: not published, quote only.
+Pros: easy for technicians on G2; scheduling and customer management in one place; call recording and smarter routing; one reviewer calls it the most functional of the trades platforms.
+
+Cons: cost feels high for lean firms; complex to learn and implement, and one reviewer says it did not deliver expected value; inconsistent support and vendor lock-in; technicians dislike the redesigned Field app (clunky, no iPad layout for sales), which is why its iPhone rating is far below G2.
+
+Fits: large trades businesses with an office team and the budget for implementation. Avoid if: you are a small crew.
+
+### Salesforce Field Service
+Play 3.7 (6.28K, updated 19 Oct 2026). iPhone 4.6 (21K, US). G2 4.3 (1,253). Price: an add-on that needs a Service Cloud licence; Service Cloud editions are $25, $100 and $175 per user a month, and the Field Service add-on price is unconfirmed.
+Pros: connects technicians, work orders, scheduling and customer data; highly customisable with AI-driven routing; one job record shared by dispatcher and technician.
+
+Cons: mobile reliability on Android (bugs in 105 of 230 negative reviews, sync problems, battery drain) and a July 2026 iPhone review of crash loops; complex configuration that needs clean skills, travel and parts data; hard to debug; enterprise pricing.
+
+Fits: enterprises already on Salesforce with an admin team. Avoid if: you want to start in a week.
+
+### FieldEZ
+Play 3.1 (only 15 reviews, updated 13 Oct 2026). iPhone: 5 ratings for FieldEZ and 4 for FieldEZ Plus in the India store; the US store shows four FieldEZ listings with no rating counts. G2 4.4 (69). Capterra 4.8 (62). Price: G2 lists $15 to $20 per user a month. Public app data is very low, so test the app on your own phones before you adopt it.
+Pros: G2 reviewers praise scheduling and work order management, workflow efficiency, training and customer support; Capterra reviewers call it easy to use and customisable, with attendance, tracking, offline sync and a customer location map.
+
+Cons: a 3.1 Play rating from 15 reviews and 9 iPhone ratings across two listings cannot show how the app behaves in daily use; G2's summary notes occasional sync problems and slow performance at peak times; the Capterra reviews seen date from 2016 to 2018; price is a range from G2, not from the vendor.
+
+Fits: service businesses that want scheduling, dispatch and attendance and will run a trial before buying. Avoid if: you need app-store evidence of reliability before you start.
+
+### If this is your priority, choose this
+Your priority
+ | Choose
+ | Why, and the catch
+ | 
+Lowest entry price in India
+ | Zoho FSM
+ | ₹1,000 a month for a block of appointments, with a free plan. The mobile app is weak
+ | 
+Small crew, easy start
+ | Jobber
+ | Best-rated by users (4.8 on iPhone, 4.6 on G2). Priced per plan; Android stability complaints
+ | 
+Home-service firm that wants everything in one app
+ | Housecall Pro
+ | 4.7 on iPhone from 32K. Cost climbs with add-ons and users
+ | 
+Large trades business
+ | ServiceTitan
+ | One reviewer calls it the most functional trades platform. Quote only, and the technician app is rated 3.5
+ | 
+Already on Salesforce
+ | Salesforce Field Service
+ | Fits your data and admins. Needs configuration work and a clean data set
+ | 
+Indian service firm that will pilot first
+ | FieldEZ
+ | G2 4.4 (69) and Capterra 4.8 (62), but only 15 Play reviews. Test the app before adopting
+ | 
+GPS and technician tracking on a small budget
+ | An FFA app such as Unolo or TrackFolks
+ | These track people, not jobs. You lose quotes, invoices and customer messages
+ | 
+
+## HR and workforce tools with remote attendance and location
+Choose this category if your main job is running attendance, leave and payroll for a team that is partly remote or deskless, and location is a check, not the product. These tools stamp a place when someone punches in or out. Most do not follow a person along a route, so they cannot replace an FFA app for travel allowance or visit proof.
+Who it fits: employers with remote, field or site staff, who want attendance, leave and payroll or timesheets in one place.
+Essential features, in order of importance:
+Mobile attendance with a location stamp or geofence, and a selfie or face check against buddy punching.
+
+Leave, shift and roster management.
+
+Timesheets and payroll or payroll-ready exports.
+
+Reports for compliance and audit.
+
+Live location, which is optional here and often a paid add-on.
+
+Location in this category is usually tied to a plan or sold as an add-on, and it records where someone punched in, not the route they took. Keka, Pocket HRMS and Zoho People put geofencing or location tracking in higher plans, factoHR does too according to third-party listings, Hubstaff charges extra for it, and HROne includes geo-tagging and geofencing in its Basic plan. The entries start with the HR and payroll suites, then the time and attendance tools. For the large HR suites only review counts and plan details were collected, not review text.
+
+### Zoho People
+Play 4.2 (5.71K, updated 6 Nov 2026). Reviews were not read for this guide, so no pros and cons from user reviews are given. Price from Zoho's India pricing page: free for up to 5 users, then ₹48, ₹96, ₹144 and ₹192 per user a month billed annually, GST extra. At ₹96 that is about $1.01.
+What the pricing page confirms: attendance by web, mobile and face recognition, timesheets, roster management, GPS location recorded between check-in and check-out, and geo-restrictions through Google Maps all start at the ₹96 Professional plan; shift scheduling starts at ₹48.
+
+Limit: this is geofenced check-in with location at punch times, not live route tracking.
+
+Fits: Indian firms already on Zoho that want HR, leave and attendance cheaply. Avoid if: you need to see where a rep went between visits.
+
+### PagarBook
+Play 4.4 (91.9K reviews, updated 16 Nov 2026). iPhone 3.1 (455, India). Price about $5.87.
+Pros: easy to use; attendance, salary and employee records in one app; multi-language and good value for small businesses; the comparison page ticks route timeline, roster and payroll.
+
+Cons: support and subscription complaints, with renewal price hikes and refund disputes (27 support and 25 price mentions among 86 negative reviews); crashes and login problems after updates; salary payout delays and limits on editing payroll.
+
+Fits: small Indian businesses that run payroll from the phone. Avoid if: you need dependable support after you pay.
+
+### SalaryBox
+Play 4.3 (11.7K, updated 31 Oct 2026). iPhone 3.7 (391, India). Price about $3.05 to $3.89.
+Pros: simple for small teams; attendance with automatic payroll; some strong support experiences.
+
+Cons: support unreachable or slow after payment (47 of 116 negative reviews); pricing and renewal inflexibility (49 mentions); bugs and unreliable salary figures after finalising; an iPhone user complained of a ₹1,700 charge after a 3-day trial.
+
+Fits: small Indian teams that want attendance and payroll fast. Avoid if: you may want to downgrade or cancel at renewal.
+
+### Keka HR
+Play 4.7 (38.6K reviews, updated 19 Nov 2026). iPhone 7.9K ratings (India). G2 4.4 (2,483). Reviews were not read. Price: not shown on the vendor's pricing page; a third-party list (SalaryBox's own ranking page) says from ₹6,999 a month.
+Location tracking: continuous location punching, geofenced clock-in and field staff tracking are in the Strength and Growth plans, not in Foundation, and are not sold as a separate add-on.
+
+Limit: this is location attached to attendance inside an HR suite; no route or visit-proof features were checked.
+
+Fits: mid-size Indian employers that want a large, well-reviewed HR suite and accept quote-based pricing. Avoid if: you need a published price or field visit proof.
+
+### HROne
+Play 4.1 (6.47K reviews, updated 4 Nov 2026). iPhone 1.2K ratings (India). G2 4.7 (12). Reviews were not read. Price from third-party listings: ₹4,950 a month for 50 users and ₹99 for each extra user; G2 shows ₹85 and ₹115 for its two plans with the unit unclear.
+Location tracking: geo-tagging and geofencing, selfie attendance and offline attendance are in the Basic plan.
+
+Limit: G2 has only 12 reviews, and the price is not confirmed on a vendor page.
+
+Fits: Indian employers with 50 or more staff that want geofenced attendance in the base plan. Avoid if: you need many independent reviews or a confirmed price.
+
+### factoHR
+Play: factoHR Employee App 4.5 (20.3K reviews, updated 18 Nov 2026). iPhone 702 ratings (India). G2 4.6 (167). Reviews were not read. Price from third-party listings: Core ₹4,999 and Premium ₹5,999 a month for 50 employees, with ₹69 and ₹89 for each extra employee, billed quarterly. The vendor's own pricing page could not be read.
+Location tracking: third-party listings put the geofence module in Premium, not Core; another G2 plan list shows geofence and geo-tracking with kilometre calculation in a plan priced at ₹5,999. Confirm with the vendor which plan includes what.
+
+Limit: location is attached to attendance and punches, not to route proof.
+
+Fits: Indian employers with 50 or more staff that want a well-reviewed HR and payroll app with geofencing. Avoid if: you need a verified price or route tracking.
+
+### Pocket HRMS
+Play 4.4 (734 reviews, updated 20 Nov 2026). iPhone 66 ratings (India). G2 4.6 (33). Reviews were not read. Price from the vendor's pricing page as shown in search results: Standard ₹2,995 a month billed annually for 50 employees and ₹60 for each extra employee, with a 50-employee minimum.
+Location tracking: geo-tagging is in Standard; geofencing and real-time geo-tracking come with the Professional plan (₹90 for each extra employee); Premium is by quote.
+
+Limit: its separate geo-tracking app, smHRt Track, has only 10+ downloads on Play.
+
+Fits: smaller Indian employers that want a low-priced HR suite with geo-tagged attendance. Avoid if: you need geofencing without moving to a higher plan, or a large iPhone user base to learn from.
+
+### Truein
+Play 4.4 (2.96K, updated 2 Nov 2026). iPhone 3.9 (75). G2 4.8 (102). Price about $6.44 a user for 10 users, falling to about $1.60 at 50 users.
+Pros: easy interface and self-onboarding; accurate attendance with face recognition, working offline; real-time visibility and leave in the app; support praised.
+
+Cons: sync delays and slow response on G2; limited customisation and reporting; bugs after updates (camera, login, geofence reset); some privacy concern about face capture.
+
+Fits: sites and offices with deskless staff where face attendance matters. Avoid if: you need live route tracking.
+
+### Jibble
+Play 4.5 (5.4K, updated 2 Nov 2026). iPhone 4.8 (1.6K). Capterra 4.7 (3,757). Trustpilot 4.3 (175). Price $7.99.
+Pros: simple clock-in and clock-out with automatic timesheets and easy setup; attendance with selfie, GPS and geofencing; payroll and performance reports, leave requests, Teams and Slack integrations; reviewers cite a free tier and good value.
+
+Cons: face-recognition and location glitches; confusing advanced settings, especially time-off policies; the Jibble 2.0 redesign was buggy; Trustpilot complaints about billing after cancelling and AI-only support replies. Shift rostering was not confirmed on its own pages.
+
+Fits: remote and field teams that want a polished time clock with strong iPhone ratings. Avoid if: you need distance or visit management.
+
+### Timeero
+Play 3.0 (841, updated 11 Nov 2026), checked on 17 Nov. iPhone 4.7 (1,656). G2 4.8 (52). Capterra 4.6 (150). Price $12.50.
+Pros: easy to use with quick onboarding; accurate time and mileage once set up; accurate GPS and breadcrumb routes; fast, named support.
+
+Cons: intrusive background tracking and permission demands, and staff find tracking uncomfortable; log-outs and problems after redesigns, which fits the Play drop to 3.0; charges after the trial and a Pro plan needed for stop addresses; an invoice with a proration error; hard to get non-technical crews to use it daily.
+
+Fits: crews that are paid on mileage and need breadcrumb routes. Avoid if: you are price-sensitive, as it is the most expensive app in this guide.
+
+### Hubstaff
+Play 3.5 (956, last updated 31 Dec 2025, the oldest of the Play apps checked). iPhone 4.5 (1.5K, US), updated 23 Sep 2026. G2 4.4 (2,345). Price from Hubstaff's page, billed annually with a 2-seat minimum: Starter $4.99, Grow $7.50, Team $10 and Enterprise $25 per seat a month.
+GPS pricing: location tracking and geofencing are not on Starter or Grow. On Team they are a $3.33 per seat add-on, about $13.33 in total; on Enterprise they are included.
+
+Pros: easy time tracking for remote teams across time zones, with timesheets and reports; project and task tracking, with new AI analytics; location features valued by field users.
+
+Cons: the timer stops on its own or hours go missing between phone and website; location permission demands and battery drain; monitoring feels intrusive to autonomous teams; support complaints (15 of 101 negative Play reviews).
+
+Fits: remote teams billing by project that add GPS for a few field staff. Avoid if: you want GPS on a low-cost plan.
+
+### Connecteam
+Play 4.7 (30.9K, updated 26 Oct 2026). iPhone 4.9 (63K, US). G2 4.6 (3,506). Capterra 4.6 (5,320). Price for the Operations hub on annual billing: Basic $29, Advanced $49 and Expert $99 a month including the first 30 users, which is about $0.97, $1.63 and $3.30 per user at 30 users. Free for up to 10 users; communications and HR hubs are priced separately.
+Pros: one app for scheduling, time clock, tasks, chat, training and forms for deskless teams; large rating base on both stores; small-business support praised.
+
+Cons: time clock rigidity (no editing a shift after a missed clock-in, a break forces a log-off); mobile reliability (kicked out, clock-in and hours problems in about 70 of 140 negative Play reviews, a broad keyword); price jumps past 10 employees and hub packages; GPS and route views are weak.
+
+Fits: shift-based teams who want scheduling, communication and clocking in one app. Avoid if: you need route tracking or distance.
+
+### If this is your priority, choose this
+Your priority
+ | Choose
+ | Why, and the catch
+ | 
+Cheapest HR, leave and attendance in India
+ | Zoho People
+ | About $1.01 a user at ₹96, with geofencing. No live routes, and reviews were not read
+ | 
+Large, well-reviewed HR suite
+ | Keka or factoHR
+ | Keka 4.7 on Play from 38.6K, factoHR 4.5 from 20.3K. Location sits in higher plans, and Keka does not publish prices
+ | 
+Low-priced Indian HR suite with geo-attendance
+ | Pocket HRMS or HROne
+ | About $0.63 to $1.04 a user at 50 users. HROne has geofencing in Basic; Pocket HRMS needs Professional for it
+ | 
+Payroll for a small Indian business
+ | PagarBook or SalaryBox
+ | Attendance and salary together. Both draw support and renewal complaints
+ | 
+Face attendance at sites
+ | Truein
+ | G2 rating of 4.8 from 102 reviews. Price per user falls with team size
+ | 
+Polished time clock with strong iPhone ratings
+ | Jibble
+ | iPhone 4.8 and Capterra 4.7. Roster feature unconfirmed
+ | 
+Mileage and breadcrumb routes for crews
+ | Timeero
+ | Accurate GPS and mileage. $12.50 and a Play rating that fell to 3.0
+ | 
+Project time tracking with GPS for a few staff
+ | Hubstaff Team plus Locations
+ | About $13.33 a seat. Android app last updated 31 Dec 2025
+ | 
+Scheduling, chat and training for shift teams
+ | Connecteam
+ | About $0.97 to $3.30 a user at 30 users. Weak GPS
+ | 
+Live location and route timeline
+ | An FFA app instead
+ | These tools stamp location at punch time only
+ | 
+
+## Pricing side by side
+Prices run from about $0.50 to $20 per user a month, and price tells you little about quality: the cheapest and the best-reviewed apps overlap, and so do the cheapest and the most complained-about. The table uses one convention: dollars per user per month on an annual plan, rupees converted at ₹95 to $1, GST excluded, for a team of about 30. Where a price is flat or quoted, it says so, because those cannot be compared per user.
+App
+ | Category
+ | Price per user per month
+ | Source
+ | 
+Connecteam
+ | Workforce
+ | $0.97, $1.63 or $3.30 at 30 users (plans of $29, $49, $99 a month cover the first 30 users); free up to 10 users
+ | Vendor page, 17 Nov
+ | 
+Zoho People
+ | HR suite
+ | $0.51, $1.01, $1.52, $2.02 (₹48, ₹96, ₹144, ₹192); free up to 5 users. GPS check-in location from $1.01
+ | Vendor page, 17 Nov
+ | 
+TrackFolks
+ | FFA
+ | $1.05; first 10 users free, capped at $499 a year
+ | Comparison page
+ | 
+Truein
+ | Workforce
+ | about $1.60 at 50 users, about $6.44 at 10 users
+ | Comparison page
+ | 
+Unolo
+ | FFA
+ | about $2.11 to $2.63
+ | Comparison page
+ | 
+dayTrack
+ | FFA
+ | $2.62
+ | Comparison page
+ | 
+FieldSense
+ | FFA
+ | $2.63
+ | Comparison page
+ | 
+BreezeFSM
+ | FFA
+ | from $2.63
+ | Comparison page
+ | 
+OnthegO.ai
+ | FFA
+ | about $2.63 to $4.74
+ | Comparison page
+ | 
+SalaryBox
+ | HR suite
+ | $3.05 to $3.89
+ | Comparison page
+ | 
+TrackoField
+ | FFA
+ | $3.16
+ | Comparison page
+ | 
+TrackWick
+ | FFA
+ | $3.16, $6.32 or $8.42 (₹300, ₹600, ₹800 by plan)
+ | Third-party listing
+ | 
+Lystloc
+ | FFA
+ | $3.67
+ | Comparison page
+ | 
+BeatRoute
+ | SFA
+ | about $3.67 to $7.36 (₹349 to ₹699); other listings show $8.50 and $12.50
+ | Third-party, unverified
+ | 
+Hubstaff
+ | Workforce
+ | $4.99 Starter, $7.50 Grow, $10 Team, $25 Enterprise; GPS is not on Starter or Grow, adds $3.33 on Team (about $13.33) and is included on Enterprise
+ | Vendor page, 17 Nov
+ | 
+PagarBook
+ | HR suite
+ | about $5.87
+ | Comparison page
+ | 
+Jibble
+ | Workforce
+ | $7.99
+ | Comparison page
+ | 
+Delta Sales App
+ | SFA
+ | contact vendor; third-party estimates of $10 to $15 are weak
+ | Weak
+ | 
+Timeero
+ | Workforce
+ | $12.50
+ | Comparison page
+ | 
+Salesforce Field Service
+ | FSM
+ | Service Cloud licence at $25, $100 or $175 per user, plus a Field Service add-on whose price is unconfirmed
+ | Vendor, partly
+ | 
+Housecall Pro
+ | FSM
+ | flat plans: $59 (1 user), $149 (5 users), $299 (8 users, extra users $35). At 30 users the top plan is about $35.63 per user
+ | Vendor page, 17 Nov
+ | 
+Jobber
+ | FSM
+ | flat plans: $29 (1 user), from $99, from $149, from $399; extra users $29 each
+ | Vendor page, 17 Nov
+ | 
+Zoho FSM
+ | FSM
+ | plans of ₹1,000, ₹1,500, ₹1,750 a month ($10.53, $15.79, $18.42) by appointments, not per user; free plan for 30 appointments
+ | Vendor page, 17 Nov
+ | 
+FieldAssist
+ | SFA
+ | quote only
+ | Vendor
+ | 
+ServiceTitan
+ | FSM
+ | quote only
+ | Vendor
+ | 
+Pocket HRMS
+ | HR suite
+ | Standard about $0.63 (₹2,995 a month for the first 50 employees, ₹60 for each extra); Professional ₹90 for each extra employee (about $0.95); 50-employee minimum
+ | Vendor page seen in search results, 23 Nov
+ | 
+HROne
+ | HR suite
+ | about $1.04 (₹4,950 a month for 50 users, ₹99 for each extra); G2 lists ₹85 and ₹115 with the unit unclear
+ | Third-party listings, 23 Nov
+ | 
+factoHR
+ | HR suite
+ | about $1.05 (Core, ₹4,999 a month for 50 employees) or $1.26 (Premium, ₹5,999); ₹69 or ₹89 for each extra employee
+ | Third-party listings, 23 Nov
+ | 
+Keka HR
+ | HR suite
+ | not published on the vendor page; a third-party list says from ₹6,999 a month
+ | Third-party, unverified
+ | 
+SalesOn
+ | SFA
+ | ₹209 and ₹333 on its Play listing ($2.20 and $3.51); ₹250 on its own site ($2.63), 2-user minimum, GST extra
+ | Vendor site and Play listing, 23 Nov; they differ
+ | 
+Salesdiary
+ | SFA
+ | from $12; vendor pricing is custom
+ | Capterra listing, 23 Nov
+ | 
+FieldEZ
+ | FSM
+ | $15 to $20 per user a month
+ | G2 listing, 23 Nov
+ | 
+Bizom
+ | SFA
+ | not published
+ | Vendor site
+ | 
+SAN SALES (SANeFORCE)
+ | SFA
+ | quote only; one third-party listing shows a $7 starting price for SANeFORCE
+ | Third-party, unverified
+ | 
+SFAXpert
+ | SFA
+ | quote only
+ | Third-party listing
+ | 
+SalesMagna SFA
+ | SFA
+ | quote only; 7-day trial
+ | Third-party listing
+ | 
+Three reading notes:
+Per-user and flat prices are different things. FSM tools charge by plan, job volume or licence, so a 30-person crew can cost far more than the per-user rows suggest.
+
+Check what the price includes. Route tracking, GPS, stop addresses and payroll are add-ons or higher plans on several apps. Hubstaff GPS is the clearest case: $10 becomes about $13.33.
+
+TrackFolks example. With the first 10 users free, a 30-user team pays for 20 users: 20 × $1.05 × 12 is about $252 a year, under the $499 cap. This is my arithmetic from the listed price.
+
+Indian HR suites price blocks of 50. Pocket HRMS, HROne and factoHR quote a monthly price for the first 50 employees, so the per-user figures above assume at least 50 users.
+
+## The bottom line: category first, then app
+Pick the category from the job your people do. Only then compare apps, because the wrong category costs you more than the wrong app.
+You pay field staff for distance and need visit proof: Field Force Automation. Start with Unolo for the most proven, TrackFolks or dayTrack for the lowest price, and test distance on a real route.
+
+You sell FMCG through outlets and distributors: Sales Force Automation. FieldAssist or Bizom for a large rollout, BeatRoute, Delta or SalesOn for a lighter start, and get written quotes.
+
+You send technicians to customers' sites and invoice the job: Field Service Management. Zoho FSM for the lowest price in India, Jobber or Housecall Pro for small crews, ServiceTitan or Salesforce for large operations.
+
+You mainly need attendance, leave and payroll for remote or deskless staff: an HR or workforce tool. Zoho People, Pocket HRMS or HROne for the lowest cost, Keka or factoHR for a large HR suite, Jibble for a polished time clock, Connecteam for shift teams, Truein for face attendance.
+
+Before you pay any of them:
+Test on your own phones. Battery use and distance accuracy vary by handset and cannot be judged from ratings.
+
+Compare the iPhone and Android ratings separately. FieldSense (2.5 on iPhone), Unolo (3.3) and FieldAssist (3.1) rate far lower on iPhone than on Android.
+
+Ask what the price includes. GPS, routes, stop addresses and payroll are often extra, and in HR suites location tracking depends on the plan (Keka's Strength and Growth plans, Pocket HRMS and Zoho People Professional).
+
+Read recent reviews. Ratings move: Timeero's Play rating fell to 3.0 from 4.7 within weeks.
+
+## Method, sources and limits
+This guide was researched with AI assistance on 17 and 23 November 2026 and published by TrackFolks, which sells one of the apps covered. Treat the TrackFolks entry as a vendor's description, not an independent review.
+What was read
+Google Play: up to about 340 reviews per app from the "Most relevant" list, counted by theme. This list skews negative, so counts show what is common, not what share of users complain.
+
+Apple App Store: rating, rating count, release date and the 3 to 4 reviews each page shows. Indian apps were read in the India store; global apps in the US store.
+
+G2, Capterra and Trustpilot: G2 and Trustpilot were read in the browser. Capterra text comes from pages supplied as screenshots; for Jibble, Timeero and Connecteam only the "Pros and Cons in Reviews" summary block was used.
+
+Release dates: the Play "Updated on" date was used as a sign of active development. It can reflect small patches, so it is not proof of new features.
+
+23 November additions: Google Play listings and review samples, India App Store search results for rating counts (the search page shows the count without opening each app), G2 pages for ratings and counts, and the vendor sites of SalesOn and Bizom. Pricing for the HR suites and some SFA apps comes from vendor and third-party listings seen in search results.
+
+Limits
+Review counts are samples, not audits, and no app was tested hands-on.
+
+Reviews were not read for Zoho People, Keka, HROne, factoHR or Pocket HRMS, only counts and plan details; BeatRoute's iPhone page was not read; Bizom's G2 review text would not load. BeatRoute has no Play listing under its own name.
+
+Several apps have few reviews on some sources (TrackWick 2 on G2, Lystloc 6 on Capterra, BreezeFSM 15 on Capterra), so their ratings are weak evidence.
+
+Prices marked "Comparison page" come from the TrackFolks comparison page and were not rechecked against vendor sites on 17 November. Prices marked "Vendor page" were read from the vendor's own pricing page that day.
+
+Plans change often. Confirm any price with the vendor before you buy.
+
+Apps added on 23 November had to have about 100 or more Google Play reviews and a Play update within 12 months. That left out SFA 360 (33 reviews), Bizintel SFA (38), GoSales (50+ downloads), SimpliDOTS SFA (no review count shown), Toolyt (little recent review evidence on G2 and the app stores) and SANeFORCE's SAN SFE (not updated on Play since 1 Sep 2025). Leaving an app out does not mean it is poor.
+
+FieldEZ has very little app-store data (15 Play reviews, 9 iPhone ratings in the India store), so it is judged on G2 and Capterra. Test it before adopting.
+
+Hubstaff's Android app (last updated 31 Dec 2025) and SalesOn's (3 Jan 2026) will pass 12 months without an update in early January 2027.
+
+SalesOn's price differs between its Play listing and its own site, and the Pocket HRMS, HROne, factoHR, Salesdiary, FieldEZ and SAN SALES prices come from listings seen in search results, not all of which were opened.
+
+Pages opened for this guide
+The TrackFolks comparison page, "How to Pick a Field Force Automation App (2026)", for feature ticks, scores and most Indian app prices
+
+Hubstaff pricing
+
+Zoho People pricing
+
+US App Store pages: Jobber, Salesforce Field Service, Hubstaff, Connecteam, ServiceTitan Field, ServiceTitan Mobile, Housecall Pro, Zoho FSM
+
+Vendor pricing pages for Zoho FSM, Jobber, Housecall Pro, Connecteam and Salesforce were also read on 17 November, in an earlier part of the research; their links were not saved

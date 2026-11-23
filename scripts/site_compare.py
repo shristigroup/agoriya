@@ -9,6 +9,7 @@ Features are the nine on the landing page. Ratings: Google Play and App Store, I
 """
 from site_core import *  # noqa: F401,F403
 import site_competitors as comp
+import site_guide as guide
 
 CHECKED_NEW = "November 2026"
 COMPETITORS = comp.C[1:]
@@ -20,41 +21,36 @@ TOP_TITLE = "How to Pick a Field Force Automation App"
 # dayTrack, BreezeFSM, Lystloc and TrackoField read from the store pages in November 2026 (TrackoField is TrackoBit's app; its iPhone listing is under
 # the publisher name "Pulkit Jain", a TrackoBit director per third-party listings). No Google Play listing for OnthegO.ai could be located.
 NEW_RATINGS = {
+    "unolo": dict(play=(4.7, 6470), ios=(3.3, 59)),
+    "fieldsense": dict(play=(3.9, 10900), ios=(2.5, 130)),
     "daytrack": dict(play=(4.08, 868), ios=(4.23, 22)),
-    "breezefsm": dict(play=(4.10, 21), ios=None),
+    "breezefsm": dict(play=(4.10, 22), ios=None),
     "trackofield": dict(play=(3.30, 212), ios=(3.33, 15)),
+    "trackwick": dict(play=(4.0, 561), ios=None),
+    "salarybox": dict(play=(4.3, 11700), ios=(3.7, 391)),
     "lystloc": dict(play=(3.94, 521), ios=(4.03, 35)),
-    "onthego": dict(play=None, ios=(3.17, 18)),
+    "onthego": dict(play=(4.3, 518), ios=(3.17, 18)),
+    "truein": dict(play=(4.4, 2960), ios=(3.9, 75)),
+    "jibble": dict(play=(4.5, 5400), ios=(4.8, 1600)),
+    "timeero": dict(play=(3.0, 841), ios=(4.7, 1656)),
 }
-OLD_KEYS = {"unolo", "fieldsense", "salarybox", "truein", "pagarbook", "jibble", "timeero"}
-NEW_KEYS = list(NEW_RATINGS)
-SLUGS = {"daytrack": "daytrack", "breezefsm": "breezefsm", "trackofield": "trackofield", "lystloc": "lystloc", "onthego": "onthego"}
 LABELS = {k: lbl for k, lbl, _ in comp.FEATURES}
 DESCS = {k: d for k, _, d in comp.FEATURES}
 TF_YEAR = dict(zip(comp.USERS, [0, 126, 252, 499, 499]))  # dollars a year, capped; first 10 users free
 
 
 def ratings(c):
-    k = c["key"]
-    if k in NEW_RATINGS:
-        return NEW_RATINGS[k]["play"], NEW_RATINGS[k]["ios"]
-    p = P[k]
-    return p["play"][:2], p["ios"][:2]
+    r = NEW_RATINGS[c["key"]]
+    return r["play"], r["ios"]
 
 
 def alt_url(c):
     k = c["key"]
-    if k in P:
-        return "/" + alt_path(P[k])
-    return f"/comparison/alternative-to-{SLUGS[k]}-field-force-tracking-app.html"
+    return "/" + (guide.path(k) if k in guide.A else alt_path(P[k]))
 
 
 def clean(name):
     return name.replace(" Geo", "")
-
-
-def rating_text(r):
-    return "not found" if r is None else f"{r[0]:.1f} ★ ({r[1]:,})"
 
 
 def rating_cell(r):
@@ -67,37 +63,8 @@ def count(c):
     return sum(r[1] for r in ratings(c) if r)
 
 
-def cost_usd(c, u):
-    return round(c["year"](u) / comp.RATE)
-
-
-def money0(v):
-    return f"${v:,.0f}"
-
-
 def cost_text(c):
     return comp.usd(c["cost"]).replace("<br>", ", ")
-
-
-def ticks(c, keys=None):
-    keys = keys or [k for k, _, _ in comp.FEATURES]
-    return "".join(f'<td class="{"g" if k in c["has"] else "r"}">{"✓" if k in c["has"] else "–"}</td>' for k in keys)
-
-
-def side_by_side(c):
-    rows = ""
-    for k, label, _ in comp.FEATURES:
-        a, b = k in c["has"], k in TF_ROW["has"]
-        rows += (f'<tr><th scope="row">{esc(label)}</th><td class="{"g" if a else "r"}">{"Yes" if a else "No"}</td>'
-                 f'<td class="{"g" if b else "r"}">{"Yes" if b else "No"}</td></tr>\n')
-    return (f'<div class="scroll"><table class="small-table" style="min-width:520px"><thead><tr><th>Feature</th><th>{esc(clean(c["name"]))}</th><th>TrackFolks</th></tr></thead>'
-            f'<tbody>\n{rows}</tbody></table></div>')
-
-
-def similar(c, n=3):
-    def score(o):
-        return (len(o["has"] & c["has"]), -abs(o["year"](30) - c["year"](30)))
-    return sorted([o for o in COMPETITORS if o["key"] != c["key"]], key=score, reverse=True)[:n]
 
 
 def jsonld(headline, path):
@@ -122,9 +89,9 @@ GOOD_HAS = {
     "lystloc": {"payroll", "leave", "expense", "task", "forms"},
     "onthego": {"order", "leave", "expense", "forms"},
     "truein": {"roster", "payroll", "leave", "biometric"},
-    "pagarbook": {"order", "payroll", "leave", "task", "forms", "biometric"},
     "jibble": {"roster", "payroll", "leave", "biometric"},
     "timeero": {"roster", "payroll", "leave", "expense"},
+    "trackwick": {"leave"},
 }
 
 
@@ -328,55 +295,6 @@ def build_top():
     w(TOP_PATH, page(f"{TOP_TITLE} (2026)", desc, TOP_PATH, body, jsonld(TOP_TITLE, TOP_PATH)))
 
 
-# ------------------------------------------------------------------ one page per new competitor
-def build_alt_new(c):
-    n = clean(c["name"])
-    pl, io = ratings(c)
-    path = alt_url(c).lstrip("/")
-    others = similar(c)
-    lacks = [LABELS[k] for k, _, _ in comp.FEATURES if k in TF_ROW["has"] and k not in c["has"]]
-    better = []
-    y30, tf30 = cost_usd(c, 30), TF_YEAR[30]
-    better.append(f"Price: for a 30-user team {n} costs about {money0(y30)} a year at the top of its range, against about {money0(tf30)} for TrackFolks.")
-    if "free" not in c["has"]:
-        better.append(f"Free start: TrackFolks is free for up to 10 users with every feature. We found no free plan for {n}.")
-    if c["setup"].strip() not in ("₹0",):
-        better.append(f"Setup: {n} lists a setup fee of {comp.usd(c['setup'])}. TrackFolks has none.")
-    if lacks:
-        better.append(f"Features {n} does not list that TrackFolks has: {', '.join(x.lower() for x in lacks)}.")
-    better.append("Mobile first: managers do everything from the phone, including exporting CSV reports, with no web dashboard to learn.")
-    cost_rows = "".join(f'<tr><th scope="row">{u} users</th><td>{money0(cost_usd(c, u))}</td><td>{money0(TF_YEAR[u])}</td></tr>\n' for u in (10, 30, 100))
-    alts = "".join(f'<div class="alt"><h3><a href="{alt_url(o)}">{esc(clean(o["name"]))}</a></h3>'
-                   f'<div class="ev">Google Play: {esc(rating_text(ratings(o)[0]))} · App Store: {esc(rating_text(ratings(o)[1]))}</div>'
-                   f'<p>{esc(o["tier"])}, {esc(cost_text(o))} per user per month. Includes {esc(o["feats"])}. Catch: {esc(comp.usd(o["note"]))} '
-                   f'<a href="{alt_url(o)}">See its alternatives</a>.</p></div>' for o in others)
-    body = f'''    <p class="crumbs"><a href="/{TOP_PATH}">{esc(TOP_TITLE)}</a> › Alternative to {esc(n)}</p>
-    <h1>Alternative to {esc(n)} for Attendance and Field Force Tracking</h1>
-    <p class="meta">Last checked {CHECKED_NEW} · Based on public prices, features and store ratings</p>
-    <p>{esc(n)} ({esc(c["tier"])}) costs {esc(cost_text(c))} per user per month and lists {esc(c["feats"])}. Its store ratings: Google Play {esc(rating_text(pl))}, App Store {esc(rating_text(io))}. If you are weighing it against something cheaper or simpler, this page shows what it includes, the catch to check and how TrackFolks compares.</p>
-    <h2>What {esc(n)} includes, and the catch</h2>
-    <div class="issue"><h3>Includes</h3><p>{esc(c["feats"])}.</p></div>
-    <div class="issue"><h3>The catch</h3><p>{esc(comp.usd(c["note"]))} Setup fee: {esc(comp.usd(c["setup"]))}.</p></div>
-    <h2>{esc(n)} and TrackFolks side by side</h2>
-    {side_by_side(c)}
-    <p class="legend">Features are those each vendor lists publicly. "No" means we found no mention, which is not always the same as missing. See the <a href="/{TOP_PATH}">full comparison</a>.</p>
-    <h2>What it costs per year</h2>
-    <div class="scroll"><table class="small-table" style="min-width:520px"><thead><tr><th>Team size</th><th>{esc(n)}</th><th>TrackFolks</th></tr></thead><tbody>
-{cost_rows}</tbody></table></div>
-    <p class="legend">Dollars at ₹95 = $1, excluding 18% GST, at the top of each price range with base and setup fees included. TrackFolks: first 10 users free, then $1.05 per user per month, capped at $499 a year ($249 in the first year).</p>
-    <h2>Where TrackFolks does better</h2>
-    <ul>{"".join(f"<li>{esc(b)}</li>" for b in better)}</ul>
-    <h2>When {esc(n)} is the better choice</h2>
-    <p>TrackFolks covers attendance, GPS, distance, route timeline, visit forms and geofencing. It has no leave management, payroll or biometric attendance. If you need those or a wider sales workflow, look at {esc(n)}'s own feature list at <a href="{c["url"]}" rel="noopener">{esc(n)}'s website</a>.</p>
-    <h2>Other alternatives to consider</h2>
-    {alts}
-    <div class="cta"><strong>Try TrackFolks free.</strong> Download the app, share your code with your team and start.<br /><a class="btn" href="/#download">Download TrackFolks</a></div>
-    {disclosure()}'''
-    title = f"Alternative to {n} for Attendance and Field Force Tracking"
-    w(path, page(title, f"{n} price, features and store ratings compared with TrackFolks, and the closest alternatives, for field attendance and location tracking.",
-                 path, body, jsonld(title, path)))
-
-
 # ------------------------------------------------------------------ retired articles
 def stub(path, title):
     w(path, f'''<!DOCTYPE html>
@@ -391,8 +309,5 @@ def stub(path, title):
 
 def build_all():
     build_top()
-    for c in COMPETITORS:
-        if c["key"] in NEW_KEYS:
-            build_alt_new(c)
     stub(COMPARE_PATH, "Comparing the Top 11 Field Force Tracking Apps")
     stub(HUB_PATH, "Alternatives to the Top 11 Attendance and Field Force Tracking Apps")
