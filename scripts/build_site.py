@@ -64,7 +64,7 @@ def build_llms():
          f"The guide compares {site_compare.NC} field force automation apps: {', '.join(c['name'] for c in site_compare.COMPETITORS)}. Each has its own 'Alternative to' page:", ""]
     for cat in ("FFA", "SFA", "FSM"):
         for k in site_guide.ORDER[cat]:
-            L.append(f"- [Alternative to {site_guide.A[k]['name']} ({cat})]({SITE}/{site_guide.path(k)})")
+            L.append(f"- [Alternatives to {site_guide.A[k]['name']} ({cat})]({SITE}/{site_guide.path(k)})")
     for p in BY_RANK:
         if alt_path(p) in OLD_ALTS:
             L.append(f"- [Alternative to {p['name']}]({SITE}/{alt_path(p)})")

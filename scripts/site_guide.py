@@ -283,7 +283,7 @@ def build(k):
     n, cat = a["name"], a["cat"]
     p = path(k)
     top = "comparison/how-to-pick-a-field-force-automation-app.html"
-    crumbs = (f'<a href="/{top}">How to Pick a Field Force Automation App</a> › ' if cat == "FFA" else "") + f"Alternative to {esc(n)}"
+    crumbs = (f'<a href="/{top}">How to Pick a Field Force Automation App</a> › ' if cat == "FFA" else "") + f"Alternatives to {esc(n)}"
     cons = "".join(f"<li>{esc(c)}</li>" for c in a["cons"])
     pros = "".join(f"<li>{esc(c)}</li>" for c in a["pros"])
     rows = f'<tr><th scope="row">Google Play</th><td>{esc(store(a["play"]))}</td></tr><tr><th scope="row">Apple App Store</th><td>{esc(store(a["ios"]))}</td></tr>'
@@ -304,7 +304,7 @@ def build(k):
     tf_disc = ("This guide is published by TrackFolks, which makes a field force app. It is named here only where it answers a problem listed above, and it has no public reviews yet."
                if a["tf"] else "This guide is published by TrackFolks, which makes a field force app. TrackFolks is not recommended on this page because it does not answer the problems above.")
     others = "".join(f'<li>{link(o)}</li>' for o in ORDER[cat] if o != k)
-    title = f"Alternative to {n} for {CAT_FOR[cat]}"
+    title = f"Alternatives to {n} for {CAT_FOR[cat]}"
     body = f'''    <p class="crumbs">{crumbs}</p>
     <h1>{esc(title)}</h1>
     <p class="meta">Last checked {CHECKED} · Based on Google Play, App Store, G2, Capterra and Trustpilot reviews</p>
