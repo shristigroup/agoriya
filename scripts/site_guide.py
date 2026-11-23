@@ -31,7 +31,8 @@ app("unolo", "Unolo", "FFA", "https://unolo.com/", "unolo", (4.7, 6470), (3.3, 5
      "Gaps in leave approval, expense filters and record history (1 year)", "Some users find it pricey"],
     "mid-size Android-heavy teams that want the most proven app", "your team is mostly on iPhone",
     [("lystloc", "iPhone rating: Lystloc is rated 4.0 on iPhone against Unolo's 3.3, though from only 35 ratings."),
-     ("daytrack", "iPhone rating and price: dayTrack is rated 4.2 on iPhone, also from few ratings, and costs about $2.62.")],
+     ("daytrack", "iPhone rating and price: dayTrack is rated 4.2 on iPhone, also from few ratings, and costs about $2.62."),
+     ("connect", "Price: Connect My World is about $0.83 per user per month for 20 to 49 users, though its Play reviews are mostly old and its iPhone apps show no ratings.")],
     tf="Price: TrackFolks is $1.05 per user per month with the first 10 users free. It has no leave or shift management and no public reviews yet, so it fits teams that want core tracking at the lowest price.")
 app("fieldsense", "FieldSense", "FFA", "https://www.fieldsense.in/", "fieldsense", (3.9, 10900), (2.5, 130), "", "about $2.63",
     ["Live location and route capture", "Attendance with dashboards and muster reports", "Expense claims and visit planning",
@@ -48,16 +49,17 @@ app("lystloc", "Lystloc", "FFA", "https://www.lystloc.com/", "lystloc", (3.9, 52
      "One reviewer says tracking continued after logout", "Fixed pricing with no negotiation, at about $3.67 one of the higher prices among the field force apps here"],
     "small teams that want a simple, hands-on vendor", "you need heavy admin controls",
     [("unolo", "Price and rating: Unolo starts at about $2.11 and is rated 4.7 on Google Play from 6.47K reviews."),
-     ("daytrack", "Price: dayTrack is about $2.62 and is rated 4.1 on Google Play and 4.2 on iPhone, with fewer features.")],
+     ("onthego", "Price and rating: OnthegO.ai is about $1.46 to $2.31 in India and rated 4.3 on Google Play from 518 reviews, though its iPhone rating is 3.2."),
+     ("connect", "Price: Connect My World is about $0.83 per user per month for 20 to 49 users, though its Play reviews are mostly old and its iPhone apps show no ratings.")],
     tf="Price: TrackFolks is $1.05 per user per month with the first 10 users free, against about $3.67 for Lystloc. It has no public reviews yet and no leave or shift management.")
-app("trackofield", "TrackoField", "FFA", "https://trackobit.com/", "trackofield", (3.3, 212), (3.3, 15), "", "about $3.16",
+app("trackofield", "TrackoField", "FFA", "https://trackobit.com/", "trackofield", (3.3, 212), (3.3, 15), "", "about $5 on the annual plan, 10-user minimum ($6 half-yearly, $8 quarterly)",
     ["Broad feature list on paper, including face attendance, forms, roster and payroll", "Real-time tracking works for some users"],
     ["Battery drain (13 of 33 negative reviews)", "Hangs and slows the phone", "Distance mismatches",
      "Thin evidence: about 78 Play reviews read and no G2 or Trustpilot reviews"],
     "teams willing to run a proper trial on their own phones", "you want proven reviews before you buy",
     [("unolo", "Stability: Unolo is rated 4.7 on Google Play from 6.47K reviews, against 3.3 from 212 for TrackoField, and starts at about $2.11."),
-     ("daytrack", "Price and rating: dayTrack is about $2.62 and rated 4.1 on Google Play and 4.2 on iPhone."),
-     ("onthego", "Rating: OnthegO.ai is rated 4.3 on Google Play from 518 reviews and customises quickly for Indian teams.")])
+     ("onthego", "Price and rating: OnthegO.ai is about $1.46 to $2.31 in India, against about $5 for TrackoField, and is rated 4.3 on Google Play from 518 reviews."),
+     ("daytrack", "Price and rating: dayTrack is about $2.62 and rated 4.1 on Google Play and 4.2 on iPhone.")])
 app("daytrack", "dayTrack", "FFA", "https://daytrack.in/", "daytrack", (4.1, 868), (4.2, 22), "", "about $2.62 (plus a one-time setup fee of about $5.25 per user)",
     ["Easy to use", "Responsive support (73 positive mentions)", "Attendance, location and task management at a low price"],
     ["Battery drain (16 of 73 negative)", "Login, OTP, sync and update bugs", "Attendance marked absent after punching", "Wrong distance",
@@ -65,7 +67,7 @@ app("daytrack", "dayTrack", "FFA", "https://daytrack.in/", "daytrack", (4.1, 868
     "small teams that need attendance and location only", "you need expense claims or geofencing",
     [("unolo", "Features and rating: Unolo is rated 4.7 on Google Play from 6.47K reviews and lists distance, visit forms and geofencing."),
      ("fieldsense", "Features and price: FieldSense is about $2.63 and lists expense claims, forms, geofencing and a free tier, but is rated 2.5 on iPhone.")])
-app("onthego", "OnthegO.ai", "FFA", "https://onthego.ai/", "onthego", (4.3, 518), (3.2, 18), "Capterra 5.0 (8, from 2018 to 2021)", "about $2.63 to $4.74",
+app("onthego", "OnthegO.ai", "FFA", "https://onthego.ai/", "onthego", (4.3, 518), (3.2, 18), "Capterra 5.0 (8, from 2018 to 2021)", "about $1.46 to $2.31 in India (Rs 139 to Rs 219); international $4.99 and $7.99",
     ["Easy and quick to set up", "Responsive support and fast custom changes at low cost", "Task scheduling and work reports with distance and client OTP confirmation"],
     ["Punch-in and punch-out problems and stuck screens", "Slowness, photo capture interruptions and login trouble after updates",
      "The back-end UI needs work", "iPhone rating of 3.2"],
@@ -80,8 +82,8 @@ app("trackwick", "TrackWick (Trackolap)", "FFA", "https://trackolap.com/", "trac
      "Pricing seen as high against similar apps"],
     "sales-force tracking where live location is the priority", "",
     [("unolo", "Price and rating: Unolo starts at about $2.11 and is rated 4.7 on Google Play from 6.47K reviews."),
-     ("daytrack", "Price: dayTrack is about $2.62 and rated 4.1 on Google Play and 4.2 on iPhone."),
-     ("fieldsense", "Price and features: FieldSense is about $2.63 with a free tier, but is rated 2.5 on iPhone.")],
+     ("onthego", "Price: OnthegO.ai is about $1.46 to $2.31 in India and rated 4.3 on Google Play from 518 reviews."),
+     ("connect", "Price: Connect My World is about $0.83 per user per month for 20 to 49 users, though its Play reviews are mostly old and its iPhone apps show no ratings.")],
     tf="Price: TrackFolks is $1.05 per user per month with the first 10 users free, against about $3.16 to $8.42 for TrackWick by plan. It has no public reviews yet.",
     note="TrackWick's price comes from a third-party listing, not its own site.")
 app("breezefsm", "BreezeFSM", "FFA", "https://breezefsm.com/", "breezefsm", (4.1, 22), None, "Capterra 4.7 (15), G2 4.3 (6)", "from about $2.63",
@@ -92,6 +94,20 @@ app("breezefsm", "BreezeFSM", "FFA", "https://breezefsm.com/", "breezefsm", (4.1
      ("unolo", "Accuracy and track record: Unolo is rated 4.7 on Google Play from 6.47K reviews, though its iPhone rating is 3.3."),
      ("daytrack", "iPhone: dayTrack has an iPhone app rated 4.2, from few ratings.")],
     note="BreezeFSM is closer to field force automation with a sales slant than to field service management, despite its name.")
+
+app("connect", "Connect My World", "FFA", "https://www.connectmyworld.in/", "connect-my-world", (4.1, 206), None,
+    "Play: supervisor app 4.6 (11), monitor app 3.5 (43); iPhone apps exist but show no rating counts; no Capterra or G2 listing",
+    "about $0.83 (Rs 79) for 20 to 49 users; Rs 89 for 6 to 19, Rs 69 for 50 to 199, Rs 65 for 200 and over; billed every 3 months; free 2-week trial",
+    ["Live tracking with point-by-point day replay, distance and kilometre logging", "GPS or selfie attendance", "Geofenced visits with arrival alerts and offline forms",
+     "All in one per-user price with no tiers"],
+    ["Battery drain", "A phone that hangs or slows", "\"km not working properly\" (a 2023 review)", "Hard to uninstall because it runs as a device administrator (the vendor says background running is by design)",
+     "The Play reviews read (135) are mostly old, with only three from 2024 and 2025, and there are no Capterra or G2 reviews, so public evidence is thin",
+     "The iPhone apps show no ratings"],
+    "small and mid-size Indian teams that want tracking, attendance and tasks at one low per-user price", "your team is mostly on iPhone or you want recent public reviews before buying",
+    [("unolo", "Recent evidence: Unolo is rated 4.7 on Google Play from 6.47K reviews, updated in November 2026, and starts at about $2.11."),
+     ("daytrack", "iPhone: dayTrack has iPhone ratings (4.2 from 22) and is rated 4.1 on Google Play from 868 reviews, at about $2.62."),
+     ("lystloc", "iPhone: Lystloc is rated 4.0 on iPhone and 3.9 on Google Play from 521 reviews, at about $3.67.")],
+    note="The app is split in three on Google Play: the employee app (Field Task Manager), a supervisor app and a monitor app. The 4.1 rating is the employee app's.")
 
 # ---------------------------------------------------------------- SFA
 app("fieldassist", "FieldAssist", "SFA", "https://www.fieldassist.com/", "fieldassist", (4.5, 1120), (3.1, 99), "G2 4.8 (9); Play also lists General Trade 4.1 (3.07K)",
@@ -224,7 +240,7 @@ app("fieldez", "FieldEZ", "FSM", "https://www.fieldez.com/", "fieldez", (3.1, 15
      ("jobber", "Ratings: Jobber is rated 4.1 on Google Play from 7K reviews and 4.8 on iPhone from 22K, though it is built for US-style markets."),
      ("housecall_pro", "Ratings: Housecall Pro is rated 4.7 on iPhone from 32K ratings and 4.3 on G2.")])
 
-ORDER = {"FFA": ["unolo", "fieldsense", "lystloc", "trackofield", "daytrack", "onthego", "trackwick", "breezefsm"],
+ORDER = {"FFA": ["unolo", "fieldsense", "lystloc", "trackofield", "daytrack", "onthego", "trackwick", "breezefsm", "connect"],
          "SFA": ["fieldassist", "beatroute", "delta", "bizom", "saleson", "sansales", "salesdiary", "sfaxpert", "salesmagna"],
          "FSM": ["zoho_fsm", "jobber", "housecall_pro", "servicetitan", "salesforce_fs", "fieldez"]}
 for k in A:

@@ -29,6 +29,9 @@ C = [
     dict(key="trackfolks", name="TrackFolks", url="/", tier="Pay as you grow", cost="₹100", setup="₹0",
          feats="GPS, Selfie Attendance, Distance, Route Timeline, Visit Forms, Geofencing coming soon", note="First 10 users free. Capped at $499 a year.",
          has={"gps", "attendance", "distance", "route", "visits", "face", "geofence", "free", "nosetup"}),
+    dict(key="connect", name="Connect My World", url="https://www.connectmyworld.in/", tier="One price, all features", cost="₹65 – ₹89", setup="₹0",
+         feats="GPS, Attendance, Distance, Route Replay, Geofenced Visits", note="Billed every 3 months in advance. Price falls with team size (₹89 for 6-19 users, ₹79 for 20-49).",
+         has={"distance", "route", "visits", "face", "geofence", "nosetup"}, year=lambda u: u * (89 if u < 20 else 79 if u < 50 else 69 if u < 200 else 65) * 12, color="#0891b2"),
     dict(key="unolo", name="Unolo", url="https://unolo.com/", tier="Basic Plan", cost="~₹200 – ₹250", setup="₹0",
          feats="GPS, Attendance, Distance, Visit Forms", note="Starter (~₹100–₹150) lacks TA/conveyance claims.",
          has={"distance", "visits", "geofence", "nosetup"}, year=lambda u: u * 250 * 12, color="#2a78d6"),
@@ -41,30 +44,30 @@ C = [
     dict(key="breezefsm", name="BreezeFSM", url="https://breezefsm.com/", tier="Base Tracking", cost="Starts at ₹250", setup="Custom",
          feats="GPS, Attendance, Distance, Visit Reporting", note="Geared toward B2B/FMCG sales.",
          has={"distance", "visits", "geofence"}, year=lambda u: u * 250 * 12, color="#7c3aed"),
-    dict(key="trackofield", name="TrackoField", url="https://trackobit.com/", tier="Annual Plan", cost="₹300", setup="₹0",
-         feats="GPS, Face AI Attendance, Distance, Visits", note="Strict minimum seat thresholds (10 users on annual).",
-         has={"distance", "visits", "face", "geofence", "nosetup"}, year=lambda u: u * 300 * 12, color="#0b7285"),
+    dict(key="trackofield", name="TrackoField", url="https://trackobit.com/", tier="Annual Plan", cost="₹475", setup="₹0",
+         feats="GPS, Face AI Attendance, Distance, Visits", note="Annual plan, 10-user minimum. ₹570 half-yearly, ₹760 quarterly.",
+         has={"distance", "visits", "face", "geofence", "nosetup"}, year=lambda u: u * 475 * 12, color="#0b7285"),
     dict(key="trackwick", name="TrackWick", url="https://trackolap.com/", tier="Plans by feature", cost="₹300 – ₹800", setup="Not published",
          feats="GPS, Attendance, Distance, Leave", note="Price is from a third-party listing (₹300, ₹600 or ₹800 by plan), not the vendor's site.",
          has={"distance"}, year=lambda u: u * 800 * 12, color="#d97706"),
-    dict(key="salarybox", name="SalaryBox", url="https://www.salarybox.in/", tier="Starter + CRM Add-on", cost="₹290 – ₹370", setup="₹0",
-         feats="GPS, Attendance, Distance, Route Timeline", note="₹1,000 base + ₹20/user + ₹250 CRM add-on for distance.",
-         has={"distance", "route", "geofence", "nosetup"}, year=lambda u: u * 370 * 12, color="#6250d6"),
+    dict(key="salarybox", name="SalaryBox", url="https://www.salarybox.in/", tier="Starter + CRM Add-on", cost="₹153 – ₹404 (30 users)", setup="₹0",
+         feats="GPS, Attendance, Distance, Route Timeline", note="₹1,000 base + ₹20/user + ₹100 live location add-on, plus ₹250 CRM add-on for trips and distance.",
+         has={"distance", "route", "geofence", "nosetup"}, year=lambda u: (1000 + u * 370) * 12, color="#6250d6"),
     dict(key="lystloc", name="Lystloc", url="https://www.lystloc.com/", tier="Enterprise Plan", cost="₹349", setup="₹0",
          feats="GPS (360 hrs), Attendance, Distance, Photos", note="Report downloads & APIs cost extra on this tier.",
          has={"distance", "geofence", "nosetup"}, year=lambda u: u * 349 * 12, color="#be185d"),
-    dict(key="onthego", name="OnthegO.ai", url="https://onthego.ai/", tier="Custom FFA", cost="~₹250 – ₹450", setup="Custom",
-         feats="GPS, Attendance, Distance, Visit Forms", note="Bespoke enterprise workflow setup; no public retail card.",
-         has={"distance", "visits", "geofence"}, year=lambda u: u * 450 * 12, color="#a16207"),
+    dict(key="onthego", name="OnthegO.ai", url="https://onthego.ai/", tier="Custom FFA", cost="₹139 – ₹219", setup="Custom",
+         feats="GPS, Attendance, Distance, Visit Forms", note="₹139 (FFA) or ₹219 (FFA+) in India. Distance uses a third-party map API, which adds ₹60.",
+         has={"distance", "visits", "geofence"}, year=lambda u: u * 219 * 12, color="#a16207"),
     dict(key="truein", name="Truein", url="https://truein.com/", tier="Time Capture + Tracking", cost="~₹612 (10 users)<br>~₹152 (50 users)", setup="₹0",
          feats="GPS Route History, Face Attendance", note="₹69,000/yr mandatory base fee + ₹450/user/yr.",
          has={"route", "face", "geofence", "nosetup"}, year=lambda u: 69000 + 450 * u, color="#8d6e4a"),
-    dict(key="jibble", name="Jibble", url="https://jibble.io/", tier="Ultimate Plan (USD)", cost="$7.99", setup="₹0",
-         feats="Live GPS & Route Map, Face Attendance", note="Does not calculate total distance (km); no visit forms.",
-         has={"route", "face", "geofence", "nosetup"}, year=lambda u: u * 690 * 12, color="#8a8580"),
-    dict(key="timeero", name="Timeero", url="https://timeero.com/", tier="Pro + Segmented Add-on", cost="$12.50", setup="₹0",
-         feats="GPS, Geofenced Attendance, Auto-Mileage", note="Billed in USD; Basic ($5) lacks geofencing & visit logs.",
-         has={"distance", "geofence", "nosetup"}, year=lambda u: u * 1060 * 12, color="#7c8f23"),
+    dict(key="jibble", name="Jibble", url="https://jibble.io/", tier="Ultimate Plan (USD)", cost="$6.99", setup="₹0",
+         feats="Live GPS & Route Map, Face Attendance", note="Ultimate plan at the vendor's discounted regional rate; free plan covers unlimited users. No distance (km) or visit forms.",
+         has={"route", "face", "geofence", "nosetup"}, year=lambda u: u * 664 * 12, color="#8a8580"),
+    dict(key="timeero", name="Timeero", url="https://timeero.com/", tier="Pro + Segmented Add-on", cost="$5 – $10", setup="₹0",
+         feats="GPS, Geofenced Attendance, Auto-Mileage", note="Billed in USD. Basic $5 has GPS and mileage; geofencing and the full workday timeline need Pro ($7.50) or Premium ($10).",
+         has={"distance", "geofence", "nosetup"}, year=lambda u: u * 950 * 12, color="#7c8f23"),
 ]
 for c in C:
     c["has"] = set(c["has"]) | ALL_BASE
@@ -94,6 +97,8 @@ def chart_block():
 
 
 # ------------------------------------------------------------------ the competitor comparison section of the landing page
+SHOWN = 6  # rows shown before "Show all"; TrackFolks always stays visible
+
 PAGE_CSS_EXTRA = """
 .cmp-sub { color:var(--muted); font-size:14px; margin-bottom:18px; max-width:none; }
 .cmp-cta { display:inline-block; background:var(--red); color:#fff; padding:9px 18px; border-radius:10px; text-decoration:none; font-weight:700; font-size:14px; margin-bottom:22px; }
@@ -126,9 +131,15 @@ PAGE_JS = """
   var chips = [].slice.call(document.querySelectorAll('.chip'));
   var info = document.getElementById('chip-info');
   var empty = document.getElementById('cmp-empty');
+  var open = false;
+  document.getElementById('cmp-toggle').addEventListener('click', function () {
+    open = !open; this.textContent = open ? 'Show fewer' : 'Show all ' + rows.length + ' apps'; apply();
+  });
   function apply() {
     var on = chips.filter(function (c) { return c.classList.contains('on'); }).map(function (c) { return c.dataset.key; });
     var shown = 0;
+    var wrap = document.getElementById('cmp-wrap'), btn = document.getElementById('cmp-toggle');
+    if (on.length) { wrap.classList.remove('collapsed'); btn.hidden = true; } else { btn.hidden = false; wrap.classList.toggle('collapsed', !open); }
     rows.forEach(function (r) {
       var has = r.dataset.has.split(' ');
       var ok = on.every(function (k) { return has.indexOf(k) > -1; });
@@ -166,18 +177,19 @@ def section_html(esc):
         f'<button type="button" class="chip-i" aria-expanded="false" aria-label="What is {esc(label, quote=True)}?">i</button></span>'
         for k, label, desc in FEATURES)
     rows = ""
-    for c in C:
+    for n, c in enumerate(sorted(C, key=lambda c: c["name"].lower())):  # A to Z, TrackFolks included (highlighted)
         us = c["key"] == "trackfolks"
         name = "TrackFolks" if us else f'<a href="{c["url"]}" target="_blank" rel="noopener nofollow">{esc(c["name"])}</a>'
-        rows += (f'<tr{" class=us" if us else ""} data-has="{" ".join(sorted(c["has"]))}">'
+        cls = " ".join(x for x in ("us" if us else "", "more" if n >= SHOWN and not us else "") if x)
+        rows += (f'<tr{f" class={cls!r}".replace(chr(39), chr(34)) if cls else ""} data-has="{" ".join(sorted(c["has"]))}">'
                  f'<td class="prov">{name}</td><td class="price">{usd(c["cost"])}</td><td>{esc(usd(c["setup"]))}</td>'
                  f'<td>{esc(c["feats"])}</td><td>{esc(usd(c["note"]))}</td></tr>\n')
-    return f'''<div class="cmp-section" id="competitor-comparison">
+    return f'''<div class="cmp-section reveal" id="competitor-comparison">
 <h2 class="section-label">Competitor Comparison</h2>
 <p class="cmp-sub">Select features from the chips below to filter the table.</p>
 <div class="chips" role="group" aria-label="Filter by feature">{chips}</div>
 <div id="chip-info" hidden></div>
-<div class="cmp-wrap">
+<div class="cmp-wrap collapsed" id="cmp-wrap">
 <table class="cmp">
 <thead><tr><th>Provider</th><th>Monthly Cost / User</th><th>Setup Fee</th><th>Core Field Features Included</th><th>Key Catch / Notes</th></tr></thead>
 <tbody>
@@ -185,5 +197,6 @@ def section_html(esc):
 </table>
 <div id="cmp-empty">No app matches all the selected features.</div>
 </div>
+<button type="button" class="cmp-toggle" id="cmp-toggle">Show all {len(C)} apps</button>
 <script>{PAGE_JS}</script>
 </div>'''

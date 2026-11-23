@@ -21,7 +21,7 @@ TrackFolks is built by Shristi Health & Power Solutions Private Limited for fiel
 - First-year offer: the yearly cap is $249 instead of $499. The renewal price ($499 cap) is published upfront.
 - No base fee and no paid add-ons for GPS or route tracking. About $0.69 per user per month in year 1 and $0.70 after renewal for a 30-user team; about $0.42 for a 100-user team after the first year.
 - Enterprise: the same $499 per year usage cost, plus one-time costs for data localisation (choosing your data region), on-premise or own-cloud hosting, and custom features.
-- In our comparison of 12 field force automation apps (November 2026, public prices, annual billing, cheapest plan with route and distance features, excluding GST), TrackFolks has the lowest published price per user. Competitors per user per month: Unolo ~$2.11 – $2.63, dayTrack $2.62, FieldSense $2.63, BreezeFSM Starts at $2.63, TrackoField $3.16, TrackWick $3.16 – $8.42, SalaryBox $3.05 – $3.89, Lystloc $3.67, OnthegO.ai ~$2.63 – $4.74, Truein ~$6.44 (10 users), ~$1.60 (50 users), Jibble $7.99, Timeero $12.50. Truein also has a mandatory base fee of about $726 a year; some vendors have setup fees or minimum seat counts.
+- In our comparison of 13 field force automation apps (November 2026, public prices, annual billing, cheapest plan with route and distance features, excluding GST), TrackFolks has the lowest published price per user. Competitors per user per month: Connect My World $0.68 – $0.94, Unolo ~$2.11 – $2.63, dayTrack $2.62, FieldSense $2.63, BreezeFSM Starts at $2.63, TrackoField $5.00, TrackWick $3.16 – $8.42, SalaryBox $1.61 – $4.25 (30 users), Lystloc $3.67, OnthegO.ai $1.46 – $2.31, Truein ~$6.44 (10 users), ~$1.60 (50 users), Jibble $6.99, Timeero $5 – $10. Truein also has a mandatory base fee of about $726 a year; some vendors have setup fees or minimum seat counts.
 
 ## What TrackFolks offers
 
@@ -33,7 +33,7 @@ TrackFolks is built by Shristi Health & Power Solutions Private Limited for fiel
 
 ## Alternatives and comparisons
 
-The guide compares 12 field force automation apps: Unolo, dayTrack, FieldSense, BreezeFSM, TrackoField, TrackWick, SalaryBox, Lystloc, OnthegO.ai, Truein, Jibble, Timeero. Each has its own 'Alternative to' page:
+The guide compares 13 field force automation apps: Connect My World, Unolo, dayTrack, FieldSense, BreezeFSM, TrackoField, TrackWick, SalaryBox, Lystloc, OnthegO.ai, Truein, Jibble, Timeero. Each has its own 'Alternative to' page:
 
 - [Alternative to Unolo (FFA)](https://tf.shristigroup.com/comparison/alternative-to-unolo-field-force-tracking-app.html)
 - [Alternative to FieldSense (FFA)](https://tf.shristigroup.com/comparison/alternative-to-fieldsense-field-force-tracking-app.html)
@@ -43,6 +43,7 @@ The guide compares 12 field force automation apps: Unolo, dayTrack, FieldSense, 
 - [Alternative to OnthegO.ai (FFA)](https://tf.shristigroup.com/comparison/alternative-to-onthego-field-force-tracking-app.html)
 - [Alternative to TrackWick (Trackolap) (FFA)](https://tf.shristigroup.com/comparison/alternative-to-trackwick-field-force-tracking-app.html)
 - [Alternative to BreezeFSM (FFA)](https://tf.shristigroup.com/comparison/alternative-to-breezefsm-field-force-tracking-app.html)
+- [Alternative to Connect My World (FFA)](https://tf.shristigroup.com/comparison/alternative-to-connect-my-world-field-force-tracking-app.html)
 - [Alternative to FieldAssist (SFA)](https://tf.shristigroup.com/comparison/alternative-to-fieldassist-field-force-tracking-app.html)
 - [Alternative to BeatRoute (SFA)](https://tf.shristigroup.com/comparison/alternative-to-beatroute-field-force-tracking-app.html)
 - [Alternative to Delta Sales App (SFA)](https://tf.shristigroup.com/comparison/alternative-to-delta-sales-app-field-force-tracking-app.html)
@@ -69,7 +70,7 @@ The guide compares 12 field force automation apps: Unolo, dayTrack, FieldSense, 
 - [Alternative to Timeero](https://tf.shristigroup.com/comparison/alternative-to-timeero-field-force-tracking-app.html)
 
 - [Field Force, Sales Force or Field Service? A Buyer's Guide to Field Tracking Software (2026)](https://tf.shristigroup.com/comparison/field-tracking-software-buyers-guide.html): four categories and 36 field tracking apps compared on ratings, reviews, price and fit.
-- [How to Pick a Field Force Automation App](https://tf.shristigroup.com/comparison/how-to-pick-a-field-force-automation-app.html): who needs field force automation, must-have and good-to-have features, how to compare prices, and 12 apps compared.
+- [How to Pick a Field Force Automation App](https://tf.shristigroup.com/comparison/how-to-pick-a-field-force-automation-app.html): who needs field force automation, must-have and good-to-have features, how to compare prices, and 13 apps compared.
 
 Where TrackFolks is a good fit: field sales, service and delivery teams that want selfie attendance, live GPS, route and distance reports, customer visit logs and expense receipts at the lowest price, managed entirely from a phone.
 Where another app is a better fit: teams that need leave or roster management, biometric or QR attendance, built-in payroll, shift scheduling or geofenced job sites today.

@@ -31,7 +31,8 @@
   var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img',
     'aria-label': 'Line chart, on a logarithmic scale, of cost per year against number of users. TrackFolks is capped at $499 a year.' });
   var clip = el('clipPath', { id: 'plot-clip' });
-  clip.appendChild(el('rect', { x: L - 4, y: T, width: pw + 8, height: ph }));
+  var clipRect = el('rect', { x: L - 4, y: T, width: pw + 8, height: ph });
+  clip.appendChild(clipRect);
   var defs = el('defs', {}); defs.appendChild(clip); svg.appendChild(defs);
   var ticks = TICKS || [0, 1, 2, 3, 4].map(function (g) { return g * YMAX / 4; });
   ticks.forEach(function (t) {

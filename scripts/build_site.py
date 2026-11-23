@@ -80,15 +80,18 @@ def build_llms():
 
 # ------------------------------------------------------------------ landing page
 def guides_footer():
-    """Footer links to every article: the two guides, then the 'Alternative to' pages by category."""
-    def a(href, text):
-        return f'<a href="/{href}">{esc(text)}</a>'
-    rows = [("Guides", [a(site_buyers_guide.GUIDE_PATH, "Buyer's guide to field tracking software"), a(TOP_PATH, "How to pick a field force automation app")])]
-    for cat, label in (("FFA", "Field force automation"), ("SFA", "Sales force automation"), ("FSM", "Field service management")):
-        rows.append((f"Alternatives, {label.lower()}", [a(site_guide.path(k), site_guide.A[k]["name"]) for k in site_guide.ORDER[cat]]))
-    old = [a(alt_path(p), p["name"]) for p in BY_RANK if alt_path(p) in OLD_ALTS]
-    rows.append(("Alternatives, HR and workforce tools", old))
-    return "\n".join(f'    <p style="margin-top:8px;"><strong>{esc(t)}:</strong> ' + " · ".join(links) + "</p>" for t, links in rows)
+    """Footer link columns: how-to guides, then the 'Alternative to' pages for the FFA, SFA and FSM apps.
+    HR suites are left out (TrackFolks is not an HR app); SalaryBox stays under FFA because it tracks field staff, with payroll on top."""
+    def li(href, text, note=""):
+        return f'<li><a href="/{href}">{esc(text)}</a>{note}</li>'
+    cols = [("How-to guides", [li(site_buyers_guide.GUIDE_PATH, "Buyer's guide to field tracking software"), li(TOP_PATH, "How to pick a field force automation app")])]
+    for cat, label in (("FFA", "FFA"), ("SFA", "SFA"), ("FSM", "FSM")):
+        items = [li(site_guide.path(k), "Alternatives to " + site_guide.A[k]["name"]) for k in site_guide.ORDER[cat]]
+        if cat == "FFA":
+            sb = next(p for p in BY_RANK if p["name"] == "SalaryBox")
+            items.append(li(alt_path(sb), "Alternatives to SalaryBox", ' <span class="fcol-note">(payroll, so partly an HR app)</span>'))
+        cols.append((f"Alternatives to {label} apps", items))
+    return '    <div class="footer-cols">\n' + "\n".join(f'      <div><h4>{esc(t)}</h4><ul>{"".join(items)}</ul></div>' for t, items in cols) + "\n    </div>"
 
 
 def patch_landing():
@@ -114,7 +117,7 @@ if __name__ == "__main__":
     #     build_alt(p)
     site_compare.build_all()
     site_guide.build_all()
-    site_buyers_guide.build()
+    # The buyer's guide page is hand-edited from here on, so it is no longer generated (site_buyers_guide.build() would overwrite it).
     build_refund()
     build_terms()
     build_sitemap()

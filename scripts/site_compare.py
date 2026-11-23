@@ -27,6 +27,7 @@ NEW_RATINGS = {
     "breezefsm": dict(play=(4.10, 22), ios=None),
     "trackofield": dict(play=(3.30, 212), ios=(3.33, 15)),
     "trackwick": dict(play=(4.0, 561), ios=None),
+    "connect": dict(play=(4.1, 206), ios=None),
     "salarybox": dict(play=(4.3, 11700), ios=(3.7, 391)),
     "lystloc": dict(play=(3.94, 521), ios=(4.03, 35)),
     "onthego": dict(play=(4.3, 518), ios=(3.17, 18)),
@@ -92,6 +93,7 @@ GOOD_HAS = {
     "jibble": {"roster", "payroll", "leave", "biometric"},
     "timeero": {"roster", "payroll", "leave", "expense"},
     "trackwick": {"leave"},
+    "connect": {"task", "forms"},
 }
 
 
