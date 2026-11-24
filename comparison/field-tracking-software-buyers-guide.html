@@ -129,11 +129,19 @@ details { margin-top:12px; font-size:13px; } summary { cursor:pointer; font-weig
 footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20px; border-top:1px solid var(--divider); }
 
 .g-sec { margin-top:44px; }
-.g-sec > h2 { font-size:24px; margin:0 0 14px; padding:10px 14px; background:var(--red-light); border-left:5px solid var(--red); border-radius:0 10px 10px 0; }
+.g-sec > h2, .g-acc > summary h2 { font-size:24px; margin:0 0 14px; padding:10px 14px; background:var(--red-light); border-left:5px solid var(--red); border-radius:0 10px 10px 0; }
 .g-body { margin-left:22px; padding-left:18px;  }
 .g-sub { margin:26px 0 0; }
 .g-sub > h3 { font-size:18px; margin:0 0 8px; color:var(--red-dark); display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
 .g-sub > h3::before { content:""; width:9px; height:9px; border-radius:50%; background:var(--red); flex:none; align-self:center; margin-left:-24px; margin-right:-2px; }
+blockquote { margin:18px 0; padding:14px 18px; background:var(--red-light); border-left:5px solid var(--red); border-radius:0 10px 10px 0; font-size:15px; }
+.g-acc { margin-top:0; font-size:inherit; }
+.g-acc > summary { list-style:none; cursor:pointer; font-weight:inherit; color:inherit; }
+.g-acc > summary::-webkit-details-marker { display:none; }
+.g-acc > summary h2 { display:flex; justify-content:space-between; align-items:center; margin:0; }
+.g-acc > summary h2::after { content:"+"; font-size:26px; line-height:1; color:var(--red); margin-left:12px; }
+.g-acc[open] > summary h2 { margin-bottom:14px; }
+.g-acc[open] > summary h2::after { content:"\2212"; }
 .g-src { font-size:12.5px; font-weight:400; color:var(--muted); }
 .g-sub > .g-body { margin-left:14px;  }
 .g-body p, .g-body li { font-size:14px; line-height:1.6; }
@@ -166,8 +174,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
       <li><b>SFA:</b> Then there are <b>Sales Force Automation</b> apps aka SFA apps. Sales people need to visit certain location on regular basis. This is usually created as <i>Beats</i> & a Beat is either assigned temporarily or permanently to a person. When they go to each location, they need to either collect orders or takes notes. So visit logging also becomes integral part of SFA apps.</li>
       <li><b>FSM:</b> Another category is <b>Field Service Management</b> aka FSM apps. FSM apps are used by service providers like technicians, plumbers or any other on demand service providers. These apps usually have <i>Tasks</i> that are assigned on the fly to app owner. It also has invoicing feature as the app owner need to <i>bill</i> the client & collect payment.</li>
       <li>Last but not the least, quite a few HR Tech softwares also have location module available as add-on. In this article we have discussed about them as well.</li>
-    </ul>  
-    </p>
+    </ul>
 
     <p>To create this guide, we tried finding top vendors by searching for each category apps in Google Play Store, IOS App Store & review sites like G2, Capterra & Trustpilot. We picked the top providers by rating & review count. Then we checked each provider's own website to get an idea of their features & pricing.</p>
 
@@ -228,13 +235,11 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           <li><b>Offline support</b> as network may not be available all the time. Having said that, allowing offline attendance would mean forgoing notifications to supervisors which can become counter-productive.</li>
         </ul>
         
-        <p>
-          <blockquote>Every FFA app in this guide gets the basics right, so the real differences are distance accuracy, battery use, iPhone quality and price. Battery drain and wrong kilometre counts are the top complaint for almost every app below, and none is free of them.</blockquote>
-        </p>
+        <blockquote>Every FFA app in this guide gets the basics right, so the real differences are distance accuracy, battery use, iPhone quality and price. Battery drain and wrong kilometre counts are the top complaint for almost every app below, and none is free of them.</blockquote>
 
         <p><i>Prices below are per user per month on an annual plan</i>, as listed on each vendor's own pricing page unless the pricing table says otherwise.</p>
         <div class="g-sub">
-          <h3 id="unolo">Unolo <span class="g-src">Android: 4.7 (6.47K reviews) · IOS: 3.3 (59 reviews) · Capterra: 4.6 (35 reviews) · Cost: ~$2.11-$2.63</span></h3>
+          <h3 id="unolo">Unolo <span class="g-src">Android: 4.7 (6.47K reviews) · iOS: 3.3 (59 reviews) · Capterra: 4.6 (35 reviews) · Price: ~$2.11-$2.63</span></h3>
           <div class="g-body">
             <p>Unolo is by the far the best vendor in this segment with the best Android review with review count being reasonably high too. Reviewers praised ease of use & most features like attendance, location tracking, route timeline & reports works predictably well. No major crashes etc are reported either. Reviews also mentioned customer care being supportive which stood out considering some of the large players in this segment have weak customer support.</p>
             <p><b>Cons:</b> Like with every other app in the segment, most people reported distance measurement coudl be 5-10% off from real distance. From our comparison, we found that it is much better/acceptable number compared to peers. People also reported battery drain, but most location tracking softwares will anyway have drain problem. Some reviews highlighted issues with features - gaps in leave approval (apparently leave application did not show up timely to supervisor for approval), expense filters not working well etc. But these callouts were far & few.</p>
@@ -243,7 +248,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="fieldsense">FieldSense <span class="g-src">Android: 3.9 (10.9K reviews) · IOS: 2.5 (130 reviews) · Price: ~$2.63</span></h3>
+          <h3 id="fieldsense">FieldSense <span class="g-src">Android: 3.9 (10.9K reviews) · iOS: 2.5 (130 reviews) · Price: ~$2.63</span></h3>
           <div class="g-body">
             <p>Fieldsense is the biggest player as per the Android app store review count goes, but the reviews are not that great overall. Fieldsense excels when it comes to feature list & has support for custom forms & roster as well, which typically is only found in SFA apps. It is also one of the few apps to have free tier for upto 10 users. The only other app being TrackFolks. </p>
             <p><b>Cons:</b> Like every other app, people have complained about wrong distance calculation. But the callouts are much more severe compared to Unolo. About 71/373 negative reviews on Android report wrong calculation, which makes the most popular negative review of Fieldsense. Some user mentioned that 200 kms distance was reported as 130 kms. We believe the distance under-reporting issue is pretty serious with Fieldsense.</p>
@@ -252,7 +257,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="lystloc">Lystloc <span class="g-src">Android: 3.9 (521 reviews) · IOS: 4.0 (35 reviews) · Capterra: 4.3 (6 reviews) · Price: $3.67</span></h3>
+          <h3 id="lystloc">Lystloc <span class="g-src">Android: 3.9 (521 reviews) · iOS: 4.0 (35 reviews) · Capterra: 4.3 (6 reviews) · Price: $3.67</span></h3>
           <div class="g-body">
             <p>Lystloc seems like a newer entrant compared to Unolo & FieldSense. But what stands out is there significantly better IOS review compared to the other two popular players. Reviewers reported it to be easy to use (but that was there for others too), responsive support (being a smaller player guess they can afford to) etc. They do seem to have task support which usually is part of FSM feature. So it seems like supervisors can create & assign tasks to team on the ground.</p>
             <p><b>Cons:</b> As usual, the most popular negative review is calculated vs actual distance calculation & battery drain. One reviewer said tracking continued even after logout. Another review mentioned fixed pricing & no negotiation.</p>
@@ -260,13 +265,13 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="trackofield">TrackoField <span class="g-src">Android: 3.3 (212 reviews) · IOS: 3.3 (15 reviews) · Price: ~$5</span></h3>
+          <h3 id="trackofield">TrackoField <span class="g-src">Android: 3.3 (212 reviews) · iOS: 3.3 (15 reviews) · Price: ~$5</span></h3>
           <div class="g-body">
             <p>Trackofield is an app from Trackobit. Trackobit focuses on GPS tracking software for fleets & they decided to put a field force automation software considering they had GPS technology anyway. Trackobit also does a lot of whitelabeled solutions for their clients, which could explain why the review count for Trackofiled could be small. We decided to skip trackofield as we could not find enough evidence of which of their features work well & which dont, from the reviews. Apart from usual complaints of distance mismatch, battery drains etc, some review said 'real-time tracking works for some users', which we found baffling as it is the main feature of a FFA app. On paper, they do seem to have a long list of features including forms, roster & payroll, but we had no way to cross check this from the reviews.</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="daytrack">dayTrack <span class="g-src">Android: 4.1 (868 reviews) · IOS: 4.2 (22 reviews) · Price: ~$2.62</span></h3>
+          <h3 id="daytrack">dayTrack <span class="g-src">Android: 4.1 (868 reviews) · iOS: 4.2 (22 reviews) · Price: ~$2.62</span></h3>
           <div class="g-body">
             <p>Another newer entrant, although their Android review count is higher than Lystloc. Having said that, the overall review seems even better than Unolo (both app stores have 4+ average review). A high percentage of reviews mentioned 'positive support' so that definitely deserves a mention. They also have task management feature apart from being easy to use.</p>
             <p><strong>Cons:</strong> battery drain (16 of 73 negative); login, OTP, sync and update bugs; attendance marked absent after punching; wrong distance. No expense logging or geofencing on the comparison page.</p>
@@ -274,39 +279,39 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="onthego-ai">OnthegO.ai <span class="g-src">Android: 4.3 (518 reviews) · IOS: 3.2 (18 reviews) · Capterra: 5.0 (8 reviews, 2018 to 2021, so old) · Price: ~$1.46-$2.31</span></h3>
+          <h3 id="onthego-ai">OnthegO.ai <span class="g-src">Android: 4.3 (518 reviews) · iOS: 3.2 (18 reviews) · Capterra: 5.0 (8 reviews, 2018 to 2021, so old) · Price: ~$1.46-$2.31</span></h3>
           <div class="g-body">
-            <p>One of the very few vendors that do customization as per customer ask, although we could not get any data of how well these customizations. Reviews did mention customization at low cost. Their support is also praised for being responsive. They also have task scheduling (like Lystloc, dayTrack etc).</p>
+            <p>One of the very few vendors that do customization as per customer ask, although we could not get any data of how well these customizations. Reviews did mention customization at low cost. Their support is also praised for being responsive. They also have task scheduling (like Lystloc, dayTrack etc). All this for a price cheaper than both Lystloc & dayTrack. OnthegO is the 3rd cheapest app in the list after TrackFolks & Connect My World.</p>
             <p><strong>Cons:</strong> punch-in and punch-out problems and stuck screens; slowness, photo capture interruptions and login trouble after updates. Our take is all the customizations comes at the cost of main functionalities breaking down or introducing bugs in them. Also, worth noting is that last Capterra review was from 2021. We did check if they released newer updates on app store & we did find updates. So it seems like app is not dead.</p>
-            <p><strong>Verdict:</strong> If you have a strong need of custom app that has tracking. But you need to ensure substantial time testing the app for bugs & main functionalities breaking. Also, the IOS review being too low makes us a bit nervous. So avoid if you have IOS users in the team.</p>
+            <p><strong>Verdict:</strong> If you have a strong need of custom app that has tracking, you can go for this app. But you need to ensure substantial time testing the app for bugs & ensuring main functionalities are NOT breaking. Also, the IOS review quality & count being low makes us a bit nervous. So avoid if you have IOS users in the team.</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="trackwick-trackolap">TrackWick (Trackolap)<span class="g-src">Android: 4.0 (561 reviews) · IOS: 4.8 (5 reviews) · G2: 5.0 (2 reviews) · Price: ~$3.16-$8.42 </span></h3>
+          <h3 id="trackwick-trackolap">TrackWick (Trackolap) <span class="g-src">Android: 4.0 (561 reviews) · iOS: 4.8 (5 reviews) · G2: 5.0 (2 reviews) · Price: ~$3.16-$8.42</span></h3>
           <div class="g-body">
             <p>We could not find much information about the app as it does NOT have a website detailing features. The IOS screenshot showed only attendance & leave management. But the android reviews did mention kilometer calculation. There was mixed opinion about support, some said great while some mentioned it poor. Some reviews did mention high price. There is not enough data for us to recommend for any specific usecase</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="breezefsm">BreezeFSM <span class="g-src">Android: 4.1 (22 reviews), IOS: x · Capterra: 4.7 (15) · G2: 4.3 (6) · Price: $2.63+</span></h3>
+          <h3 id="breezefsm">BreezeFSM <span class="g-src">Android: 4.1 (22 reviews) · iOS: no app · Capterra: 4.7 (15 reviews) · G2: 4.3 (6 reviews) · Price: $2.63+</span></h3>
           <div class="g-body">
-            <p>The only entry in FFA category with no IOS support. Despite its name it is closer to FFA with a sales slant: attendance, live tracker, visits, orders and outlet creation. The order & outlet creation also makes the app closer to being a SFA app. What is surprising is inspite of so less android reviews, the app still has Capterra & G2 reviews, inspite of being an India centric app (one of the reviews said it to be closer to Indian usecase). Very few india centric apps get reviews on Capterra & G2 in general. Apart from not having any iPhone support, reviews mentioned tracking in poor network is hard (it has offline support), so it seems like locations are dropped while the user is offline. The order screen also need better filters is what another of review said. Overall, it does NOT seem like a well thought out app. But may work well for people who would like to get a SFA like app at cost of FFA app</p>
+            <p>The only entry in FFA category with no IOS support. Despite its name it is closer to FFA with a sales slant: attendance, live tracker, visits, orders and outlet creation. The <b>order & outlet creation</b> also makes the app closer to being a SFA app. What is surprising is inspite of so less android reviews, the app still has Capterra & G2 reviews, inspite of being an India centric app (one of the reviews said it to be closer to Indian usecase). Very few india centric apps get reviews on Capterra & G2 in general. Apart from not having any iPhone support, reviews mentioned tracking in poor network is hard (it has offline support), so it seems like locations are dropped while the user is offline. The order screen also need better filters is what another of review said. Overall, it does NOT seem like a well thought out app. But may work well for people who would like to get a SFA like app at cost of FFA app</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="trackfolks">TrackFolks <span class="g-src">Android: 4.7 (7 reviews), IOS: no reviews · Price: $1.05</span></h3>
+          <h3 id="trackfolks">TrackFolks <span class="g-src">Android: 4.7 (7 reviews) · iOS: no reviews · Price: $1.05</span></h3>
           <div class="g-body">
-            <p>Time to put a shameless plug but considering we did so much of hard work reading (well AI tool did it to be honest), its time to boast :). So TrackFolks is a new gen app with aggresive data caching. So the app would feel seamless (like Whatsapp) but it comes at the cost of taking quite a bit of space on phone, especially for managers as their reports data gets cached when they lookup their routes & past history. The route history & distance calculation with TrackFolks should be reasonably accurate. It uses OSRM to snap points to road, get interpolated road points & remove GPS jump anomalies. If it fails (OSRM fails to do so or the data is too messy because of high speed & GPS jumps), outliers are algorithmically removed. All this to ensure as real route & eventually distance calculation.</p>
-            <p>Being paranoid about location & route tracking meant ensuring mobile apps keep constantly running in background. Apart from doing app optimizations, there are server side wakeups put in to ensure app never dies. If server side effort fails, server auto punches the user out, which sends notification to the supervisor who can then notify the field worker to restart their app. Notification is also sent to supervisor during attendance marking & visit logging so that supervisor is constantly updated of progress without needing to ask their reportees.</p>
+            <p>Time to put a shameless plug but considering we did so much of hard work reading (well AI tool did it to be honest), its time to boast :). Trackfolks was built to address the most common pain points - incorrect distance & battery drain. It uses OSRM to snap the points on road & algorithimcally removes GPS jumps, to get accurate distance. Locations are synced every 10 minutes to ensure minimal battery drain.</p>
+            <p>To ensure the app keeps tracking locations & is not dead, server side wakeups are sent if app stops sending heartbeat. In case of non-recovery, the user is punched out, which sends notification to their supervisor, who can then remind the user to punch in again to resume location tracking.</p>
             <p>The app is always free for 10 user teams & is the cheapest offering in FFA category because of price ceiling ($249 max in first year & $499 in subsequent year irrespective of field team size). </p>
             <p><b>Cons:</b> Not much public reviews of the app. Feature wise, lacks advanced features like order management, task creation & assignment. Although it does have visit & expense logging.</p>
             <p><strong>Verdict:</strong> Teams looking for reliable route tracking & distance calculation across both IOS & Android. Also teams optimizing cost over features & wanting a stable app that is also quick to use.</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="connect-my-world">Connect My World <span class="g-src">Android: 4.1 (206 reviews) · IOS: no reviews · Price: ~$0.83</span></h3>
+          <h3 id="connect-my-world">Connect My World <span class="g-src">Android: 4.1 (206 reviews) · iOS: no reviews · Price: ~$0.83</span></h3>
           <div class="g-body">
-            <p>The cheapest app in FFA category with impressive list of features - usual features with geofenced visit, arrival alert, offline forms. What is concerning is the last review on their android store is from 2025. Having said that, the android app is updated in Oct 2026. The app has usual problems - battery drain, kms not being accurate. Considering the price, if you have team of size around 50 & you want the cheapest app, you could go for this one. For sizes smaller & bigger, TrackFolks actually become cheaper because of first 10 users being free & price ceiling.</p>
+            <p>An app with an impressive list of features - usual features with geofenced visit, arrival alert, offline forms, for a very low price. What is concerning is the last review on their android store is from 2025. Having said that, the android app is updated in Oct 2026. The app has usual problems - battery drain, kms not being accurate. Considering the price, if you have team of size around 50 & you want the cheapest app, you could go for this one. For sizes smaller & bigger, TrackFolks actually become cheaper because of first 10 users being free & price ceiling. Again avoid if you have iOS users in your team as the app has no record of iOS app working well.</p>
           </div>
         </div>
         <div class="g-sub">
@@ -323,9 +328,9 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
                 </thead>
                 <tbody>
                   <tr>
-                    <td>Lowest price</td>
-                    <td>Trackfolks followed by Connect My World</td>
-                    <td>Connect My World&#x27;s Play reviews are mostly old and many mention battery drain, and I found no Capterra or G2 reviews. TrackFolks has no public reviews yet; dayTrack has fewer features</td>
+                    <td>Cheapest app</td>
+                    <td>TrackFolks, Connect My World or OnthegO.ai</td>
+                    <td>TrackFolks $1.05 per user (first 10 users free, price capped); Connect My World about $0.83; OnthegO.ai about $1.46 to $2.31. TrackFolks stays cheapest except at the 50 user mark, where Connect My World becomes marginally cheaper. Connect My World&#x27;s Play reviews are mostly old and many mention battery drain, and I found no Capterra or G2 reviews. TrackFolks has no public reviews yet; dayTrack has fewer features</td>
                   </tr>
                   <tr>
                     <td>Reliable route history & distance calculation</td>
@@ -372,92 +377,87 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
     <section class="g-sec">
       <h2 id="sales-force-automation-sfa">Sales Force Automation (SFA)</h2>
       <div class="g-body">
-        <p>Choose SFA if your reps sell physical goods through retail outlets and distributors, and you need orders, beats and stock visibility, not just attendance. SFA apps are heavier than FFA apps: they model outlets, schemes and distributors, so they take weeks to roll out and are usually sold by quote.</p>
-        <p>Who it fits: FMCG, CPG and consumer durables companies with route-based sales teams and distributor networks. If you only need to know where reps were, an FFA app is simpler and far cheaper.</p>
-        <p>Essential features, in order of importance:</p>
+        <p><b>Choose SFA</b> if your reps sell physical goods through retail outlets and distributors, and you need orders, beats and stock visibility, not just attendance. SFA apps are heavier than FFA apps: they model outlets, schemes and distributors, so they take weeks to roll out and are usually sold by quote.</p>
+        <p><b>Who it fits:</b> FMCG, CPG and consumer durables companies with route-based sales teams and distributor networks. If you only need to know where reps were, an FFA app is simpler and far cheaper.</p>
+        <p>SFA apps usually will have all features of an FFA app like remote attendance, location tracking, route history etc. Other essential features, in order of importance:</p>
         <ul>
-          <li>Beat and route planning with outlet visit proof (GPS stamp and photo).</li>
-          <li>Order capture in the field, including offline orders that sync later.</li>
-          <li>Outlet master data, retail audits and scheme or promotion tracking.</li>
+          <li><b>Beat and route planning</b> with outlet visit proof (GPS stamp and photo).</li>
+          <li><b>Order capture</b> in the field, including offline orders that sync later.</li>
+          <li><b>Outlet master data</b>, retail audits and scheme or promotion tracking.</li>
           <li>Distributor and secondary sales visibility, so orders, stock and claims reconcile.</li>
           <li>Dashboards by region, rep and outlet, with attendance and live location as a supporting feature.</li>
         </ul>
+        <p>Apps below are listed in order of popularity (highest review count app on the top).</p>
         <div class="g-sub">
-          <h3 id="fieldassist">FieldAssist <span class="g-src">Google Play: SFA General Trade 4.5 (1.12K reviews, updated 17 Nov 2026) and General Trade 4.1 (3.07K, updated 30 Oct) · App Store: 3.1 (99, India) · G2: 4.8 (9)</span></h3>
+          <h3 id="bizom">Bizom <span class="g-src">Android: 4.6 (29.2K reviews) · iOS: 3.9 (206 reviews) · G2: 4.5 (15 reviews) · Price: not published</span></h3>
           <div class="g-body">
-            <p>Price: quote only; a Capterra listing shows an unclear SGD 9.9 "per feature" starting price.</p>
-            <p><strong>Pros:</strong> GPS-tagged visits, beat and order flow, outlet coverage reports; real-time sales data on one dashboard; sales force, distributor operations, attendance and outlet management in one platform; actively developed, with new AI features and a vendor claim of 600 to 700 brands.</p>
-            <p><strong>Cons:</strong> crashes and slowness, including an app closing seconds after launch; sync delays, duplicate product entries and inaccurate reports; a learning curve that needs end-user training; slow support response in some reviews. The iPhone score (3.1) is far below Play (4.5) and G2 (4.8). Public review volume is small for its size.</p>
-            <p><strong>Fits:</strong> mid-size and large FMCG companies with distributors and a budget for rollout. Avoid if: you need a quick self-serve start or a mostly iPhone team.</p>
+            <p>Bizom is the most popular SFA app, not only by count of reviews but also the amount of features it provides: beat optimisation, offline order capture, schemes and trade promotion management, distributor management (inventory, billing, returns, claims), attendance, leave and van sales. Play reviewers praise real-time data, dashboards and support replies. On their website, they have put claim, that Bizom is used by 750+ brands and 250K+ salespeople.</p>
+            <p><b>Cons:</b> Like with FFA apps, distance calculation is also the most popular & recent problem of Bizom. A recent Bizom Next reviews on Play (Oct 2026) report wrong kilometre readings. There are also sync problems reported like dashboard figures not updated for 25 days. Some UI issues also reported like no "select all" for travel claims, which the old app had, so it seems like they move fast & break things :). Also another concern is, the iPhone score (3.9) is well below Play (4.5), so iOS users need to exercise caution. Bizom seems like a popular app in US but their G2 listing only has 15 reviews, which is another concern. </p>
+            <p><strong>Verdict:</strong> mid-size and large FMCG companies with distributors that want one platform. Avoid if: you want a published price or a quick self-serve start. Having said that, most large companies need to exercise caution onboarding their team to an app as switching cost would be high. That also gives them to take demo of the app, negotiate the price etc. So the 'avoid' clause is probably redundant for them. Great support is also a plus.</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="beatroute">BeatRoute <span class="g-src">G2: 4.3 (12) · Capterra: ease of use 4.5</span></h3>
+          <h3 id="fieldassist">FieldAssist <span class="g-src">Android: 4.1 (3.07K reviews) · iOS: 3.1 (99 reviews) · G2: 4.8 (9 reviews) · Price: quote only</span></h3>
           <div class="g-body">
-            <p>No Play listing under its own name; apps are likely distributed per client. Price from third-party listings, unverified: about ₹349 to ₹599 a user (Hygiene plan) and ₹599 to ₹699 (Business), or $8.50 and $12.50 a month on other listings; enterprise is custom. I could not read its iPhone page.</p>
-            <p><strong>Pros:</strong> field app for opening accounts, visiting accounts on a map and capturing orders; centralised reporting on each rep; good support and onboarding from the back-end team.</p>
-            <p><strong>Cons:</strong> limited mobile customisation; archived outlets still appear in route maps; the OTP step occasionally fails; downloaded reports are too broad to filter; no quick-insight dashboard; a Gartner reviewer in September 2026 asked for better GPS accuracy.</p>
-            <p><strong>Fits:</strong> FMCG teams that want a guided rollout with strong onboarding. Avoid if: you want public ratings on your own phone before buying.</p>
+            <p>While the website does not list any price for FieldAssist, a Capterra listing shows (an unclear) SGD 9.9 "per feature" starting price. Reviews mentions these features - GPS-tagged visits, beat and order flow, outlet coverage reports; real-time sales data on one dashboard; sales force, distributor operations, attendance and outlet management in one platform. Actively developed, with new AI features and a vendor claim of 600 to 700 brands using the app.</p>
+            <p><b>Cons:</b> The most popular negative reviews mention crashes and slowness, including an app closing seconds after launch. Sync delays, duplicate product entries and inaccurate reports comes close next. Users also called out a learning curve that needs end-user training to be able to use the app fully. Some reviews also mentioned slow support. The iPhone score (3.1) is far below Play (4.5) and G2 (4.8). This is a bit concerning as G2 reviews usually come from the west where iPhone penetration is better. So a great G2 review but a bad iOS review probably indicate that G2 reviews are fabricated.</p>
+            <p><strong>Verdict:</strong> There is no strong reason to suggest FieldAssist over Bizom for us. Our hunch is, maybe FieldAssist would be cheaper to use. IT also seems like FieldAssist does not have any feature regression like Bizom so they may be launching slow but testing the app well. The new AI features does indicate that FieldAssist is actively working on new age features. But super low iOS review is concerning. Maybe developing nations teams that have low iPhone volume & looking for a cheaper options compared to Bizom can give FieldAssist a shot. Also considering the app has a 'significant learning curve', you may want to avoid the app is you have a high churn in your team & newer folks keep on joining. Stick to Bizom if that is the case.</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="delta-sales-app">Delta Sales App <span class="g-src">Google Play: 4.3 (784, updated 12 Aug 2026), a Nepal-based developer that also sells in India · G2: 4.5 (13)</span></h3>
+          <h3 id="salesdiary">Salesdiary <span class="g-src">Android: 4.1 (1.36K reviews) · Capterra: 4.7 (15 reviews) · Price: $12+</span></h3>
           <div class="g-body">
-            <p>Price: contact the vendor; third-party estimates of $10 to $15 per user are weak.</p>
-            <p><strong>Pros:</strong> easy to use; GPS tracking, attendance, beat planning, order booking and visit tracking in one app; FMCG managers report good return on investment and supportive staff.</p>
-            <p><strong>Cons:</strong> support and payment problems for international users; app not opening, wrong location and slowness on some Android 12 phones; no free trial before paying in one older review; slow report generation and a confusing interface for one G2 reviewer.</p>
-            <p><strong>Fits:</strong> small and mid-size FMCG distributors and sales teams that want a lighter app. Avoid if: you need deep distributor management or an India-based vendor, which you should confirm first.</p>
+            <p>An established app with one of the larger review counts in this category; Capterra reviewers score ease of use 4.4, value for money 4.4 and features 4.1; the vendor, Appobile Labs, positions it as AI-driven route planning and field operations.</p>
+            <p><b>Cons:</b> the Play sample (2020 to 2024) is mostly negative: hangs, battery drain, constant background location, call-log and media permission requests, and attendance time counted from the first activity (the vendor says this follows company policy). No iPhone listing of its own found in the India store. Price is from Capterra (third-party), per user a month; vendor pricing is custom.</p>
+            <p><strong>Verdict:</strong> Seems the most friendly app to use based on Capterra rating. But that probably comes at the cost of features is what our guess is. Worthwhile for teams that have constant churn of people or have gig based workforce, as it would not require training. The initial bad reviews seem like initial app hiccup which seem to have resolved over time. No iOS reviews indicate either they do NOT have an iOS app or it has not been updated (or essentially deprecated). The app could also be cheaper compared to Bizom & FieldAssist.</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="bizom">Bizom <span class="g-src">Google Play: Bizom 4.6 (29.2K reviews, updated 6 May 2026) and Bizom Next 4.5 (1.74K, updated 11 Nov 2026) · App Store: 3.9 (206, India, Bizom Next) · G2: 4.5 (15) · Price: not published</span></h3>
+          <h3 id="delta-sales-app">Delta Sales App <span class="g-src">Android: 4.3 (784 reviews) · G2: 4.5 (13 reviews) · Price: quote only</span></h3>
           <div class="g-body">
-            <p><strong>Pros:</strong> a wide feature list on the vendor's site: beat optimisation, offline order capture, schemes and trade promotion management, distributor management (inventory, billing, returns, claims), attendance, leave and van sales; Play reviewers praise real-time data, dashboards and support replies; the vendor claims 750+ brands and 250K+ salespeople.</p>
-            <p><strong>Cons:</strong> recent Bizom Next reviews on Play (Oct 2026) report wrong kilometre readings, dashboard figures not updated for 25 days, and no "select all" for travel claims, which the old app had; the Bizom Next iPhone score (3.9) is well below Play (4.5); G2 has only 15 reviews; no published price.</p>
-            <p><strong>Fits:</strong> mid-size and large FMCG companies with distributors that want one platform. Avoid if: you want a published price or a quick self-serve start.</p>
+            <p>Delta is a Nepal-based developer that also sells in India. Third-party estimates of $10 to $15 per user are weak but if that is true, it makes the app more expensive compared to Salesdiary. Reviews quoted - Easy to use; GPS tracking, attendance, beat planning, order booking and visit tracking in one app; FMCG managers report good return on investment and supportive staff.</p>
+            <p><b>Cons:</b> support and payment problems for international users; app not opening, wrong location and slowness on some Android 12 phones; no free trial before paying in one older review; slow report generation and a confusing interface for one G2 reviewer.</p>
+            <p><strong>Verdict:</strong> The app feels pretty thin on features with beat planning & order booking on top of regular FFA features. May work well for smallish teams that already have their own infra but wanted a barebone FFA app with some basic SFA features. Also, being a lone developer app, the support outside their geography could become difficult. The per user cost seems higher than Salesdiary but both the prices are unconfirmed, so take that with pinch of salt.</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="saleson">SalesOn <span class="g-src">Google Play: 4.3 (177 reviews, last updated 3 Jan 2026) · App Store: 5 ratings (India), too few to use · G2: and Capterra: no reviews</span></h3>
+          <h3 id="sfaxpert-marg-erp">SFAXpert (Marg ERP) <span class="g-src">Android: 3.8 (347 reviews) · iOS: no rating · Price: quote only</span></h3>
           <div class="g-body">
-            <p>Price: ₹209 or ₹333 per user a month on its Play listing, ₹250 per user (2-user minimum, GST extra) on its own site, about $2.20 to $3.51.</p>
-            <p><strong>Pros:</strong> GST invoicing and e-way bill, Tally integration, van sales, distributor management and live location in one app; Play reviewers praise the support team and regular updates; low price.</p>
-            <p><strong>Cons:</strong> the app needs an internet connection and does not work offline (vendor site); Tally auto-sync is priced separately; the Play listing and the vendor site disagree on price and trial length (2.7 days against 7); public reviews are few; the Play app was last updated on 3 Jan 2026 and will pass 12 months on 3 Jan 2027.</p>
-            <p><strong>Fits:</strong> small distributors and wholesalers with billing and field sales in one place. Avoid if: your routes have patchy network, or you need a large-brand rollout.</p>
+            <p>SFA app catering to the pharma industry with features like daily call report, doctor management, chemist orders, expenses and samples and gifts. One Play reviewer praised real-time GPS tracking and a route map of the field force.</p>
+            <p><b>Cons:</b> Android listing updated 15 Oct 2026 but most play store reviews are from 2019-2021 which is concerning. An iOS listing exists, but no rating count. Android rating is also pretty low (3.8) which means app may not work as well on core features like location tracking etc.</p>
+            <p><strong>Verdict:</strong> pharma and healthcare reps who mainly need call and expense reporting. Like outlets in SFA apps, our hunch is, a doctor entity would probably be the same where reps can tag a doctor in a visit. Try it, but with good amount of 2nd thought.</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="san-sales-saneforce">SAN SALES (SANeFORCE) <span class="g-src">Google Play: 4.2 (153 reviews, updated 19 Nov 2026) · App Store: 4 ratings (India) · Price: quote based</span></h3>
+          <h3 id="saleson">SalesOn <span class="g-src">Android: 4.3 (177 reviews) · iOS: 5 ratings · Price: about $2.20 to $3.51</span></h3>
           <div class="g-body">
-            <p>SANeFORCE's pharma app, SAN SFE (Play 4.3 from 2.05K reviews), was last updated on Play on 1 Sep 2025, so it is not covered.</p>
-            <p><strong>Pros:</strong> attendance, order booking, retailing and call reporting for FMCG reps in one app (2022 Play review); the vendor is shipping updates, with a release on 19 Nov 2026.</p>
-            <p><strong>Cons:</strong> Aug and Sep 2026 Play reviews say the app hangs, shows errors and is slow; reviews of the sibling SAN SFE app complain about battery use, back-button problems and rep tracking; very few iPhone ratings; no published price.</p>
-            <p><strong>Fits:</strong> Indian FMCG teams that want a vendor with a long track record and are willing to pilot first. Avoid if: your reps use iPhones, or you need proof of stability.</p>
+            <p>One of the cheapest SFA app in the market with additional india specific features like invoicing & e-way bill toegther with Tally integration. Some android reviews praise suport team & also mention regular updates. The iOS app ratings are few, but at least there are reviews. Price is ₹209 or ₹333 per user a month on its Play listing and ₹250 per user (2-user minimum, GST extra) on its own site.</p>
+            <p><b>Cons:</b> While reviews praised regular update, our findings are different. The Android app was last updated on Jan 3, 2026 which means the app might not be actively developed. Also, the app does NOT work without internet which could be a problem inside premise/large buildings or remote areas. Also Tally auto-sync is priced separately. The Play listing and the vendor site disagree on price and trial length (2.7 days against 7)</p>
+            <p><strong>Verdict:</strong> One of the few apps with both Android & iOS reviews. Also, tally integration is great. Having said that, the app being in active development (& hence provision of support) is questionable. Will recommend to small teams, that absolutely need both iOS & Android apps with tally integration. Ensure you do NOT have hard requirement of internet while doing activity in the app.</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="salesdiary">Salesdiary <span class="g-src">Google Play: 4.1 (1.36K reviews, updated 3 Nov 2026) · Capterra: 4.7 (15)</span></h3>
+          <h3 id="san-sales-saneforce">SAN SALES (SANeFORCE) <span class="g-src">Android: 4.2 (153 reviews) · iOS: 4 ratings · Price: quote based</span></h3>
           <div class="g-body">
-            <p>No iPhone listing of its own found in the India store. Price from $12 per user a month on Capterra (third-party); vendor pricing is custom.</p>
-            <p><strong>Pros:</strong> an established app with one of the larger review counts in this category; Capterra reviewers score ease of use 4.4, value for money 4.4 and features 4.1; the vendor, Appobile Labs, positions it as AI-driven route planning and field operations.</p>
-            <p><strong>Cons:</strong> the Play sample (2020 to 2024) is mostly negative: hangs, battery drain, constant background location, call-log and media permission requests, and attendance time counted from the first activity (the vendor says this follows company policy).</p>
-            <p><strong>Fits:</strong> FMCG field teams that want an established app and will test battery and permissions on real phones. Avoid if: staff are sensitive about background tracking.</p>
+            <p>The org SAN has different apps for different usecases. SAN Sales is named SANeFORCE. They also have separate app for Pharma professionals called SAN SFE. The app is actively maintained with latest release on Nov 2026, makes it an active app. It seems to have regular SFA app features, nothing extra. A couple of iOS rating is similar to how it is for the other medium sized SFA apps in the segment. SAN is in the market for quite some time, probably one of the longest player.</p>
+            <p><b>Cons:</b> Aug and Sep 2026 Play reviews say the app hangs, shows errors and is slow; reviews of the sibling SAN SFE app complain about battery use, back-button problems and rep tracking; very few iPhone ratings; no published price.</p>
+            <p><strong>Verdict:</strong> Indian FMCG teams that want a vendor with a long track record and are willing to pilot first.</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="sfaxpert-marg-erp">SFAXpert (Marg ERP) <span class="g-src">Google Play: 3.8 (347 reviews, updated 15 Oct 2026) · App Store: listing exists, with no rating count shown · Price: quote based</span></h3>
+          <h3 id="salesmagna-sfa">SalesMagna SFA <span class="g-src">Android: 4.7 (103 reviews) · iOS: 10 ratings · Price: quote based</span></h3>
           <div class="g-body">
-            <p><strong>Pros:</strong> a pharma-style reporting app: daily call report, doctor management, chemist orders, expenses and samples and gifts; one Play reviewer praised real-time GPS tracking and a route map of the field force.</p>
-            <p><strong>Cons:</strong> the lowest Play rating among the SFA apps here; the visible reviews are old (2019 to 2021) and complain about frequent syncing, slowness and rude support; no published price.</p>
-            <p><strong>Fits:</strong> pharma and healthcare reps who mainly need call and expense reporting. Avoid if: you need current evidence of support quality.</p>
+            <p>Android listing updated 28 Oct 2026. The iOS ratings are from the India store, and a 7-day trial is offered. Short Play reviews (2024 and 2025) call it easy, fast and employee friendly, and one compares it favourably with FieldAssist; a separate DMS app covers distributor management.</p>
+            <p><b>Cons:</b> only 103 Play reviews and 1K+ downloads, so the 4.7 is weak evidence; very few iPhone ratings; no published price.</p>
+            <p><strong>Verdict:</strong> SalesMagna seems like a well thought out app with segregation of apps for reps vs distributor management. Their android rating is also best among all (although with fewer reviews). Smaller teams that are looking for realiable app & possibly cheaper alternatives to biggies (Bizom/FieldAssist) should try this app out, at least as pilot. Comparably higher iOS rating count also means that their iOS app might be in a better shape compared to competitors. We think this app could be a dark horse in SFA category apps.</p>
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="salesmagna-sfa">SalesMagna SFA <span class="g-src">Google Play: 4.7 (103 reviews, updated 28 Oct 2026) · App Store: 10 ratings (India) · Price: quote based, 7-day trial</span></h3>
+          <h3 id="beatroute">BeatRoute <span class="g-src">G2: 4.3 (12 reviews) · Price: ~₹349 to ₹699</span></h3>
           <div class="g-body">
-            <p><strong>Pros:</strong> short Play reviews (2024 and 2025) call it easy, fast and employee friendly, and one compares it favourably with FieldAssist; a separate DMS app covers distributor management.</p>
-            <p><strong>Cons:</strong> only 103 Play reviews and 1K+ downloads, so the 4.7 is weak evidence; very few iPhone ratings; no published price.</p>
-            <p><strong>Fits:</strong> small FMCG and B2B teams that want a light app. Avoid if: you need a proven large rollout.</p>
+            <p>Capterra shows ease of use 4.5. No Play listing under its own name; apps are likely distributed per client. Price is from third-party listings: about ₹349 to ₹599 a user (Hygiene plan) and ₹599 to ₹699 (Business), or $8.50 and $12.50 a month on other listings; enterprise is custom. We could not read its iPhone page. Field app for opening accounts, visiting accounts on a map and capturing orders; centralised reporting on each rep; good support and onboarding from the back-end team.</p>
+            <p><b>Cons:</b> limited mobile customisation; archived outlets still appear in route maps; the OTP step occasionally fails; downloaded reports are too broad to filter; no quick-insight dashboard; a Gartner reviewer in September 2026 asked for better GPS accuracy.</p>
+            <p><strong>Verdict:</strong> Capterra & G2 rating is a good sign but in the previous reports we have noted that app store reviews usually provided better signal. In their absence, we would probably NOT recommend BeatRoute to serious users. Their pricing looks the cheapest so cost conscious buyers could try them. Also, onboarding support & custom apps mean there is good scope of customization. But be aware, having a feature & it working reliably on ground are two different things.</p>
           </div>
         </div>
         <div class="g-sub">
@@ -474,49 +474,44 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
                 </thead>
                 <tbody>
                   <tr>
-                    <td>Large FMCG rollout with distributors</td>
-                    <td>FieldAssist or Bizom</td>
+                    <td>Proven app at scale</td>
+                    <td>Bizom followed by FieldAssist</td>
                     <td>FieldAssist has the larger brand base but a 3.1 iPhone rating; Bizom has 4.6 on Play from 29K reviews, a wide feature list and no published price</td>
                   </tr>
                   <tr>
                     <td>Guided onboarding and support</td>
                     <td>BeatRoute or Delta</td>
-                    <td>Both praised for support. BeatRoute pricing is third-party only</td>
+                    <td>Go for Delta if you need backup data from app stores & need quicker GTM. If you have longish cycle to try, try BeatRoute.</td>
                   </tr>
                   <tr>
-                    <td>Lighter app and quick start</td>
-                    <td>Delta Sales App</td>
-                    <td>4.3 on Play from 784 reviews. Smaller vendor and unclear India presence</td>
+                    <td>Ease of use or DIY</td>
+                    <td>Salesdiary or Delta or SalesMagna</td>
+                    <td>Go for Salesdiary if you need something more proven. SalesMagna has overall better but fewer reviews. Delta lies somewhere in between.</td>
                   </tr>
                   <tr>
-                    <td>Small distributor with GST billing and Tally</td>
+                    <td>GST billing and Tally support</td>
                     <td>SalesOn</td>
                     <td>About $2.20 to $3.51 a user. Needs internet, and few public reviews</td>
                   </tr>
                   <tr>
-                    <td>An established app with many reviews</td>
-                    <td>Salesdiary</td>
-                    <td>4.1 on Play from 1.36K reviews. Complaints about battery use and permissions</td>
-                  </tr>
-                  <tr>
-                    <td>Pharma call and expense reporting</td>
-                    <td>SFAXpert</td>
-                    <td>3.8 on Play from 347 reviews. Older reviews complain about sync and support</td>
-                  </tr>
-                  <tr>
-                    <td>Smaller options to pilot</td>
-                    <td>SalesMagna SFA or SAN SALES</td>
-                    <td>SalesMagna is 4.7 from 103 reviews; SAN SALES had hang complaints in Aug and Sep 2026</td>
+                    <td>App for Pharma reps</td>
+                    <td>SAN SFE or SFAXpert</td>
+                    <td>SAN SFE seems more reliable with iOS support.</td>
                   </tr>
                   <tr>
                     <td>Orders without full distributor management</td>
-                    <td>An FFA app such as BreezeFSM or OnthegO.ai</td>
+                    <td>BreezeFSM or OnthegO.ai (FFA apps)</td>
                     <td>Both capture orders and visits at a lower price, but have no scheme or distributor modules</td>
                   </tr>
                   <tr>
-                    <td>Known price before you talk to sales</td>
-                    <td>SalesOn</td>
-                    <td>The only SFA here with a price on its own site (₹250 a user), and it differs from its Play listing (₹209). The rest are quote only or third-party</td>
+                    <td>Cheapest app with known price</td>
+                    <td>SalesOn or BeatRoute</td>
+                    <td>The only SFA here with a price on its own site (₹250 a user), and it differs from its Play listing (₹209). BeatRoute pricing is cheap but from third party listings. Also, reliability of BeatRoute app is questionable because of lack of app store reviews.</td>
+                  </tr>
+                  <tr>
+                    <td>Our Recommendation</td>
+                    <td>SalesMagna SFA</td>
+                    <td>App is actively developed, got overall better (but fewer) reviews on both Android & iOS. Someone quoted it worked better than FieldAssist. If you have a small team, this app could be worth trying. Big folks should stick to proven apps like Bizom.</td>
                   </tr>
                 </tbody>
               </table>
@@ -541,7 +536,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
         </ul>
         <p>The global FSM apps below were built around US-style markets and dollar pricing. If you are in India, check payment, tax and integration support before you commit. Ratings are Google Play, the US App Store and G2, because that is where these apps' customers are. FieldEZ is an Indian vendor with very little app-store data, so it is judged mainly on G2 and Capterra.</p>
         <div class="g-sub">
-          <h3 id="zoho-fsm">Zoho FSM <span class="g-src">Google Play: 4.2 (82, updated 3 Nov 2026) · App Store: 2.7 from only 11 ratings (US) · G2: 4.4 (13)</span></h3>
+          <h3 id="zoho-fsm">Zoho FSM <span class="g-src">Android: 4.2 (82 reviews, updated 3 Nov 2026) · iOS: 2.7 from only 11 ratings (US) · G2: 4.4 (13 reviews)</span></h3>
           <div class="g-body">
             <p>Price: plans of ₹1,000, ₹1,500 and ₹1,750 a month billed annually, based on appointments a month (the smallest option is 60), not per user. A free plan covers 30 appointments and up to 20 users.</p>
             <p><strong>Pros:</strong> integrates with other Zoho apps and has endpoints for custom extensions; easy to navigate, with agents seeing their schedule and tracking time on the job; onboarding sessions and support are praised.</p>
@@ -550,7 +545,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="jobber">Jobber <span class="g-src">Google Play: 4.1 (7K, updated 10 Nov 2026) · App Store: 4.8 (22K, US) · G2: 4.6 (546)</span></h3>
+          <h3 id="jobber">Jobber <span class="g-src">Android: 4.1 (7K reviews, updated 10 Nov 2026) · iOS: 4.8 (22K reviews, US) · G2: 4.6 (546 reviews)</span></h3>
           <div class="g-body">
             <p>Price on annual billing: Core $29 a month for 1 user, Connect from $99, Grow from $149, Plus from $399; extra users cost $29 each. This is flat plan pricing, not per user.</p>
             <p><strong>Pros:</strong> quoting, scheduling, invoicing and payments in one back office; easy to use, with a large help centre and fast migration; fast payment, automated reminders and growing features such as a pipeline and an AI receptionist.</p>
@@ -559,7 +554,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="housecall-pro">Housecall Pro <span class="g-src">App Store: 4.7 (32K, US) · G2: 4.3 (211)</span></h3>
+          <h3 id="housecall-pro">Housecall Pro <span class="g-src">iOS: 4.7 (32K reviews, US) · G2: 4.3 (211 reviews)</span></h3>
           <div class="g-body">
             <p>No listing in the India Google Play or App Store. Price on annual billing: Basic $59 a month for 1 user (no GPS), Essentials $149 for 5 users (with employee GPS tracking), Max $299 for 8 users, with extra users at $35. Max for a 30-person team works out to about $1,069 a month, or about $35.63 a user (22 extra users at $35 plus $299).</p>
             <p><strong>Pros:</strong> easy to use; estimate options and invoice templates; customer communication and technician status updates; QuickBooks sync and responsive support; suits small family-run firms.</p>
@@ -568,7 +563,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="servicetitan">ServiceTitan <span class="g-src">G2: 4.4 (387) · App Store: (US): ServiceTitan Field 3.5 (5.7K) and the older ServiceTitan Mobile 2.9 (1.7K) · Price: not published, quote only</span></h3>
+          <h3 id="servicetitan">ServiceTitan <span class="g-src">G2: 4.4 (387 reviews) · iOS: (US): ServiceTitan Field 3.5 (5.7K reviews) and the older ServiceTitan Mobile 2.9 (1.7K reviews) · Price: not published, quote only</span></h3>
           <div class="g-body">
             <p><strong>Pros:</strong> easy for technicians on G2; scheduling and customer management in one place; call recording and smarter routing; one reviewer calls it the most functional of the trades platforms.</p>
             <p><strong>Cons:</strong> cost feels high for lean firms; complex to learn and implement, and one reviewer says it did not deliver expected value; inconsistent support and vendor lock-in; technicians dislike the redesigned Field app (clunky, no iPad layout for sales), which is why its iPhone rating is far below G2.</p>
@@ -576,7 +571,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="salesforce-field-service">Salesforce Field Service <span class="g-src">Google Play: 3.7 (6.28K, updated 19 Oct 2026) · App Store: 4.6 (21K, US) · G2: 4.3 (1,253)</span></h3>
+          <h3 id="salesforce-field-service">Salesforce Field Service <span class="g-src">Android: 3.7 (6.28K reviews, updated 19 Oct 2026) · iOS: 4.6 (21K reviews, US) · G2: 4.3 (1,253 reviews)</span></h3>
           <div class="g-body">
             <p>Price: an add-on that needs a Service Cloud licence; Service Cloud editions are $25, $100 and $175 per user a month, and the Field Service add-on price is unconfirmed.</p>
             <p><strong>Pros:</strong> connects technicians, work orders, scheduling and customer data; highly customisable with AI-driven routing; one job record shared by dispatcher and technician.</p>
@@ -585,7 +580,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="fieldez">FieldEZ <span class="g-src">Google Play: 3.1 (only 15 reviews, updated 13 Oct 2026) · App Store: 5 ratings for FieldEZ and 4 for FieldEZ Plus in the India store; the US store shows four FieldEZ listings with no rating counts · G2: 4.4 (69) · Capterra: 4.8 (62) · Price: G2 lists $15 to $20 per user a month</span></h3>
+          <h3 id="fieldez">FieldEZ <span class="g-src">Android: 3.1 (only 15 reviews, updated 13 Oct 2026) · iOS: 5 ratings for FieldEZ and 4 for FieldEZ Plus in the India store; the US store shows four FieldEZ listings with no rating counts · G2: 4.4 (69 reviews) · Capterra: 4.8 (62 reviews) · Price: G2 lists $15 to $20 per user a month</span></h3>
           <div class="g-body">
             <p>Public app data is very low, so test the app on your own phones before you adopt it.</p>
             <p><strong>Pros:</strong> G2 reviewers praise scheduling and work order management, workflow efficiency, training and customer support; Capterra reviewers call it easy to use and customisable, with attendance, tracking, offline sync and a customer location map.</p>
@@ -663,7 +658,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
         </ul>
         <p>Location in this category is usually tied to a plan or sold as an add-on, and it records where someone punched in, not the route they took. Keka, Pocket HRMS and Zoho People put geofencing or location tracking in higher plans, factoHR does too according to third-party listings, Hubstaff charges extra for it, and HROne includes geo-tagging and geofencing in its Basic plan. The entries start with the HR and payroll suites, then the time and attendance tools. For the large HR suites only review counts and plan details were collected, not review text.</p>
         <div class="g-sub">
-          <h3 id="zoho-people">Zoho People <span class="g-src">Google Play: 4.2 (5.71K, updated 6 Nov 2026)</span></h3>
+          <h3 id="zoho-people">Zoho People <span class="g-src">Android: 4.2 (5.71K reviews, updated 6 Nov 2026)</span></h3>
           <div class="g-body">
             <p>Reviews were not read for this guide, so no pros and cons from user reviews are given. Price from Zoho's India pricing page: free for up to 5 users, then ₹48, ₹96, ₹144 and ₹192 per user a month billed annually, GST extra. At ₹96 that is about $1.01.</p>
             <p><strong>What the pricing page confirms:</strong> attendance by web, mobile and face recognition, timesheets, roster management, GPS location recorded between check-in and check-out, and geo-restrictions through Google Maps all start at the ₹96 Professional plan; shift scheduling starts at ₹48.</p>
@@ -672,7 +667,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="pagarbook">PagarBook <span class="g-src">Google Play: 4.4 (91.9K reviews, updated 16 Nov 2026) · App Store: 3.1 (455, India)</span></h3>
+          <h3 id="pagarbook">PagarBook <span class="g-src">Android: 4.4 (91.9K reviews, updated 16 Nov 2026) · iOS: 3.1 (455 reviews, India)</span></h3>
           <div class="g-body">
             <p>Price about $5.87, from the TrackFolks comparison page because PagarBook publishes no price.</p>
             <p><strong>Pros:</strong> easy to use; attendance, salary and employee records in one app; multi-language and good value for small businesses; the comparison page ticks route timeline, roster and payroll.</p>
@@ -681,7 +676,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="salarybox">SalaryBox <span class="g-src">Google Play: 4.3 (11.7K, updated 31 Oct 2026) · App Store: 3.7 (391, India) · Price: about $1.61 to $4.25 at 30 users with location add-ons</span></h3>
+          <h3 id="salarybox">SalaryBox <span class="g-src">Android: 4.3 (11.7K reviews, updated 31 Oct 2026) · iOS: 3.7 (391 reviews, India) · Price: about $1.61 to $4.25 at 30 users with location add-ons</span></h3>
           <div class="g-body">
             <p><strong>Pros:</strong> simple for small teams; attendance with automatic payroll; some strong support experiences.</p>
             <p><strong>Cons:</strong> support unreachable or slow after payment (47 of 116 negative reviews); pricing and renewal inflexibility (49 mentions); bugs and unreliable salary figures after finalising; an iPhone user complained of a ₹1,700 charge after a 3-day trial.</p>
@@ -689,7 +684,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="keka-hr">Keka HR <span class="g-src">Google Play: 4.7 (38.6K reviews, updated 19 Nov 2026) · App Store: 7.9K ratings (India) · G2: 4.4 (2,483)</span></h3>
+          <h3 id="keka-hr">Keka HR <span class="g-src">Android: 4.7 (38.6K reviews, updated 19 Nov 2026) · iOS: 7.9K ratings (India) · G2: 4.4 (2,483 reviews)</span></h3>
           <div class="g-body">
             <p>Reviews were not read. Price: not shown on the vendor's pricing page; a third-party list (SalaryBox's own ranking page) says from ₹6,999 a month.</p>
             <p><strong>Location tracking:</strong> continuous location punching, geofenced clock-in and field staff tracking are in the Strength and Growth plans, not in Foundation, and are not sold as a separate add-on.</p>
@@ -698,7 +693,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="hrone">HROne <span class="g-src">Google Play: 4.1 (6.47K reviews, updated 4 Nov 2026) · App Store: 1.2K ratings (India) · G2: 4.7 (12) · G2: shows ₹85 and ₹115 for its two plans with the unit unclear</span></h3>
+          <h3 id="hrone">HROne <span class="g-src">Android: 4.1 (6.47K reviews, updated 4 Nov 2026) · iOS: 1.2K ratings (India) · G2: 4.7 (12 reviews) · G2: shows ₹85 and ₹115 for its two plans with the unit unclear</span></h3>
           <div class="g-body">
             <p>Reviews were not read. Price from third-party listings: ₹4,950 a month for 50 users and ₹99 for each extra user;</p>
             <p><strong>Location tracking:</strong> geo-tagging and geofencing, selfie attendance and offline attendance are in the Basic plan.</p>
@@ -707,7 +702,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="factohr">factoHR <span class="g-src">Google Play: factoHR Employee App 4.5 (20.3K reviews, updated 18 Nov 2026) · App Store: 702 ratings (India) · G2: 4.6 (167)</span></h3>
+          <h3 id="factohr">factoHR <span class="g-src">Android: factoHR Employee App 4.5 (20.3K reviews, updated 18 Nov 2026) · iOS: 702 ratings (India) · G2: 4.6 (167 reviews)</span></h3>
           <div class="g-body">
             <p>Reviews were not read. Price from third-party listings: Core ₹4,999 and Premium ₹5,999 a month for 50 employees, with ₹69 and ₹89 for each extra employee, billed quarterly. The vendor's own pricing page could not be read.</p>
             <p><strong>Location tracking:</strong> third-party listings put the geofence module in Premium, not Core; another G2 plan list shows geofence and geo-tracking with kilometre calculation in a plan priced at ₹5,999. Confirm with the vendor which plan includes what.</p>
@@ -716,7 +711,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="pocket-hrms">Pocket HRMS <span class="g-src">Google Play: 4.4 (734 reviews, updated 20 Nov 2026) · App Store: 66 ratings (India) · G2: 4.6 (33)</span></h3>
+          <h3 id="pocket-hrms">Pocket HRMS <span class="g-src">Android: 4.4 (734 reviews, updated 20 Nov 2026) · iOS: 66 ratings (India) · G2: 4.6 (33 reviews)</span></h3>
           <div class="g-body">
             <p>Reviews were not read. Price from the vendor's pricing page as shown in search results: Standard ₹2,995 a month billed annually for 50 employees and ₹60 for each extra employee, with a 50-employee minimum.</p>
             <p><strong>Location tracking:</strong> geo-tagging is in Standard; geofencing and real-time geo-tracking come with the Professional plan (₹90 for each extra employee); Premium is by quote.</p>
@@ -725,7 +720,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="truein">Truein <span class="g-src">Google Play: 4.4 (2.96K, updated 2 Nov 2026) · App Store: 3.9 (75) · G2: 4.8 (102)</span></h3>
+          <h3 id="truein">Truein <span class="g-src">Android: 4.4 (2.96K reviews, updated 2 Nov 2026) · iOS: 3.9 (75 reviews) · G2: 4.8 (102 reviews)</span></h3>
           <div class="g-body">
             <p>Price: about $2.24 a user at 30 users on the India Capture plan (₹250 a user a year plus a ₹69,000 yearly base), $6.27 at 10 users and $1.43 at 50 users.</p>
             <p><strong>Pros:</strong> easy interface and self-onboarding; accurate attendance with face recognition, working offline; real-time visibility and leave in the app; support praised.</p>
@@ -734,7 +729,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="jibble">Jibble <span class="g-src">Google Play: 4.5 (5.4K, updated 2 Nov 2026) · App Store: 4.8 (1.6K) · Capterra: 4.7 (3,757) · Trustpilot: 4.3 (175)</span></h3>
+          <h3 id="jibble">Jibble <span class="g-src">Android: 4.5 (5.4K reviews, updated 2 Nov 2026) · iOS: 4.8 (1.6K reviews) · Capterra: 4.7 (3,757 reviews) · Trustpilot: 4.3 (175 reviews)</span></h3>
           <div class="g-body">
             <p>Price: $6.99 on Ultimate (live maps) at the vendor's discounted regional rate; the free plan covers unlimited users.</p>
             <p><strong>Pros:</strong> simple clock-in and clock-out with automatic timesheets and easy setup; attendance with selfie, GPS and geofencing; payroll and performance reports, leave requests, Teams and Slack integrations; reviewers cite a free tier and good value.</p>
@@ -743,7 +738,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="timeero">Timeero <span class="g-src">Google Play: 3.0 (841, updated 11 Nov 2026), checked on 17 Nov · App Store: 4.7 (1,656) · G2: 4.8 (52) · Capterra: 4.6 (150) · Price: $7.50 on Pro (Basic $5, Premium $10)</span></h3>
+          <h3 id="timeero">Timeero <span class="g-src">Android: 3.0 (841 reviews, updated 11 Nov 2026), checked on 17 Nov · iOS: 4.7 (1,656 reviews) · G2: 4.8 (52 reviews) · Capterra: 4.6 (150 reviews) · Price: $7.50 on Pro (Basic $5, Premium $10)</span></h3>
           <div class="g-body">
             <p>Older listings still show 4.7.</p>
             <p><strong>Pros:</strong> easy to use with quick onboarding; accurate time and mileage once set up; accurate GPS and breadcrumb routes; fast, named support.</p>
@@ -752,7 +747,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="hubstaff">Hubstaff <span class="g-src">Google Play: 3.5 (956, last updated 31 Dec 2025, the oldest of the Play apps checked) · App Store: 4.5 (1.5K, US), updated 23 Sep 2026 · G2: 4.4 (2,345)</span></h3>
+          <h3 id="hubstaff">Hubstaff <span class="g-src">Android: 3.5 (956 reviews, last updated 31 Dec 2025, the oldest of the Play apps checked) · iOS: 4.5 (1.5K reviews, US), updated 23 Sep 2026 · G2: 4.4 (2,345 reviews)</span></h3>
           <div class="g-body">
             <p>Price from Hubstaff's page, billed annually with a 2-seat minimum: Starter $4.99, Grow $7.50, Team $10 and Enterprise $25 per seat a month.</p>
             <p><strong>GPS pricing:</strong> location tracking and geofencing are not on Starter or Grow. On Team they are a $3.33 per seat add-on, about $13.33 in total; on Enterprise they are included.</p>
@@ -762,7 +757,7 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
         <div class="g-sub">
-          <h3 id="connecteam">Connecteam <span class="g-src">Google Play: 4.7 (30.9K, updated 26 Oct 2026) · App Store: 4.9 (63K, US) · G2: 4.6 (3,506) · Capterra: 4.6 (5,320)</span></h3>
+          <h3 id="connecteam">Connecteam <span class="g-src">Android: 4.7 (30.9K reviews, updated 26 Oct 2026) · iOS: 4.9 (63K reviews, US) · G2: 4.6 (3,506 reviews) · Capterra: 4.6 (5,320 reviews)</span></h3>
           <div class="g-body">
             <p>Price: for the Operations hub on annual billing: Basic $29, Advanced $49 and Expert $99 a month including the first 30 users, which is about $0.97, $1.63 and $3.30 per user at 30 users. Free for up to 10 users; communications and HR hubs are priced separately.</p>
             <p><strong>Pros:</strong> one app for scheduling, time clock, tasks, chat, training and forms for deskless teams; large rating base on both stores; small-business support praised.</p>
@@ -1106,8 +1101,8 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
         </ul>
       </div>
     </section>
-    <section class="g-sec">
-      <h2 id="method-sources-and-limits">Method, sources and limits</h2>
+    <details class="g-sec g-acc" id="method-sources-and-limits">
+      <summary><h2>Method, sources and limits</h2></summary>
       <div class="g-body">
         <p>This guide was researched with AI assistance on 17 and 23 November 2026 and published by TrackFolks, which sells one of the apps covered. Treat the TrackFolks entry as a vendor's description, not an independent review.</p>
         <div class="g-sub">
@@ -1151,11 +1146,14 @@ footer { text-align:center; font-size:13px; color:var(--muted); padding:28px 20p
           </div>
         </div>
       </div>
-    </section>
+    </details>
     <p>For a deeper look at field force automation apps alone, see <a href="/comparison/how-to-pick-a-field-force-automation-app.html">How to Pick a Field Force Automation App</a>.</p>
   </main>
   <footer>
     <p><a href="/">TrackFolks</a> · <a href="/comparison/field-tracking-software-buyers-guide.html">Buyer's guide to field tracking software</a> · <a href="/comparison/how-to-pick-a-field-force-automation-app.html">How to pick a field force automation app</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms/">Terms of Service</a></p>
   </footer>
+<script>
+(function(){var a=document.getElementById('method-sources-and-limits');function o(){if(a&&location.hash==='#method-sources-and-limits'){a.open=true;a.scrollIntoView();}}o();addEventListener('hashchange',o);})();
+</script>
 </body>
 </html>
