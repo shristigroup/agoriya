@@ -155,7 +155,7 @@ app("saleson", "SalesOn", "SFA", "", "saleson", (4.3, 177), None, "iPhone: 5 rat
     "small distributors and wholesalers with billing and field sales in one place", "your routes have patchy network, or you need a large-brand rollout",
     [("bizom", "Offline use and track record: Bizom lists offline order capture and is rated 4.6 on Google Play from 29.2K reviews."),
      ("delta", "Ratings: Delta Sales App is rated 4.3 on Google Play from 784 reviews and covers beat planning, orders and visit tracking.")])
-app("sansales", "SAN SALES (SANeFORCE)", "SFA", "", "san-sales", (4.2, 153), None, "iPhone: 4 ratings", "quote based",
+app("sansales", "SAN SALES (SANeFORCE)", "SFA", "", "san-sales", (4.1, 153), None, "iPhone: 4.8 from 4 ratings in India, none in the US", "quote based",
     ["Attendance, order booking, retailing and call reporting for FMCG reps in one app (2022 Play review)", "The vendor is shipping updates, with a release on 19 Nov 2026"],
     ["August and September 2026 Play reviews say the app hangs, shows errors and is slow", "Reviews of the sibling SAN SFE app complain about battery use and rep tracking",
      "Very few iPhone ratings", "No published price"],
