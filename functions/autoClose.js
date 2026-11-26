@@ -35,9 +35,16 @@ function classifyAutoClose({ tracking, user, tokenState }) {
   const build = user && typeof user.appBuild === "number" ? user.appBuild : null;
   if (build === null || build < ACK_MIN_BUILD) return "app_without_wakeup_ack";
 
-  const pingedAt = millis(tracking && tracking.watchdogPingedAt);
+  // A receipt for ANY ping of this episode counts, so compare with the first
+  // one. The episode's pings are the last `watchdogPingCount` entries of
+  // wakeupPingTimes (earlier ones belong to spells that recovered).
+  const pings = (tracking && tracking.wakeupPingTimes) || [];
+  const episode = (tracking && tracking.watchdogPingCount) || 0;
+  const firstPing = pings.length
+    ? millis(pings[Math.max(0, pings.length - episode)])
+    : millis(tracking && tracking.watchdogPingedAt);
   const receivedAt = millis(tracking && tracking.wakeupReceivedAt);
-  if (receivedAt === null || (pingedAt !== null && receivedAt < pingedAt)) {
+  if (receivedAt === null || (firstPing !== null && receivedAt < firstPing)) {
     return "wakeup_not_received";
   }
 
