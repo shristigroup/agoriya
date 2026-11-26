@@ -38,6 +38,28 @@ test("a receipt from before this ping does not count", () => {
     "wakeup_not_received");
 });
 
+test("a receipt for the first of two pings counts", () => {
+  assert.equal(
+    classifyAutoClose({
+      tracking: {
+        watchdogPingedAt: ts(6000), watchdogPingCount: 2,
+        wakeupPingTimes: [ts(1000), ts(6000)],
+        wakeupReceivedAt: ts(2000), wakeupResult: "restarted" },
+      user: newApp, tokenState: "ok" }),
+    "wakeup_received_no_heartbeat");
+});
+
+test("pings from a spell that recovered are ignored", () => {
+  assert.equal(
+    classifyAutoClose({
+      tracking: {
+        watchdogPingedAt: ts(9000), watchdogPingCount: 1,
+        wakeupPingTimes: [ts(1000), ts(9000)],
+        wakeupReceivedAt: ts(2000), wakeupResult: "restarted" },
+      user: newApp, tokenState: "ok" }),
+    "wakeup_not_received");
+});
+
 test("received but restart failed", () => {
   assert.equal(
     classifyAutoClose({
