@@ -157,12 +157,13 @@ class FirestoreRepository {
   /// Sets stopTime on the Tracking doc (punch-out).
   Future<void> closeTracking(
       String userId, String trackingId, DateTime stopTime,
-      {String? reason}) async {
+      {String? reason, Map<String, dynamic>? anomaly}) async {
     try {
       await _trackingDoc(userId, trackingId).update({
         'stopTime': Timestamp.fromDate(stopTime),
         'isPunchedIn': false,
         if (reason != null) 'punchOutReason': reason,
+        if (anomaly != null) 'punchOutAnomaly': anomaly,
       }).timeout(kUserWaitingWriteTimeout);
     } on FirebaseException catch (e) {
       if (_isDocumentSizeLimitError(e)) {
@@ -179,7 +180,7 @@ class FirestoreRepository {
   /// still succeed even though the locations array is at capacity.
   Future<void> closeTrackingFreeingSpace(
       String userId, String trackingId, DateTime stopTime,
-      {String? reason}) async {
+      {String? reason, Map<String, dynamic>? anomaly}) async {
     final doc = await _trackingDoc(userId, trackingId)
         .get()
         .timeout(kUserWaitingWriteTimeout);
@@ -193,6 +194,7 @@ class FirestoreRepository {
       'stopTime': Timestamp.fromDate(stopTime),
       'isPunchedIn': false,
       if (reason != null) 'punchOutReason': reason,
+      if (anomaly != null) 'punchOutAnomaly': anomaly,
     }).timeout(kUserWaitingWriteTimeout);
   }
 

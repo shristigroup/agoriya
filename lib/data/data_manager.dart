@@ -215,14 +215,16 @@ class DataManager {
     String userId,
     String date,
     DateTime timestamp,
-    String imageUrl,
-  ) async {
+    String imageUrl, {
+    Map<String, dynamic>? anomaly,
+  }) async {
     final trackingId = TrackingModel.buildId(date, timestamp);
     final tracking = TrackingModel(
       id: trackingId,
       date: date,
       startTime: timestamp,
       punchInImage: imageUrl,
+      punchInAnomaly: anomaly,
     );
     await _repo.createTracking(userId, tracking);
     await LocalStorageService.saveTracking(tracking);
@@ -247,6 +249,7 @@ class DataManager {
     required TrackingModel currentTracking,
     required DateTime timestamp,
     String? reason,
+    Map<String, dynamic>? anomaly,
   }) async {
     // If the doc is already known to be at the size limit, go straight to
     // the space-freeing write — no point attempting the plain one first.
@@ -255,19 +258,20 @@ class DataManager {
     // right at the edge and stopTime tipped it over).
     if (LocalStorageService.isLocationSizeLimitHit()) {
       await _repo.closeTrackingFreeingSpace(userId, currentTracking.id, timestamp,
-          reason: reason);
+          reason: reason, anomaly: anomaly);
     } else {
       try {
         await _repo.closeTracking(userId, currentTracking.id, timestamp,
-            reason: reason);
+            reason: reason, anomaly: anomaly);
       } on FirestoreDocumentSizeLimitException {
         await LocalStorageService.markLocationSizeLimitHitIfNew();
         await _repo.closeTrackingFreeingSpace(
             userId, currentTracking.id, timestamp,
-            reason: reason);
+            reason: reason, anomaly: anomaly);
       }
     }
-    final updated = currentTracking.copyWith(stopTime: timestamp);
+    final updated =
+        currentTracking.copyWith(stopTime: timestamp, punchOutAnomaly: anomaly);
     // Keep the tracking ID in Hive so HomeBloc can see isPunchedOut = true
     // on the next init and offer the "Resume Session" option. The ID is
     // cleared only when the user starts a fresh punch-in.

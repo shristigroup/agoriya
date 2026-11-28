@@ -64,6 +64,8 @@ dependencies:
   share_plus: ^13.2.1
   device_info_plus: ^13.3.0
   url_launcher: ^6.3.3
+  firebase_ai: ^5.2.0
+  firebase_app_check: ^0.5.2
 
 dev_dependencies:
   flutter_test:

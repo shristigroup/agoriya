@@ -30,6 +30,10 @@ import '../../../services/oem_settings_service.dart';
 import '../../../services/device_info_service.dart';
 import '../../../services/notification_service.dart';
 import '../../../core/utils/sync_progress.dart';
+import '../../../core/utils/shift_check.dart';
+import '../../../services/shift_actions.dart';
+import '../../../services/shift_service.dart';
+import '../widgets/geofence_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   /// When set, this is a manager viewing a report's home screen
@@ -71,6 +75,23 @@ class _HomeScreenState extends State<HomeScreen>
     });
     if (!_isReadOnly) {
       _checkNotificationPermission();
+      ShiftActionBus.pending.addListener(_onShiftAction);
+    }
+  }
+
+  /// A tapped shift reminder: open the punch-in or punch-out flow, if it still
+  /// applies. Waits (leaves the request pending) until the home screen has loaded.
+  void _onShiftAction() {
+    final action = ShiftActionBus.pending.value;
+    if (action == null || _isReadOnly || !mounted) return;
+    final s = context.read<HomeBloc>().state;
+    if (s is! HomeLoaded) return;
+    ShiftActionBus.pending.value = null;
+    final punchedIn = s.tracking != null && s.tracking!.isPunchedIn;
+    if (action == 'in' && !punchedIn) {
+      _handlePunchIn(s);
+    } else if (action == 'out' && punchedIn) {
+      _handlePunchOut();
     }
   }
 
@@ -123,6 +144,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    ShiftActionBus.pending.removeListener(_onShiftAction);
     WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
@@ -437,6 +459,9 @@ class _HomeScreenState extends State<HomeScreen>
     await _maybeShowPunchInGuides();
     if (!mounted) return;
 
+    final shiftCheck = await _checkShift(state, isPunchIn: true);
+    if (!shiftCheck.proceed || !mounted) return;
+
     final file = await Navigator.of(context).push<File>(
       MaterialPageRoute(builder: (_) => const PunchInCameraScreen()),
     );
@@ -453,7 +478,8 @@ class _HomeScreenState extends State<HomeScreen>
 
       if (mounted) _dismissLoadingDialog();
 
-      context.read<HomeBloc>().add(PunchInEvent(imageUrl));
+      context.read<HomeBloc>().add(
+          PunchInEvent(imageUrl, anomaly: shiftCheck.anomaly));
 
       // Build a minimal tracking for the animation screen while the real
       // punch-in is processed by HomeBloc in the background.
@@ -513,8 +539,38 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
     if (confirmed == true) {
-      context.read<HomeBloc>().add(PunchOutEvent());
+      final shiftCheck = await _checkShift(
+          state is HomeLoaded ? state : null,
+          isPunchIn: false);
+      if (!shiftCheck.proceed || !mounted) return;
+      context.read<HomeBloc>().add(PunchOutEvent(anomaly: shiftCheck.anomaly));
     }
+  }
+
+  /// Compares this punch-in / punch-out with the user's shift (if they have
+  /// one): late or early, and far from the shift's place. If they are far, asks
+  /// first. `proceed` false means they chose not to carry on.
+  Future<({bool proceed, Map<String, dynamic>? anomaly})> _checkShift(
+      HomeLoaded? loaded,
+      {required bool isPunchIn}) async {
+    final shift = await ShiftService.myShift();
+    if (shift == null) return (proceed: true, anomaly: null);
+    final position = await ShiftService.lastKnown(loaded);
+    final check = evaluateShift(
+        shift: shift, isPunchIn: isPunchIn, now: DateTime.now(), position: position);
+    var warned = false;
+    if (check.needsWarning) {
+      if (!mounted) return (proceed: false, anomaly: null);
+      final choice = await showGeofenceDialog(
+        context,
+        distanceM: check.geo.distanceM!.round(),
+        placeName: check.target?.name ?? 'the location',
+      );
+      if (choice == GeofenceChoice.openMaps) await openGoogleMaps();
+      if (choice != GeofenceChoice.carryOn) return (proceed: false, anomaly: null);
+      warned = true;
+    }
+    return (proceed: true, anomaly: check.anomaly(warnedAndContinued: warned));
   }
 
   void _showLoadingDialog(String message) {
@@ -808,6 +864,9 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     return BlocConsumer<HomeBloc, HomeState>(
       listener: (context, state) {
+        if (state is HomeLoaded) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _onShiftAction());
+        }
         if (state is PunchInSuccess) {
           context.read<HomeBloc>().add(HomeInitEvent(_targetUserId));
         } else if (state is PunchOutSuccess) {
