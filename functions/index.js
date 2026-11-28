@@ -74,6 +74,17 @@ exports.onTrackingWrite = onDocumentWritten(
 
     if (!after) return;
 
+    const hadStopTime = before && before.stopTime;
+    const hasStopTime = after.stopTime;
+
+    // Only a new session, a session resumed or a session stopped is worth a
+    // notification. Every other write (heartbeats, location batches, wake-up
+    // receipts; the vast majority) stops here, before the Firestore reads below.
+    const isPunchIn = !before;
+    const isResume = hadStopTime && !hasStopTime;
+    const isPunchOut = !hadStopTime && hasStopTime;
+    if (!isPunchIn && !isResume && !isPunchOut) return;
+
     const userDoc = await db.collection("Users").doc(userId).get();
     if (!userDoc.exists) return;
     const user = userDoc.data();
@@ -82,9 +93,6 @@ exports.onTrackingWrite = onDocumentWritten(
     const manager = await getDirectManager(userId);
     if (!manager) return;
     const managerToken = manager.fcmToken;
-
-    const hadStopTime = before && before.stopTime;
-    const hasStopTime = after.stopTime;
 
     // ── New doc created = punch-in ─────────────────────────────────────────
     if (!before) {
