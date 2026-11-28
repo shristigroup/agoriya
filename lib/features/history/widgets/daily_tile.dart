@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_utils.dart';
+import '../../../core/utils/anomaly_text.dart';
 import '../../../data/models/tracking_model.dart';
 
 class DailyTile extends StatelessWidget {
@@ -32,11 +33,25 @@ class DailyTile extends StatelessWidget {
         punchOut != null ? AppTheme.textSecondary : AppTheme.punchIn;
     final statusLabel = punchOut != null ? 'Completed' : 'Active';
 
+    // Late, early or far from the shift's place: shown in red, with the reason.
+    final warnings = [
+      anomalyLine(tracking.punchInAnomaly, punchIn: true),
+      anomalyLine(tracking.punchOutAnomaly, punchIn: false),
+    ].where((w) => w.isNotEmpty).toList();
+    final flagged = warnings.isNotEmpty;
+
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: Card(
+          color: flagged ? AppTheme.error.withOpacity(0.06) : null,
+          shape: flagged
+              ? RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: AppTheme.error.withOpacity(0.5)),
+                )
+              : null,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -124,6 +139,23 @@ class DailyTile extends StatelessWidget {
                               '${tracking.visitCount} visits'),
                         ],
                       ),
+                      for (final w in warnings)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warning_amber_rounded,
+                                  size: 14, color: AppTheme.error),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(w,
+                                    style: AppTheme.sora(11,
+                                        weight: FontWeight.w600,
+                                        color: AppTheme.error)),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),

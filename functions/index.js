@@ -1,7 +1,11 @@
 const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onTaskDispatched } = require("firebase-functions/v2/tasks");
 const { classifyAutoClose, isDeadTokenError } = require("./autoClose");
+const shifts = require("./shifts");
+const shiftJobs = require("./shiftJobs");
 const admin = require("firebase-admin");
+const { getFunctions } = require("firebase-admin/functions");
 const crypto = require("crypto");
 
 admin.initializeApp();
@@ -21,11 +25,17 @@ const WATCHDOG_PING_COUNT_THRESHOLD = Number(process.env.WATCHDOG_PING_COUNT_THR
 // Hashed because apns-collapse-id allows at most 64 bytes.
 const TEAM_EVENT_TYPES = new Set(["punch_in", "resume", "punch_out", "check_in", "check_out"]);
 
+// `data.collapseKey` (optional) sets the tag explicitly, for example one
+// shift reminder per shift per day.
 async function sendNotification(token, title, body, data = {}) {
   if (!token) return;
   try {
-    const collapseId = TEAM_EVENT_TYPES.has(data.type) && data.targetUserId
-      ? require("crypto").createHash("sha1").update(data.targetUserId).digest("hex")
+    const { collapseKey, ...payload } = data;
+    data = payload;
+    const source = collapseKey ||
+      (TEAM_EVENT_TYPES.has(data.type) && data.targetUserId ? data.targetUserId : null);
+    const collapseId = source
+      ? crypto.createHash("sha1").update(source).digest("hex")
       : null;
     await messaging.send({
       token,
@@ -96,10 +106,13 @@ exports.onTrackingWrite = onDocumentWritten(
 
     // ── New doc created = punch-in ─────────────────────────────────────────
     if (!before) {
+      // The phone records an anomaly (late, far from the shift's location) in
+      // the same write that creates the session.
+      const anomaly = shifts.anomalyText(after.punchInAnomaly);
       await sendNotification(
         managerToken,
         `${userName} punched in`,
-        "Started work",
+        anomaly ? `Started work (${anomaly})` : "Started work",
         {
           type: "punch_in",
           targetUserId: userId,
@@ -129,11 +142,13 @@ exports.onTrackingWrite = onDocumentWritten(
       const punchInTime = after.startTime ? after.startTime.toDate() : null;
       const durationText = punchInTime
         ? formatDuration(after.stopTime.toDate() - punchInTime) : "";
+      const anomaly = shifts.anomalyText(after.punchOutAnomaly);
+      const base = durationText ? `Total time: ${durationText}` : "Has ended their work day.";
 
       await sendNotification(
         managerToken,
         `${userName} punched out`,
-        durationText ? `Total time: ${durationText}` : "Has ended their work day.",
+        anomaly ? `${base} (${anomaly})` : base,
         {
           type: "punch_out",
           targetUserId: userId,
@@ -1004,6 +1019,66 @@ exports.getOrgMembers = onRequest(
     });
 
     res.status(200).json({ members });
+  }
+);
+
+// ─── Shift reminders ────────────────────────────────────────────────────────
+// Shifts live at Codes/{code}/Shifts/{id} (fields: see shifts.js). Every day at
+// 00:00 India time a job queues one Cloud Task per reminder (at the shift's
+// start, and shortly before its end) for every shift. The task sends the
+// reminders. Editing a shift queues fresh tasks for what is still ahead today;
+// a task checks the shift when it runs and does nothing if the shift was
+// deleted or its time was changed after the task was queued.
+const SHIFT_QUEUE = "locations/asia-south1/functions/shiftReminder";
+
+const enqueueShiftTask = (payload, opts) =>
+  getFunctions().taskQueue(SHIFT_QUEUE).enqueue(payload, opts);
+
+const queueShiftTasks = (code, shiftId, shift, dateStr, now) =>
+  shiftJobs.queueShiftTasks({ enqueue: enqueueShiftTask, code, shiftId, shift, dateStr, now });
+
+exports.scheduleShiftTasks = onSchedule(
+  { schedule: "0 0 * * *", timeZone: "Asia/Kolkata", region: "asia-south1" },
+  async () => {
+    const now = new Date();
+    const dateStr = shifts.istDateString(now);
+    const snap = await db.collectionGroup("Shifts").get();
+    for (const doc of snap.docs) {
+      await queueShiftTasks(doc.ref.parent.parent.id, doc.id, doc.data(), dateStr, now);
+    }
+    console.log(`[shifts] queued reminders for ${snap.size} shifts for ${dateStr}`);
+  }
+);
+
+// Queue fresh tasks when a shift is created or its times change. Who is
+// assigned is read when the reminder runs, so assignment changes need nothing.
+exports.onShiftWrite = onDocumentWritten(
+  { document: "Codes/{code}/Shifts/{shiftId}", region: "asia-south1" },
+  async (event) => {
+    if (!event.data.after.exists) return;
+    const after = event.data.after.data();
+    const before = event.data.before.exists ? event.data.before.data() : null;
+    const unchanged = before &&
+      ["startMinute", "endMinute", "endNextDay"].every((k) => before[k] === after[k]);
+    if (unchanged) return;
+    const now = new Date();
+    await queueShiftTasks(
+      event.params.code, event.params.shiftId, after, shifts.istDateString(now), now);
+  }
+);
+
+exports.shiftReminder = onTaskDispatched(
+  {
+    region: "asia-south1",
+    retryConfig: { maxAttempts: 3, minBackoffSeconds: 30 },
+    rateLimits: { maxConcurrentDispatches: 5 },
+  },
+  async (req) => {
+    await shiftJobs.runShiftReminder({
+      data: req.data,
+      ...shiftJobs.makeShiftData(db),
+      send: sendNotification,
+    });
   }
 );
 

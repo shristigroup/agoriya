@@ -23,6 +23,11 @@ class TrackingModel {
   /// client — never written back.
   final String? autoClosedReason;
 
+  /// Set by the phone when the punch-in / punch-out was unusual for the user's
+  /// shift: {lateMinutes, earlyMinutes, distanceM, locationName}. Null if normal.
+  final Map<String, dynamic>? punchInAnomaly;
+  final Map<String, dynamic>? punchOutAnomaly;
+
   const TrackingModel({
     required this.id,
     required this.date,
@@ -33,6 +38,8 @@ class TrackingModel {
     this.visitCount = 0,
     this.lastBatchSyncedAt,
     this.autoClosedReason,
+    this.punchInAnomaly,
+    this.punchOutAnomaly,
   });
 
   // ── Computed ────────────────────────────────────────────────────────────────
@@ -42,6 +49,8 @@ class TrackingModel {
 
   /// Closed by the server watchdog rather than by the user.
   bool get wasAutoClosed => stopTime != null && autoClosedReason != null;
+
+  bool get hasAnomaly => punchInAnomaly != null || punchOutAnomaly != null;
 
   bool get isPunchedIn => isActive;
   bool get isPunchedOut => isStopped;
@@ -78,8 +87,13 @@ class TrackingModel {
           ((data['lastBatchSyncedAt'] ?? data['lastUpdatedAt']) as Timestamp?)
               ?.toDate(),
       autoClosedReason: data['autoClosedReason'] as String?,
+      punchInAnomaly: _anomaly(data['punchInAnomaly']),
+      punchOutAnomaly: _anomaly(data['punchOutAnomaly']),
     );
   }
+
+  static Map<String, dynamic>? _anomaly(Object? v) =>
+      v is Map ? Map<String, dynamic>.from(v) : null;
 
   Map<String, dynamic> toFirestore() {
     final map = <String, dynamic>{
@@ -92,6 +106,7 @@ class TrackingModel {
     };
     if (stopTime != null) map['stopTime'] = Timestamp.fromDate(stopTime!);
     if (punchInImage != null) map['punchInImage'] = punchInImage;
+    if (punchInAnomaly != null) map['punchInAnomaly'] = punchInAnomaly;
     return map;
   }
 
@@ -105,6 +120,8 @@ class TrackingModel {
             ? DateTime.parse(json['stopTime'] as String)
             : null,
         punchInImage: json['punchInImage'] as String?,
+        punchInAnomaly: _anomaly(json['punchInAnomaly']),
+        punchOutAnomaly: _anomaly(json['punchOutAnomaly']),
         distance: (json['distance'] as num?)?.toDouble() ?? 0.0,
         visitCount: (json['visitCount'] as num?)?.toInt() ?? 0,
         lastBatchSyncedAt:
@@ -121,6 +138,8 @@ class TrackingModel {
         'startTime': startTime.toIso8601String(),
         'stopTime': stopTime?.toIso8601String(),
         'punchInImage': punchInImage,
+        'punchInAnomaly': punchInAnomaly,
+        'punchOutAnomaly': punchOutAnomaly,
         'distance': distance,
         'visitCount': visitCount,
         'lastBatchSyncedAt': lastBatchSyncedAt?.toIso8601String(),
@@ -135,6 +154,7 @@ class TrackingModel {
     int? visitCount,
     DateTime? lastBatchSyncedAt,
     String? autoClosedReason,
+    Map<String, dynamic>? punchOutAnomaly,
     bool clearStopTime = false,
   }) =>
       TrackingModel(
@@ -143,6 +163,8 @@ class TrackingModel {
         startTime: startTime,
         stopTime: clearStopTime ? null : (stopTime ?? this.stopTime),
         punchInImage: punchInImage ?? this.punchInImage,
+        punchInAnomaly: punchInAnomaly,
+        punchOutAnomaly: punchOutAnomaly ?? this.punchOutAnomaly,
         distance: distance ?? this.distance,
         visitCount: visitCount ?? this.visitCount,
         lastBatchSyncedAt: lastBatchSyncedAt ?? this.lastBatchSyncedAt,

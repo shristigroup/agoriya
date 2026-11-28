@@ -10,14 +10,20 @@ class HomeInitEvent extends HomeEvent {
 
 class PunchInEvent extends HomeEvent {
   final String imageUrl;
-  PunchInEvent(this.imageUrl);
+
+  /// Late / far-from-location details for the manager and History, if any.
+  final Map<String, dynamic>? anomaly;
+  PunchInEvent(this.imageUrl, {this.anomaly});
 }
 
 class PunchOutEvent extends HomeEvent {
   /// True when the user is logging out: the same punch-out runs, and signing
   /// out follows once it succeeds (instead of the summary screen).
   final bool thenLogout;
-  PunchOutEvent({this.thenLogout = false});
+
+  /// Early / far-from-location details for the manager and History, if any.
+  final Map<String, dynamic>? anomaly;
+  PunchOutEvent({this.thenLogout = false, this.anomaly});
 }
 
 /// The location-tracking background isolate is the sole owner of the

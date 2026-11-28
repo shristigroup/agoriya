@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/theme/app_theme.dart';
 import 'data/local/local_storage_service.dart';
@@ -10,6 +12,7 @@ import 'services/location_tracking_service.dart';
 import 'services/app_version_service.dart';
 import 'services/device_info_service.dart';
 import 'services/notification_service.dart';
+import 'services/shift_actions.dart';
 import 'features/auth/bloc/auth_bloc.dart';
 import 'features/auth/bloc/auth_event.dart';
 import 'features/auth/bloc/auth_state.dart';
@@ -34,6 +37,22 @@ void main() async {
   ]);
 
   await Firebase.initializeApp();
+  // App Check proves requests come from this app (Play Integrity / App Attest).
+  // It guards the AI assistant's Gemini calls (Firebase AI Logic). Debug builds
+  // use the debug provider: register the token it prints in the Firebase
+  // console (App Check > Apps > Manage debug tokens).
+  try {
+    await FirebaseAppCheck.instance.activate(
+      providerAndroid: kDebugMode
+          ? const AndroidDebugProvider()
+          : const AndroidPlayIntegrityProvider(),
+      providerApple: kDebugMode
+          ? const AppleDebugProvider()
+          : const AppleAppAttestWithDeviceCheckFallbackProvider(),
+    );
+  } catch (e) {
+    debugPrint('[AppCheck] activate failed: $e');
+  }
   await LocalStorageService.init();
   await LocationTrackingService.initialize();
   await NotificationService.initialize();
@@ -72,6 +91,12 @@ void _handleNotificationTap(Map<String, dynamic> data) {
       // One-time "please update" push (scripts/notify_app_update.js): open the
       // download page, which has both stores' buttons.
       AppVersionService.openDownloadPage(data);
+      break;
+    case 'shift_punch_in':
+    case 'shift_punch_out':
+      // A shift reminder: open the punch-in / punch-out flow on the home screen.
+      nav.popUntil((route) => route.isFirst);
+      ShiftActionBus.pending.value = type == 'shift_punch_in' ? 'in' : 'out';
       break;
     case 'auto_punch_out':
       // About the tapping user's own account — no targetUserId needed. Pop

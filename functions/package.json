@@ -7,7 +7,8 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test": "node --test"
+    "test": "node --test",
+    "test:emulator": "firebase emulators:exec --only firestore --project demo-agoriya \"node --test\""
   },
   "engines": {
     "node": "22"

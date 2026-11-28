@@ -9,6 +9,7 @@ import '../../../data/models/org_code_model.dart';
 import '../../../data/data_manager.dart';
 import '../../../data/repositories/firestore_repository.dart';
 import '../../history/screens/history_screen.dart';
+import '../../assistant/assistant_screen.dart';
 import '../widgets/export_bottom_sheet.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -190,6 +191,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
       appBar: AppBar(
         title: const Text('My Team'),
         actions: [
+          if (_isOwner)
+            IconButton(
+              icon: const Icon(Icons.smart_toy_outlined),
+              tooltip: 'AI assist',
+              onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AssistantScreen())),
+            ),
           if (_isOwner)
             IconButton(
               icon: const Icon(Icons.upload_file_outlined),

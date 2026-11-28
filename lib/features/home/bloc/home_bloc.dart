@@ -114,7 +114,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     try {
       final today = AppUtils.todayKey();
       final tracking = await DataManager.punchIn(
-          userId, today, DateTime.now(), event.imageUrl);
+          userId, today, DateTime.now(), event.imageUrl,
+          anomaly: event.anomaly);
       // fresh: true — a genuine new session, so the isolate wipes any
       // leftover cursor state (currentBatch/pendingSampleCount/
       // lastConfirmedPoint) from a previous day/session before sampling.
@@ -183,6 +184,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         userId: userId,
         currentTracking: current.tracking!,
         timestamp: now,
+        anomaly: event.anomaly,
       );
 
       LocationTrackingService.stop();
