@@ -16,6 +16,7 @@ class FakeData implements AssistantData {
     const ShiftModel(id: 's2', name: 'Evening'),
   ];
   final List<String> calls = [];
+  final List<ShiftModel> saved = [];
 
   @override
   Future<List<OrgMember>> members() async => people;
@@ -24,6 +25,7 @@ class FakeData implements AssistantData {
   @override
   Future<String> saveShift(ShiftModel s) async {
     calls.add('save:${s.name}');
+    saved.add(s);
     return 'new1';
   }
 
@@ -95,5 +97,35 @@ void main() {
     expect(out.proposal!.lines.join('\n'), contains('Ravi Kumar (from Morning)'));
     await out.proposal!.apply();
     expect(data.calls, ['assign:s2:ravi,sunita']);
+  });
+
+  test('place search results are parsed from the geocoder response', () {
+    final parsed = PlaceSearch.parsePlaces([
+      {'lat': '21.25', 'lon': '81.63', 'name': 'Reliance Mall', 'display_name': 'Reliance Mall, Raipur'},
+      {'lat': 'x', 'lon': '1'}, // no usable coordinates: skipped
+      {'lat': '21.3', 'lon': '81.7', 'display_name': 'Some Road, Raipur'}, // no name: first part of the address
+    ]);
+    expect(parsed.length, 2);
+    expect(parsed[0].name, 'Reliance Mall');
+    expect(parsed[0].lat, 21.25);
+    expect(parsed[0].address, 'Reliance Mall, Raipur');
+    expect(parsed[1].name, 'Some Road');
+  });
+
+  test('update_shift changes only what was asked and keeps the people on the shift', () async {
+    final out = await run(actions, 'update_shift', {'shiftId': 's1', 'end': '19:00'});
+    expect(out.proposal!.lines.join('\n'), contains('09:00 - 18:00 → 09:00 - 19:00'));
+    await out.proposal!.apply();
+    expect(data.calls, ['save:Morning']);
+    expect(data.saved.single.userIds, ['ravi']); // the people are untouched
+    expect(data.saved.single.startMinute, 540);
+    expect(data.saved.single.endMinute, 19 * 60);
+  });
+
+  test('delete_shift only proposes; Confirm deletes', () async {
+    final out = await run(actions, 'delete_shift', {'shiftId': 's1'});
+    expect(data.calls, isEmpty);
+    await out.proposal!.apply();
+    expect(data.calls, ['delete:s1']);
   });
 }

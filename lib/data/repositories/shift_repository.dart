@@ -40,19 +40,28 @@ class ShiftRepository {
   /// Puts [userIds] on [shiftId], taking them off any other shift, in one batch.
   Future<void> assignUsers(String code, String shiftId, List<String> userIds) async {
     if (userIds.isEmpty) return;
-    final all = await getShifts(code);
+    final removals = planAssignRemovals(await getShifts(code), shiftId, userIds);
     final batch = _db.batch();
-    for (final s in all) {
-      if (s.id == shiftId) continue;
-      final here = userIds.where(s.userIds.contains).toList();
-      if (here.isNotEmpty) {
-        batch.update(_shifts(code).doc(s.id), {'userIds': FieldValue.arrayRemove(here)});
-      }
-    }
+    removals.forEach((otherId, users) {
+      batch.update(_shifts(code).doc(otherId), {'userIds': FieldValue.arrayRemove(users)});
+    });
     batch.update(_shifts(code).doc(shiftId), {'userIds': FieldValue.arrayUnion(userIds)});
     await batch.commit();
   }
 
   Future<void> removeUsers(String code, String shiftId, List<String> userIds) =>
       _shifts(code).doc(shiftId).update({'userIds': FieldValue.arrayRemove(userIds)});
+}
+
+/// For moving [userIds] onto [targetShiftId]: which people to take off which
+/// OTHER shift (shift id -> user ids), so a person stays on one shift only.
+Map<String, List<String>> planAssignRemovals(
+    List<ShiftModel> all, String targetShiftId, List<String> userIds) {
+  final plan = <String, List<String>>{};
+  for (final s in all) {
+    if (s.id == targetShiftId) continue;
+    final here = userIds.where(s.userIds.contains).toList();
+    if (here.isNotEmpty) plan[s.id] = here;
+  }
+  return plan;
 }

@@ -281,21 +281,12 @@ class AssistantController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Stop / new chat / new day ─────────────────────────────────────────────
+  // ── Stop / new day ────────────────────────────────────────────────────────
 
   void stop() {
     if (!busy) return;
     _stopped = true;
     llm.cancel();
-    notifyListeners();
-  }
-
-  void newChat() {
-    if (busy) stop();
-    _history.clear();
-    messages
-      ..clear()
-      ..add(const ChatMessage(ChatRole.assistant, kOpeningMessage));
     notifyListeners();
   }
 

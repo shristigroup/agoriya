@@ -4,6 +4,7 @@ import 'package:agoriya/features/assistant/assistant_config.dart';
 import 'package:agoriya/features/assistant/assistant_controller.dart';
 import 'package:agoriya/features/assistant/assistant_models.dart';
 import 'package:agoriya/features/assistant/credit_store.dart';
+import 'package:agoriya/features/assistant/ist_date.dart';
 import 'package:agoriya/features/assistant/llm_client.dart';
 
 /// A model that plays back scripted turns (or runs a function for each call).
@@ -267,4 +268,110 @@ void main() {
     expect(c.creditsLeft, 99);
   });
 
+  test('a switched-off action is not run, and the model is told it is unavailable', () async {
+    var ran = false;
+    final action = AssistantAction(
+        name: 'member_history',
+        description: 'h',
+        run: (_) async {
+          ran = true;
+          return const ActionOutcome.data({});
+        });
+    final llm = FakeLlm([
+      (_) => call('member_history'),
+      (h) {
+        expect(h.last.result!['error'], contains('switched off'));
+        return say('That is unavailable right now.');
+      },
+    ]);
+    final c = make(llm,
+        actions: [action],
+        config: const AssistantConfig(actions: {'member_history': {'enabled': false}}));
+    await c.init();
+    await c.send('x');
+    expect(ran, false);
+    expect(lastText(c), 'That is unavailable right now.');
+  });
+
+  test('cancelling a proposal runs nothing, even if Confirm is tapped afterwards', () async {
+    var applied = 0;
+    final action = AssistantAction(
+      name: 'w',
+      description: 'w',
+      run: (_) async => ActionOutcome.proposal(
+          Proposal(title: 't', lines: const [], apply: () async => '${applied++}')),
+    );
+    final c = make(FakeLlm([(_) => call('w'), (_) => say('ok')]), actions: [action]);
+    await c.init();
+    await c.send('x');
+    final p = c.messages.firstWhere((m) => m.proposal != null).proposal!;
+    c.cancelProposal(p);
+    await c.confirm(p);
+    expect(applied, 0);
+    expect(p.state, ProposalState.cancelled);
+  });
+
+  test('an action that throws is reported to the model, and the chat carries on', () async {
+    final action = AssistantAction(
+        name: 'a', description: 'a', run: (_) async => throw Exception('boom'));
+    final llm = FakeLlm([
+      (_) => call('a'),
+      (h) {
+        expect(h.last.result!['error'], contains('boom'));
+        return say('That failed.');
+      },
+    ]);
+    final c = make(llm, actions: [action]);
+    await c.init();
+    await c.send('x');
+    expect(lastText(c), 'That failed.');
+    expect(c.busy, false);
+  });
+
+  test('credits run out half-way through a prompt: it stops and says so', () async {
+    final llm = FakeLlm([(_) => call('x'), (_) => say('never reached')]);
+    final c = make(llm, credits: FakeCredits(99), actions: [readAction('x', {})]);
+    await c.init();
+    await c.send('hi');
+    expect(llm.calls, 1);
+    expect(lastText(c), contains('ran out'));
+  });
+
+  test('after Stop the history has no dangling request, so the next message still works', () async {
+    // There is one chat a day and no way to clear it, so a broken history would
+    // break every later message.
+    final completer = Completer<Turn>();
+    final llm = FakeLlm([(_) => completer.future, (_) => say('fine')]);
+    final c = make(llm);
+    await c.init();
+    final sending = c.send('first');
+    await Future<void>.delayed(Duration.zero);
+    c.stop();
+    completer.complete(Turn.model(calls: [const ToolCall('a', {})]));
+    await sending;
+    await c.send('second');
+    final sent = llm.seen.last;
+    expect(sent.where((t) => t.role == 'model').isEmpty, true);
+    expect(sent.where((t) => t.role == 'user').length, 2);
+    expect(lastText(c), 'fine');
+  });
+
+  test('a model error is logged, not retried, and does not break the next message', () async {
+    final credits = FakeCredits();
+    final llm = FakeLlm([(_) async => throw Exception('503'), (_) => say('back')]);
+    final c = make(llm, credits: credits);
+    await c.init();
+    await c.send('hi');
+    expect(lastText(c), contains("couldn't reach the AI service"));
+    expect(llm.calls, 1);
+    expect(credits.entries.single['kind'], 'error');
+    await c.send('again');
+    expect(lastText(c), 'back');
+  });
+
+  test('IST date key flips at 00:00 India time (the rules use the same rule)', () {
+    expect(istDateString(DateTime.utc(2026, 11, 28, 18, 29)), '2026-11-28');
+    expect(istDateString(DateTime.utc(2026, 11, 28, 18, 30)), '2026-11-29');
+    expect(istDateString(DateTime.utc(2026, 12, 31, 19, 0)), '2027-01-01');
+  });
 }

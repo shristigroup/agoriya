@@ -1,10 +1,11 @@
 // Shifts (owner writes, org members read), the AI assistant's read-only config,
 // and its per-day credit counter (+1 at a time, capped by Config/assistant).
 const { test, before, after, beforeEach } = require("node:test");
+const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require("@firebase/rules-unit-testing");
-const { doc, setDoc, getDoc, updateDoc, deleteDoc } = require("firebase/firestore");
+const { doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, arrayRemove, arrayUnion } = require("firebase/firestore");
 
 let env;
 before(async () => {
@@ -134,4 +135,34 @@ test("log entries can only be added, one at a time", async () => {
   await assertFails(updateDoc(usage("owner"), { entries: [] }));
   await assertFails(updateDoc(usage("owner"), { entries: [{ a: 1 }, { b: 2 }, { c: 3 }] }));
   await assertFails(updateDoc(usage("owner"), { extra: 1 }));
+});
+
+// ─── Moving people between shifts (what ShiftRepository.assignUsers writes) ───
+
+const moveBatch = (db, from, to, users) => {
+  const batch = writeBatch(db);
+  batch.update(doc(db, `Codes/ORG1/Shifts/${from}`), { userIds: arrayRemove(...users) });
+  batch.update(doc(db, `Codes/ORG1/Shifts/${to}`), { userIds: arrayUnion(...users) });
+  return batch.commit();
+};
+
+test("the owner can move a person from one shift to another in one batch", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "Codes/ORG1/Shifts/s2"), shift({ name: "Evening", userIds: ["other"] }));
+  });
+  const db = as("owner");
+  await assertSucceeds(moveBatch(db, "s1", "s2", ["member"]));
+  const s1 = (await getDoc(doc(db, "Codes/ORG1/Shifts/s1"))).data();
+  const s2 = (await getDoc(doc(db, "Codes/ORG1/Shifts/s2"))).data();
+  assert.deepStrictEqual(s1.userIds, []);                       // no longer on the old shift
+  assert.deepStrictEqual(s2.userIds.sort(), ["member", "other"]); // on the new one, others untouched
+});
+
+test("a member cannot move people between shifts, and a failed batch changes nothing", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "Codes/ORG1/Shifts/s2"), shift({ name: "Evening", userIds: [] }));
+  });
+  await assertFails(moveBatch(as("member"), "s1", "s2", ["member"]));
+  const s1 = (await getDoc(doc(as("owner"), "Codes/ORG1/Shifts/s1"))).data();
+  assert.deepStrictEqual(s1.userIds, ["member"]);
 });

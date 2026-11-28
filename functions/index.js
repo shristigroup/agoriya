@@ -3,6 +3,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onTaskDispatched } = require("firebase-functions/v2/tasks");
 const { classifyAutoClose, isDeadTokenError } = require("./autoClose");
 const shifts = require("./shifts");
+const shiftJobs = require("./shiftJobs");
 const admin = require("firebase-admin");
 const { getFunctions } = require("firebase-admin/functions");
 const crypto = require("crypto");
@@ -1030,25 +1031,11 @@ exports.getOrgMembers = onRequest(
 // deleted or its time was changed after the task was queued.
 const SHIFT_QUEUE = "locations/asia-south1/functions/shiftReminder";
 
-async function queueShiftTasks(code, shiftId, shift, dateStr, now) {
-  for (const t of shifts.dueTasks(shift, dateStr, now)) {
-    try {
-      await getFunctions().taskQueue(SHIFT_QUEUE).enqueue(
-        { code, shiftId, kind: t.kind, date: dateStr, expectedAt: t.expectedAt },
-        {
-          scheduleTime: t.scheduleTime,
-          // Unique per shift, day, kind and time: an edit makes a new task, and
-          // the midnight job can run twice without queueing a duplicate.
-          id: `${shiftId}-${dateStr}-${t.kind}-${t.expectedAt}`,
-        }
-      );
-    } catch (err) {
-      if (!/already exists|task-already-exists/i.test(`${err.code} ${err.message}`)) {
-        console.error(`[shifts] could not queue ${t.kind} for ${code}/${shiftId}:`, err.message);
-      }
-    }
-  }
-}
+const enqueueShiftTask = (payload, opts) =>
+  getFunctions().taskQueue(SHIFT_QUEUE).enqueue(payload, opts);
+
+const queueShiftTasks = (code, shiftId, shift, dateStr, now) =>
+  shiftJobs.queueShiftTasks({ enqueue: enqueueShiftTask, code, shiftId, shift, dateStr, now });
 
 exports.scheduleShiftTasks = onSchedule(
   { schedule: "0 0 * * *", timeZone: "Asia/Kolkata", region: "asia-south1" },
@@ -1087,50 +1074,11 @@ exports.shiftReminder = onTaskDispatched(
     rateLimits: { maxConcurrentDispatches: 5 },
   },
   async (req) => {
-    const { code, shiftId, kind, date, expectedAt } = req.data;
-    const doc = await db.doc(`Codes/${code}/Shifts/${shiftId}`).get();
-    if (!doc.exists) return;
-    const shift = doc.data();
-    if (shifts.isStale(shift, date, kind, expectedAt)) return;
-
-    const title = kind === "in" ? "Time to punch in" : "Time to punch out";
-    const body = shift.name ? `${shift.name} shift` : "Your shift";
-    const since = shifts.addDays(date, -1);
-
-    const remind = async (userId) => {
-      // Sessions from yesterday on (ids start with the date). Someone with a
-      // session today, or one still open from last night, is not nudged to
-      // punch in; only someone with an open session is nudged to punch out.
-      const sessions = await db.collection("Users").doc(userId).collection("Tracking")
-        .orderBy(admin.firestore.FieldPath.documentId()).startAt(since)
-        .select("isPunchedIn").get();
-      const open = sessions.docs.some((d) => d.get("isPunchedIn") === true);
-      const today = sessions.docs.some((d) => d.id.startsWith(date));
-      if (kind === "in" ? (open || today) : !open) return 0;
-
-      const user = await db.collection("Users").doc(userId).get();
-      const token = user.exists ? user.data().fcmToken : null;
-      if (!token) return 0;
-      await sendNotification(token, title, body, {
-        type: `shift_punch_${kind}`,
-        shiftId,
-        date,
-        collapseKey: `shift-${shiftId}-${date}-${kind}`,
-      });
-      return 1;
-    };
-
-    const ids = shift.userIds || [];
-    let sent = 0;
-    for (let i = 0; i < ids.length; i += 10) {
-      const results = await Promise.all(ids.slice(i, i + 10).map((u) =>
-        remind(u).catch((err) => {
-          console.error(`[shifts] reminder failed for ${u}:`, err.message);
-          return 0;
-        })));
-      sent += results.reduce((a, b) => a + b, 0);
-    }
-    console.log(`[shifts] ${kind} reminder for ${code}/${shiftId}: ${sent} of ${ids.length} notified`);
+    await shiftJobs.runShiftReminder({
+      data: req.data,
+      ...shiftJobs.makeShiftData(db),
+      send: sendNotification,
+    });
   }
 );
 

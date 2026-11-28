@@ -108,12 +108,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
                     style: AppTheme.sora(12, color: Colors.white70)),
               ),
             ),
-          if (c != null)
-            IconButton(
-              icon: const Icon(Icons.add_comment_outlined),
-              tooltip: 'New chat',
-              onPressed: c.newChat,
-            ),
         ],
       ),
       body: _error != null
