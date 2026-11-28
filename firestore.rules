@@ -27,9 +27,86 @@ service cloud.firestore {
           cfg.get(user.get('platform', 'android'), {}).get('minBuild', 0);
     }
 
-    // ─── Codes — public read; all writes via CF only (createOrgCode) ─────────
+    // Whether the caller is the owner of this org code (Codes/{code}.userId).
+    function isCodeOwner(code) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/Codes/$(code)).data.get('userId', '')
+          == request.auth.token.userId;
+    }
+
+    // Whether the caller belongs to this org code.
+    function isOrgMember(code) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/Users/$(request.auth.token.userId))
+          .data.get('code', '') == code;
+    }
+
+    function validShift(d) {
+      return d.keys().hasOnly(['name', 'startMinute', 'endMinute', 'endNextDay',
+                               'inLocation', 'outLocation', 'radiusM', 'userIds',
+                               'updatedAt']) &&
+        d.get('name', '') is string && d.get('name', '').size() <= 60 &&
+        d.get('userIds', []) is list && d.get('userIds', []).size() <= 500 &&
+        d.get('startMinute', 0) is int &&
+        d.get('startMinute', 0) >= 0 && d.get('startMinute', 0) < 1440 &&
+        d.get('endMinute', 0) is int &&
+        d.get('endMinute', 0) >= 0 && d.get('endMinute', 0) < 1440 &&
+        d.get('radiusM', 100) is int &&
+        d.get('radiusM', 100) >= 20 && d.get('radiusM', 100) <= 5000;
+    }
+
+    // Today's date in India (yyyy-MM-dd), the day key of the assistant's usage doc.
+    function istDate() {
+      let t = request.time + duration.value(330, 'm');
+      return string(t.year()) + '-' + (t.month() < 10 ? '0' : '') + string(t.month())
+        + '-' + (t.day() < 10 ? '0' : '') + string(t.day());
+    }
+
+    // The daily AI credit limit, editable in Config/assistant without a deploy.
+    function assistantLimit() {
+      return get(/databases/$(database)/documents/Config/assistant).data.get('dailyCredits', 100);
+    }
+
+    // ─── Codes — public read; the doc itself is written via CF only ──────────
     match /Codes/{code} {
       allow read: if true;
+
+      // Shifts: members read them (to find their own shift and its location),
+      // only the code's owner writes. Reminders are sent by a server function.
+      match /Shifts/{shiftId} {
+        allow read: if isCodeOwner(code) || isOrgMember(code);
+        allow create, update: if isCodeOwner(code) && validShift(request.resource.data);
+        allow delete: if isCodeOwner(code);
+      }
+    }
+
+    // ─── Config/assistant — the AI assistant's settings: read-only for the app ─
+    match /Config/assistant {
+      allow read: if isSignedIn();
+    }
+
+    // ─── AI assistant usage: one doc per user per day ────────────────────────
+    // credits = model calls used today; entries = declined / failed requests.
+    // The count can only go up by one at a time and never past the limit; the
+    // list can only grow. The day key must be today's date in India.
+    match /AssistantLog/{userId}/Dates/{date} {
+      allow read: if isSignedIn() && request.auth.token.userId == userId;
+      allow create: if isSignedIn() && request.auth.token.userId == userId &&
+        date == istDate() &&
+        request.resource.data.keys().hasOnly(['credits', 'entries']) &&
+        request.resource.data.credits is int &&
+        request.resource.data.credits >= 0 && request.resource.data.credits <= 1 &&
+        request.resource.data.credits <= assistantLimit() &&
+        request.resource.data.entries is list && request.resource.data.entries.size() <= 1;
+      allow update: if isSignedIn() && request.auth.token.userId == userId &&
+        date == istDate() &&
+        request.resource.data.keys().hasOnly(['credits', 'entries']) &&
+        request.resource.data.credits >= resource.data.credits &&
+        request.resource.data.credits <= resource.data.credits + 1 &&
+        request.resource.data.credits <= assistantLimit() &&
+        request.resource.data.entries.size() >= resource.data.entries.size() &&
+        request.resource.data.entries.size() <= resource.data.entries.size() + 1 &&
+        request.resource.data.entries.size() <= 200;
     }
 
     // ─── Users ───────────────────────────────────────────────────────────────
