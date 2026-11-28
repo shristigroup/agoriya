@@ -99,22 +99,25 @@ class _HomeScreenState extends State<HomeScreen>
   void _showNotificationPrompt() {
     showDialog(
       context: context,
+      barrierDismissible: !Platform.isIOS,
       builder: (_) => AlertDialog(
         title: const Text('Enable Notifications'),
         content: const Text(
           'You have team members reporting to you. Enable notifications to stay updated on their activities.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Later'),
-          ),
+          // iOS: no "Later" — the user always proceeds to the system prompt.
+          if (!Platform.isIOS)
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Later'),
+            ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
               await NotificationService.requestPermission();
             },
-            child: const Text('Enable'),
+            child: Text(Platform.isIOS ? 'Continue' : 'Enable'),
           ),
         ],
       ),
@@ -176,13 +179,17 @@ class _HomeScreenState extends State<HomeScreen>
             "manager. This is required for the app's main functionality.$extra",
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Not now'),
-            ),
+            // Apple 5.1.1(iv): on iOS the user must always proceed to the
+            // system permission request, so no "Not now" and a "Continue"
+            // button. Android keeps the Play-style opt-in/decline.
+            if (!Platform.isIOS)
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Not now'),
+              ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Agree'),
+              child: Text(Platform.isIOS ? 'Continue' : 'Agree'),
             ),
           ],
         ),
@@ -229,7 +236,9 @@ class _HomeScreenState extends State<HomeScreen>
 
     // Same disclosure again, immediately before the background request.
     final proceed = await _showLocationDisclosure(
-        extra: '\n\nOn the next screen, choose "Allow all the time".');
+        extra: Platform.isIOS
+            ? '\n\nOn the next screen, choose "Change to Always Allow".'
+            : '\n\nOn the next screen, choose "Allow all the time".');
     if (!proceed) return false;
 
     bgStatus = await Permission.locationAlways.request();
@@ -339,16 +348,19 @@ class _HomeScreenState extends State<HomeScreen>
 
     if (reasons.isNotEmpty) {
       if (!mounted) return false;
+      // iOS: not dismissible and no "Not now" (Apple 5.1.1(iv)).
       final proceed = await showDialog<bool>(
         context: context,
+        barrierDismissible: !Platform.isIOS,
         builder: (_) => AlertDialog(
           title: const Text('Permissions needed to punch in'),
           content: Text(reasons.join('\n\n')),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Not now'),
-            ),
+            if (!Platform.isIOS)
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Not now'),
+              ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Continue'),
